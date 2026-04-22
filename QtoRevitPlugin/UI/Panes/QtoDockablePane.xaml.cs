@@ -125,10 +125,7 @@ namespace QtoRevitPlugin.UI.Panes
             {
                 QtoViewKey.Preview => new PreviewView { DataContext = _vm },
 
-                QtoViewKey.Setup => new PlaceholderView("Setup", item.Reference, item.AvailableInSprint,
-                    "Caricamento listini multi-prezzario, regole di misurazione " +
-                    "(vuoto per pieno, deduzioni aperture), regole di esclusione globale, " +
-                    "configurazione altezza locali per Sorgente B."),
+                QtoViewKey.Setup => new SetupView(),
 
                 QtoViewKey.Phase => new PlaceholderView("Filtro Fase Revit", item.Reference, item.AvailableInSprint,
                     "Step 0 obbligatorio: selezione delle fasi di lavoro " +

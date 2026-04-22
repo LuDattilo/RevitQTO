@@ -253,6 +253,26 @@ namespace QtoRevitPlugin.Data
             _conn.Execute("INSERT INTO PriceItems_FTS(PriceItems_FTS) VALUES('rebuild');");
         }
 
+        /// <summary>
+        /// Elimina definitivamente un listino e tutte le sue voci (ON DELETE CASCADE su PriceItems).
+        /// Rebuild FTS necessario dopo (invocato automaticamente).
+        /// </summary>
+        public void DeletePriceList(int priceListId)
+        {
+            _conn.Execute("DELETE FROM PriceLists WHERE Id = @id;", new { id = priceListId });
+            RebuildPriceItemsFts();
+        }
+
+        /// <summary>Aggiorna IsActive/Priority di un listino (soft-toggle senza rimuovere dati).</summary>
+        public void UpdatePriceListFlags(int priceListId, bool isActive, int priority)
+        {
+            _conn.Execute(@"
+                UPDATE PriceLists
+                SET IsActive = @isActive, Priority = @priority
+                WHERE Id = @id;",
+                new { id = priceListId, isActive = isActive ? 1 : 0, priority });
+        }
+
         /// <summary>Ritorna tutti i listini (attivi e non), ordinati per Priority ascendente.</summary>
         public IReadOnlyList<PriceList> GetPriceLists()
         {
