@@ -149,28 +149,49 @@ namespace QtoRevitPlugin.Application
             try
             {
                 application.CreateRibbonTab(tabName);
+                CrashLogger.Info($"  CreateRibbonTab({tabName}) OK");
             }
-            catch
+            catch (Exception ex)
             {
-                // Tab già esistente — ignorato
+                CrashLogger.Info($"  CreateRibbonTab({tabName}) skipped: {ex.GetType().Name}: {ex.Message}");
             }
 
             var assemblyPath = Assembly.GetExecutingAssembly().Location;
+            CrashLogger.Info($"  Assembly path: {assemblyPath}");
 
-            RibbonPanel panel = application.CreateRibbonPanel(tabName, "Computo Metrico");
-
-            var launchButton = new PushButtonData(
-                "LaunchQto",
-                "Avvia QTO",
-                assemblyPath,
-                "QtoRevitPlugin.Commands.LaunchQtoCommand")
+            RibbonPanel panel;
+            try
             {
-                ToolTip = "Apre il pannello QTO",
-                LargeImage = IconFactory.CreateLaunchIcon(32),
-                Image = IconFactory.CreateLaunchIcon(16)
-            };
+                panel = application.CreateRibbonPanel(tabName, "Computo Metrico");
+                CrashLogger.Info("  CreateRibbonPanel OK");
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.WriteException("CreateRibbonPanel", ex);
+                throw;
+            }
 
-            panel.AddItem(launchButton);
+            try
+            {
+                var launchButton = new PushButtonData(
+                    "LaunchQto",
+                    "Avvia QTO",
+                    assemblyPath,
+                    "QtoRevitPlugin.Commands.LaunchQtoCommand")
+                {
+                    ToolTip = "Apre il pannello QTO",
+                    LargeImage = IconFactory.CreateLaunchIcon(32),
+                    Image = IconFactory.CreateLaunchIcon(16)
+                };
+
+                panel.AddItem(launchButton);
+                CrashLogger.Info("  PushButton LaunchQto aggiunto");
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.WriteException("CreateRibbon:AddButton", ex);
+                throw;
+            }
         }
     }
 }
