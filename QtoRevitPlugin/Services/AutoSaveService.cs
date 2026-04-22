@@ -1,5 +1,6 @@
 using System;
-using System.Timers;
+using TimersTimer = System.Timers.Timer;
+using ElapsedEventArgs = System.Timers.ElapsedEventArgs;
 
 namespace QtoRevitPlugin.Services
 {
@@ -13,13 +14,13 @@ namespace QtoRevitPlugin.Services
         private const double DefaultIntervalMs = 5 * 60 * 1000; // 5 minuti
 
         private readonly SessionManager _sessionManager;
-        private readonly Timer _timer;
+        private readonly TimersTimer _timer;
         private bool _disposed;
 
         public AutoSaveService(SessionManager sessionManager, double intervalMs = DefaultIntervalMs)
         {
             _sessionManager = sessionManager ?? throw new ArgumentNullException(nameof(sessionManager));
-            _timer = new Timer(intervalMs) { AutoReset = true };
+            _timer = new TimersTimer(intervalMs) { AutoReset = true };
             _timer.Elapsed += OnTimerElapsed;
         }
 
@@ -36,7 +37,7 @@ namespace QtoRevitPlugin.Services
             AutoSaved?.Invoke(this, EventArgs.Empty);
         }
 
-        private void OnTimerElapsed(object sender, ElapsedEventArgs e)
+        private void OnTimerElapsed(object? sender, ElapsedEventArgs e)
         {
             try
             {

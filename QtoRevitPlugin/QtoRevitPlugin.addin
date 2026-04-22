@@ -9,7 +9,7 @@
 <RevitAddIns>
   <AddIn Type="Application">
     <Name>QTO Plugin – GPA Ingegneria</Name>
-    <Assembly>QtoRevitPlugin.dll</Assembly>
+    <Assembly>QtoRevitPlugin\QtoRevitPlugin.dll</Assembly>
     <AddInId>A7B3E2D1-4F85-4C92-B631-2E8A904F5C17</AddInId>
     <FullClassName>QtoRevitPlugin.Application.QtoApplication</FullClassName>
     <VendorId>GPA_INGEGNERIA</VendorId>

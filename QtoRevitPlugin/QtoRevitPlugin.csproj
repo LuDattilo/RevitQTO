@@ -20,6 +20,12 @@
   <PropertyGroup Condition="'$(TargetFramework)'=='net8.0-windows'">
     <DefineConstants>$(DefineConstants);REVIT2025_OR_LATER</DefineConstants>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!--
+      Copia tutte le dipendenze transitive (NuGet + ProjectReference) nella cartella di output.
+      Revit carica la DLL da %AppData%\Autodesk\Revit\Addins e necessita che le dipendenze
+      siano nella stessa cartella (no NuGet cache resolution a runtime).
+    -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
   <!-- Revit API: net48 → Revit 2024 (ultima versione legacy .NET Framework) -->
@@ -76,5 +82,21 @@
   <ItemGroup>
     <None Include="QtoRevitPlugin.addin" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <!--
+    Flattering della DLL nativa SQLite. Revit (come host .NET 8) non usa il probing path
+    standard runtimes\{rid}\native\ e il PInvoke fallisce con:
+      "The type initializer for 'Microsoft.Data.Sqlite.SqliteConnection' threw an exception."
+    Copia e_sqlite3.dll dal percorso runtimes nella cartella principale dell'output:
+    il PE loader nativo di Windows cerca sempre nella stessa cartella della DLL chiamante.
+  -->
+  <Target Name="FlattenNativeSqlite"
+          AfterTargets="Build"
+          Condition="'$(TargetFramework)' == 'net8.0-windows'">
+    <Copy SourceFiles="$(OutputPath)runtimes\win-x64\native\e_sqlite3.dll"
+          DestinationFolder="$(OutputPath)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(OutputPath)runtimes\win-x64\native\e_sqlite3.dll')" />
+  </Target>
 
 </Project>

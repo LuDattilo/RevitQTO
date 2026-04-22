@@ -1,5 +1,6 @@
 using Autodesk.Revit.UI;
 using QtoRevitPlugin.Services;
+using QtoRevitPlugin.UI;
 using RevitAsync = Revit.Async;
 using System;
 using System.Reflection;
@@ -89,7 +90,9 @@ namespace QtoRevitPlugin.Application
                 ToolTip = "Apre il pannello di Quantity Take-Off per la sessione corrente",
                 LongDescription =
                     "Avvia il flusso completo QTO: caricamento listino, selezione elementi, " +
-                    "tagging, calcolo deterministico ed export."
+                    "tagging, calcolo deterministico ed export.",
+                LargeImage = IconFactory.CreateLaunchIcon(32),
+                Image = IconFactory.CreateLaunchIcon(16)
             };
 
             var healthCheckButton = new PushButtonData(
@@ -98,7 +101,9 @@ namespace QtoRevitPlugin.Application
                 assemblyPath,
                 "QtoRevitPlugin.Commands.HealthCheckCommand")
             {
-                ToolTip = "Verifica lo stato di computazione di tutti gli elementi del modello"
+                ToolTip = "Verifica lo stato di computazione di tutti gli elementi del modello",
+                LargeImage = IconFactory.CreateHealthCheckIcon(32),
+                Image = IconFactory.CreateHealthCheckIcon(16)
             };
 
             panel.AddItem(launchButton);
