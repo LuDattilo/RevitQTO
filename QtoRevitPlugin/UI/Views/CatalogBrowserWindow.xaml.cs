@@ -55,6 +55,12 @@ namespace QtoRevitPlugin.UI.Views
             }
         }
 
-        private void OnCloseClick(object sender, RoutedEventArgs e) => Close();
+        private void OnCloseClick(object sender, RoutedEventArgs e) => Hide();
+
+        protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+        {
+            e.Cancel = true;
+            Hide();
+        }
     }
 }
