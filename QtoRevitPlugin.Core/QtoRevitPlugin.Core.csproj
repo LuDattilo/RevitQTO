@@ -25,6 +25,7 @@
     <PackageReference Include="NCalc2" Version="2.*" />
     <!-- Sprint 3 parsing listini Excel: ClosedXML 0.102.x è ultima serie compatibile netstandard2.0 -->
     <PackageReference Include="ClosedXML" Version="0.102.*" />
+    <PackageReference Include="System.Text.Json" Version="6.0.*" />
   </ItemGroup>
 
 </Project>

@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 
 namespace QtoRevitPlugin.Data
 {
@@ -13,7 +14,7 @@ namespace QtoRevitPlugin.Data
     /// gestire il ciclo di vita e esporre i metodi CRUD per ogni entità.
     /// La connessione è keep-alive per la durata della sessione (performance flush &lt; 5ms).
     /// </summary>
-    public class QtoRepository : IDisposable
+    public class QtoRepository : IQtoRepository, IDisposable
     {
         private readonly SqliteConnection _conn;
         private bool _disposed;
@@ -417,6 +418,242 @@ namespace QtoRevitPlugin.Data
 
             // Ogni token → prefix match; AND implicito fra token in FTS5
             return string.Join(" ", tokens.Select(t => t + "*"));
+        }
+
+        // =====================================================================
+        // QtoAssignments
+        // =====================================================================
+
+        public int InsertAssignment(QtoAssignment assignment)
+        {
+            const string sql = @"
+                INSERT INTO QtoAssignments
+                    (SessionId, ElementId, UniqueId, Category, FamilyName, PhaseCreated, PhaseDemolished,
+                     EpCode, EpDescription, Quantity, QuantityGross, QuantityDeducted, Unit, UnitPrice,
+                     RuleApplied, Source, AssignedAt, ModifiedAt, IsDeleted, IsExcluded, ExclusionReason,
+                     CreatedBy, CreatedAt, ModifiedBy, Version, AuditStatus)
+                VALUES
+                    (@SessionId, @ElementId, @UniqueId, @Category, @FamilyName, @PhaseCreated, @PhaseDemolished,
+                     @EpCode, @EpDescription, @Quantity, @QuantityGross, @QuantityDeducted, @Unit, @UnitPrice,
+                     @RuleApplied, @Source, @AssignedAt, @ModifiedAt, @IsDeleted, @IsExcluded, @ExclusionReason,
+                     @CreatedBy, @CreatedAt, @ModifiedBy, @Version, @AuditStatus);
+                SELECT last_insert_rowid();";
+
+            var id = _conn.ExecuteScalar<long>(sql, new
+            {
+                assignment.SessionId,
+                assignment.ElementId,
+                assignment.UniqueId,
+                assignment.Category,
+                assignment.FamilyName,
+                assignment.PhaseCreated,
+                assignment.PhaseDemolished,
+                assignment.EpCode,
+                assignment.EpDescription,
+                assignment.Quantity,
+                assignment.QuantityGross,
+                assignment.QuantityDeducted,
+                assignment.Unit,
+                assignment.UnitPrice,
+                RuleApplied = assignment.RuleApplied,
+                Source = assignment.Source.ToString(),
+                assignment.AssignedAt,
+                assignment.ModifiedAt,
+                IsDeleted = assignment.IsDeleted ? 1 : 0,
+                IsExcluded = assignment.IsExcluded ? 1 : 0,
+                assignment.ExclusionReason,
+                assignment.CreatedBy,
+                assignment.CreatedAt,
+                assignment.ModifiedBy,
+                assignment.Version,
+                AuditStatus = assignment.AuditStatus.ToString()
+            });
+
+            assignment.Id = (int)id;
+            return assignment.Id;
+        }
+
+        public void UpdateAssignment(QtoAssignment assignment)
+        {
+            const string sql = @"
+                UPDATE QtoAssignments SET
+                    EpCode = @EpCode,
+                    EpDescription = @EpDescription,
+                    Quantity = @Quantity,
+                    QuantityGross = @QuantityGross,
+                    QuantityDeducted = @QuantityDeducted,
+                    Unit = @Unit,
+                    UnitPrice = @UnitPrice,
+                    RuleApplied = @RuleApplied,
+                    ModifiedAt = @ModifiedAt,
+                    IsDeleted = @IsDeleted,
+                    IsExcluded = @IsExcluded,
+                    ExclusionReason = @ExclusionReason,
+                    ModifiedBy = @ModifiedBy,
+                    Version = @Version,
+                    AuditStatus = @AuditStatus
+                WHERE Id = @Id;";
+
+            _conn.Execute(sql, new
+            {
+                assignment.Id,
+                assignment.EpCode,
+                assignment.EpDescription,
+                assignment.Quantity,
+                assignment.QuantityGross,
+                assignment.QuantityDeducted,
+                assignment.Unit,
+                assignment.UnitPrice,
+                assignment.RuleApplied,
+                assignment.ModifiedAt,
+                IsDeleted = assignment.IsDeleted ? 1 : 0,
+                IsExcluded = assignment.IsExcluded ? 1 : 0,
+                assignment.ExclusionReason,
+                assignment.ModifiedBy,
+                assignment.Version,
+                AuditStatus = assignment.AuditStatus.ToString()
+            });
+        }
+
+        public IReadOnlyList<QtoAssignment> GetAssignments(int sessionId)
+        {
+            const string sql = "SELECT * FROM QtoAssignments WHERE SessionId = @sessionId AND IsDeleted = 0;";
+            var rows = _conn.Query<dynamic>(sql, new { sessionId });
+            var result = new List<QtoAssignment>();
+            foreach (var row in rows)
+            {
+                result.Add(new QtoAssignment
+                {
+                    Id = (int)row.Id,
+                    SessionId = (int)row.SessionId,
+                    ElementId = (int)row.ElementId,
+                    UniqueId = row.UniqueId ?? "",
+                    Category = row.Category ?? "",
+                    FamilyName = row.FamilyName ?? "",
+                    PhaseCreated = row.PhaseCreated ?? "",
+                    PhaseDemolished = row.PhaseDemolished ?? "",
+                    EpCode = row.EpCode ?? "",
+                    EpDescription = row.EpDescription ?? "",
+                    Quantity = (double)row.Quantity,
+                    QuantityGross = (double)(row.QuantityGross ?? 0.0),
+                    QuantityDeducted = (double)(row.QuantityDeducted ?? 0.0),
+                    Unit = row.Unit ?? "",
+                    UnitPrice = (double)row.UnitPrice,
+                    RuleApplied = row.RuleApplied ?? "",
+                    Source = Enum.TryParse<QtoSource>((string?)row.Source, out var src) ? src : QtoSource.RevitElement,
+                    AssignedAt = row.AssignedAt is string ats ? DateTime.Parse(ats) : DateTime.UtcNow,
+                    ModifiedAt = row.ModifiedAt is string mts ? (DateTime?)DateTime.Parse(mts) : null,
+                    IsDeleted = ((int?)row.IsDeleted ?? 0) != 0,
+                    IsExcluded = ((int?)row.IsExcluded ?? 0) != 0,
+                    ExclusionReason = row.ExclusionReason ?? "",
+                    CreatedBy = row.CreatedBy ?? "",
+                    CreatedAt = row.CreatedAt is string cats ? DateTime.Parse(cats) : DateTime.UtcNow,
+                    ModifiedBy = row.ModifiedBy,
+                    Version = (int)(row.Version ?? 1),
+                    AuditStatus = Enum.TryParse<AssignmentStatus>((string?)row.AuditStatus, out var ast) ? ast : AssignmentStatus.Active
+                });
+            }
+            return result;
+        }
+
+        // =====================================================================
+        // ChangeLog
+        // =====================================================================
+
+        public void AppendChangeLog(ChangeLogEntry entry)
+        {
+            const string sql = @"
+                INSERT INTO ChangeLog
+                    (SessionId, ElementUniqueId, PriceItemCode, ChangeType, OldValueJson, NewValueJson, UserId, Timestamp)
+                VALUES
+                    (@SessionId, @ElementUniqueId, @PriceItemCode, @ChangeType, @OldValueJson, @NewValueJson, @UserId, @Timestamp);";
+
+            _conn.Execute(sql, new
+            {
+                entry.SessionId,
+                entry.ElementUniqueId,
+                entry.PriceItemCode,
+                entry.ChangeType,
+                entry.OldValueJson,
+                entry.NewValueJson,
+                entry.UserId,
+                Timestamp = entry.Timestamp.ToString("o")
+            });
+        }
+
+        public IReadOnlyList<ChangeLogEntry> GetChangeLog(int sessionId)
+        {
+            const string sql = "SELECT * FROM ChangeLog WHERE SessionId = @sessionId ORDER BY ChangeId;";
+            var rows = _conn.Query<dynamic>(sql, new { sessionId });
+            var result = new List<ChangeLogEntry>();
+            foreach (var row in rows)
+            {
+                result.Add(new ChangeLogEntry
+                {
+                    ChangeId = (int)row.ChangeId,
+                    SessionId = (int)row.SessionId,
+                    ElementUniqueId = row.ElementUniqueId ?? "",
+                    PriceItemCode = row.PriceItemCode ?? "",
+                    ChangeType = row.ChangeType ?? "",
+                    OldValueJson = row.OldValueJson,
+                    NewValueJson = row.NewValueJson,
+                    UserId = row.UserId ?? "",
+                    Timestamp = DateTime.Parse(row.Timestamp ?? DateTime.UtcNow.ToString("o"))
+                });
+            }
+            return result;
+        }
+
+        // =====================================================================
+        // ElementSnapshots
+        // =====================================================================
+
+        public void UpsertSnapshot(ElementSnapshot snapshot)
+        {
+            const string sql = @"
+                INSERT INTO ElementSnapshots
+                    (SessionId, ElementId, UniqueId, SnapshotHash, SnapshotQty, AssignedEPJson, LastUpdated)
+                VALUES
+                    (@SessionId, @ElementId, @UniqueId, @SnapshotHash, @SnapshotQty, @AssignedEPJson, @LastUpdated)
+                ON CONFLICT(SessionId, UniqueId) DO UPDATE SET
+                    SnapshotHash   = excluded.SnapshotHash,
+                    SnapshotQty    = excluded.SnapshotQty,
+                    AssignedEPJson = excluded.AssignedEPJson,
+                    LastUpdated    = excluded.LastUpdated;";
+
+            _conn.Execute(sql, new
+            {
+                snapshot.SessionId,
+                snapshot.ElementId,
+                snapshot.UniqueId,
+                snapshot.SnapshotHash,
+                snapshot.SnapshotQty,
+                AssignedEPJson = JsonSerializer.Serialize(snapshot.AssignedEP),
+                LastUpdated = snapshot.LastUpdated.ToString("o")
+            });
+        }
+
+        public IReadOnlyList<ElementSnapshot> GetSnapshots(int sessionId)
+        {
+            const string sql = "SELECT * FROM ElementSnapshots WHERE SessionId = @sessionId;";
+            var rows = _conn.Query<dynamic>(sql, new { sessionId });
+            var result = new List<ElementSnapshot>();
+            foreach (var row in rows)
+            {
+                var epJson = (string?)row.AssignedEPJson ?? "[]";
+                result.Add(new ElementSnapshot
+                {
+                    Id = (int)row.Id,
+                    SessionId = (int)row.SessionId,
+                    ElementId = (int)row.ElementId,
+                    UniqueId = row.UniqueId ?? "",
+                    SnapshotHash = row.SnapshotHash ?? "",
+                    SnapshotQty = (double)row.SnapshotQty,
+                    AssignedEP = JsonSerializer.Deserialize<List<string>>(epJson) ?? new List<string>(),
+                    LastUpdated = DateTime.Parse(row.LastUpdated ?? DateTime.UtcNow.ToString("o"))
+                });
+            }
+            return result;
         }
 
         // =====================================================================
