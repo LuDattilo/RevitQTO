@@ -1,0 +1,166 @@
+<UserControl x:Class="QtoRevitPlugin.UI.Views.PhaseFilterView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid Background="{DynamicResource PanelBgBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Titolo -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="16,14,16,4">
+            <TextBlock Text="Fasi Revit" Style="{DynamicResource ViewTitleStyle}" />
+            <TextBlock Text="§ I9 · Step 0 obbligatorio"
+                       VerticalAlignment="Bottom"
+                       Foreground="{DynamicResource InkMutedBrush}"
+                       FontFamily="{DynamicResource FontMono}" FontSize="10"
+                       Margin="8,0,0,12" />
+        </StackPanel>
+
+        <!-- Banner istruzioni -->
+        <Border Grid.Row="1" Margin="16,4,16,8" Padding="12,8"
+                Background="{DynamicResource BrandAccentSoftBrush}"
+                CornerRadius="3">
+            <TextBlock FontSize="11" TextWrapping="Wrap"
+                       Foreground="{DynamicResource InkDefaultBrush}"
+                       Text="Seleziona la fase di lavoro corrente. Tutti gli elementi saranno filtrati per questa fase nelle viste Selezione / Tagging. Il capitolo «Demolizioni» del listino viene aperto automaticamente se si lavora su elementi demoliti." />
+        </Border>
+
+        <!-- Lista fasi con radio button -->
+        <Border Grid.Row="2" Style="{DynamicResource CardStyle}" Margin="16,0,16,8">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Header sezione + count button -->
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0"
+                               Text="FASI DEL DOCUMENTO"
+                               Style="{DynamicResource SectionLabelStyle}"
+                               VerticalAlignment="Center" />
+                    <Button Grid.Column="1"
+                            x:Name="BtnCountElements"
+                            Click="OnCountElementsClick"
+                            Content="Calcola conteggio elementi"
+                            Padding="8,3" FontSize="10"
+                            Background="Transparent"
+                            Foreground="{DynamicResource InkDefaultBrush}"
+                            BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1"
+                            Cursor="Hand" />
+                </Grid>
+
+                <!-- Banner "nessun documento" -->
+                <Border Grid.Row="1" Margin="0,8,0,0" Padding="10"
+                        Background="{DynamicResource PanelSubBrush}"
+                        BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1"
+                        CornerRadius="2">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasDocument}" Value="False">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <TextBlock Text="Apri un progetto Revit per leggere le fasi."
+                               FontSize="11" FontStyle="Italic"
+                               Foreground="{DynamicResource InkMutedBrush}" />
+                </Border>
+
+                <!-- Lista fasi -->
+                <ScrollViewer Grid.Row="2" Margin="0,8,0,0" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Phases}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Margin="0,0,0,6" Padding="10,8"
+                                        Background="White"
+                                        BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1"
+                                        CornerRadius="2">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Radio button (single-select, GroupName unico) -->
+                                        <RadioButton Grid.Column="0"
+                                                     GroupName="PhaseGroup"
+                                                     IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                     Click="OnPhaseRadioClick"
+                                                     Tag="{Binding}"
+                                                     VerticalAlignment="Center" />
+
+                                        <!-- Nome fase + sequence -->
+                                        <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                            <TextBlock Text="{Binding Name}"
+                                                       FontSize="12" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource InkDefaultBrush}" />
+                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                <TextBlock Text="{Binding Sequence, StringFormat='seq {0}'}"
+                                                           FontFamily="{DynamicResource FontMono}" FontSize="10"
+                                                           Foreground="{DynamicResource InkMutedBrush}" />
+                                                <TextBlock Text="·" Margin="4,0" Foreground="{DynamicResource InkMutedBrush}" />
+                                                <TextBlock Text="{Binding PhaseId, StringFormat='id {0}'}"
+                                                           FontFamily="{DynamicResource FontMono}" FontSize="10"
+                                                           Foreground="{DynamicResource InkMutedBrush}" />
+                                            </StackPanel>
+                                        </StackPanel>
+
+                                        <!-- Count elementi -->
+                                        <Border Grid.Column="2"
+                                                Background="{DynamicResource PanelSubBrush}"
+                                                CornerRadius="10" Padding="8,2"
+                                                VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding ElementCountLabel}"
+                                                       FontFamily="{DynamicResource FontMono}" FontSize="10"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource InkDimBrush}" />
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+
+        <!-- Footer: conferma + status -->
+        <Border Grid.Row="3" Background="{DynamicResource PanelSubBrush}"
+                BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="0,1,0,0"
+                Padding="16,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0"
+                           Text="{Binding StatusMessage}"
+                           FontSize="11" FontStyle="Italic"
+                           Foreground="{DynamicResource InkMutedBrush}"
+                           TextWrapping="Wrap"
+                           VerticalAlignment="Center" />
+                <Button Grid.Column="1"
+                        x:Name="BtnConfirm"
+                        Click="OnConfirmClick"
+                        Content="✓ Conferma fase"
+                        Margin="10,0,0,0" Padding="14,6" FontSize="11" FontWeight="SemiBold"
+                        Background="{DynamicResource BrandAccentBrush}" Foreground="White"
+                        BorderThickness="0" Cursor="Hand" />
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

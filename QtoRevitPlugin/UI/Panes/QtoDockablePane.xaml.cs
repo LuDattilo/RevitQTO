@@ -127,10 +127,7 @@ namespace QtoRevitPlugin.UI.Panes
 
                 QtoViewKey.Setup => new SetupView(),
 
-                QtoViewKey.Phase => new PlaceholderView("Filtro Fase Revit", item.Reference, item.AvailableInSprint,
-                    "Step 0 obbligatorio: selezione delle fasi di lavoro " +
-                    "(Nuova costruzione / Demolizioni / Esistente). Il capitolo Demolizioni " +
-                    "del listino si apre automaticamente quando si lavora su elementi demoliti."),
+                QtoViewKey.Phase => new PhaseFilterView(),
 
                 QtoViewKey.Selection => new PlaceholderView("Selezione Elementi", item.Reference, item.AvailableInSprint,
                     "FilterBuilder stile Revit con regole parametriche, ricerca testuale inline, " +

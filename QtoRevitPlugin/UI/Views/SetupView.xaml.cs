@@ -39,12 +39,17 @@ namespace QtoRevitPlugin.UI.Views
                 return;
             }
 
+            // Filtri: solo formati effettivamente importabili.
+            // Il .dcf binario nativo ACCA PriMus NON è leggibile (formato proprietario) —
+            // se l'utente ha solo .dcf deve esportare da PriMus come .xpwe o .xml.
+            // Il parser accetta comunque .dcf per l'edge case di .dcf con contenuto XML,
+            // ma non lo pubblicizziamo nel dialog per evitare confusione.
             var dlg = new OpenFileDialog
             {
                 Title = "Importa listino prezzi",
-                Filter = "Listini supportati (*.dcf;*.xpwe;*.xml;*.xlsx;*.xlsm;*.csv;*.tsv;*.txt)|" +
-                         "*.dcf;*.xpwe;*.xml;*.xlsx;*.xlsm;*.csv;*.tsv;*.txt|" +
-                         "ACCA PriMus XML (*.dcf;*.xpwe;*.xml)|*.dcf;*.xpwe;*.xml|" +
+                Filter = "Listini supportati (*.xml;*.xpwe;*.xlsx;*.xlsm;*.csv;*.tsv;*.txt)|" +
+                         "*.xml;*.xpwe;*.xlsx;*.xlsm;*.csv;*.tsv;*.txt|" +
+                         "ACCA PriMus XML (*.xpwe;*.xml)|*.xpwe;*.xml|" +
                          "Excel (*.xlsx;*.xlsm)|*.xlsx;*.xlsm|" +
                          "CSV/TSV (*.csv;*.tsv;*.txt)|*.csv;*.tsv;*.txt|" +
                          "Tutti i file (*.*)|*.*",
