@@ -129,9 +129,7 @@ namespace QtoRevitPlugin.UI.Panes
 
                 QtoViewKey.Phase => new PhaseFilterView(),
 
-                QtoViewKey.Selection => new PlaceholderView("Selezione Elementi", item.Reference, item.AvailableInSprint,
-                    "FilterBuilder stile Revit con regole parametriche, ricerca testuale inline, " +
-                    "preset filtri salvabili. Comandi Isola / Nascondi / Togli isolamento."),
+                QtoViewKey.Selection => new SelectionView(),
 
                 QtoViewKey.Tagging => new PlaceholderView("Assegnazione EP", item.Reference, item.AvailableInSprint,
                     "3 sorgenti di quantità: (A) famiglie Revit con multi-EP, " +
