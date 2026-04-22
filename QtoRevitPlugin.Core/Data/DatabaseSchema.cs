@@ -6,7 +6,7 @@ namespace QtoRevitPlugin.Data
     ///
     /// Scope per sprint:
     /// - Sprint 1: Sessions, SchemaInfo (attivo). Le altre tabelle sono create vuote e popolate nei sprint successivi.
-    /// - Sprint 2: PriceLists, PriceItems + FTS5 virtual table, ManualItems, RoomMappings.
+    /// - Sprint 2: PriceLists, PriceItems + FTS5 virtual table (attivi), ManualItems, RoomMappings.
     /// - Sprint 3: QtoAssignments, SelectionRules, MeasurementRules.
     /// - Sprint 7: ModelDiffLog.
     /// - Sprint 8: NuoviPrezzi.
@@ -14,7 +14,8 @@ namespace QtoRevitPlugin.Data
     /// </summary>
     internal static class DatabaseSchema
     {
-        public const int CurrentVersion = 1;
+        // v2 (Sprint 2): aggiunta virtual table PriceItems_FTS per ricerca full-text.
+        public const int CurrentVersion = 2;
 
         /// <summary>Ordine di esecuzione degli statement per setup iniziale.</summary>
         public static readonly string[] InitialStatements =
@@ -23,6 +24,7 @@ namespace QtoRevitPlugin.Data
             Sessions,
             PriceLists,
             PriceItems,
+            PriceItemsFts,
             QtoAssignments,
             ManualItems,
             RoomMappings,
@@ -97,6 +99,17 @@ CREATE TABLE IF NOT EXISTS PriceItems (
     UNIQUE(PriceListId, Code)
 );
 CREATE INDEX IF NOT EXISTS IX_PriceItems_Code ON PriceItems(Code);";
+
+        // Virtual table FTS5 per ricerca full-text su PriceItems.
+        // contentless (content='PriceItems') → nessuna duplicazione dati; rowid = PriceItems.Id.
+        // Sync via rebuild esplicito (INSERT INTO PriceItems_FTS(...) VALUES('rebuild')) dopo import batch.
+        // unicode61 + remove_diacritics 1 → ricerca insensibile a accenti (es. "caldaia" trova "caldàia").
+        public const string PriceItemsFts = @"
+CREATE VIRTUAL TABLE IF NOT EXISTS PriceItems_FTS USING fts5(
+    Code, Description, ShortDesc, Chapter,
+    content='PriceItems', content_rowid='Id',
+    tokenize='unicode61 remove_diacritics 1'
+);";
 
         // --- Assegnazioni QTO (Sprint 3) ---------------------------------------
 

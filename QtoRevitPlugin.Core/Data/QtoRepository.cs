@@ -4,6 +4,7 @@ using QtoRevitPlugin.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 
 namespace QtoRevitPlugin.Data
 {
@@ -145,6 +146,233 @@ namespace QtoRevitPlugin.Data
         }
 
         // =====================================================================
+        // Listini (PriceLists + PriceItems + FTS5)
+        // =====================================================================
+
+        /// <summary>Inserisce un nuovo listino (PriceLists), ritorna l'Id generato.</summary>
+        public int InsertPriceList(PriceList list)
+        {
+            const string sql = @"
+                INSERT INTO PriceLists
+                    (Name, Source, Version, Region, IsActive, Priority, ImportedAt, RowCount)
+                VALUES
+                    (@Name, @Source, @Version, @Region, @IsActive, @Priority, @ImportedAt, @RowCount);
+                SELECT last_insert_rowid();";
+
+            var id = _conn.ExecuteScalar<long>(sql, new
+            {
+                list.Name,
+                list.Source,
+                list.Version,
+                list.Region,
+                IsActive = list.IsActive ? 1 : 0,
+                list.Priority,
+                ImportedAt = list.ImportedAt == default ? (DateTime?)null : list.ImportedAt,
+                list.RowCount
+            });
+
+            list.Id = (int)id;
+            return list.Id;
+        }
+
+        /// <summary>
+        /// Inserimento batch di voci in transazione. Al completamento dell'ultimo batch esegue RebuildPriceItemsFts.
+        /// Ritorna il numero totale di voci inserite. Usa INSERT OR IGNORE per duplicati (PriceListId, Code).
+        /// </summary>
+        public int InsertPriceItemsBatch(int priceListId, IEnumerable<PriceItem> items, int batchSize = 500)
+        {
+            if (items == null) throw new ArgumentNullException(nameof(items));
+            if (batchSize <= 0) batchSize = 500;
+
+            const string sql = @"
+                INSERT OR IGNORE INTO PriceItems
+                    (PriceListId, Code, SuperChapter, Chapter, SubChapter,
+                     Description, ShortDesc, Unit, UnitPrice, Notes, IsNP)
+                VALUES
+                    (@PriceListId, @Code, @SuperChapter, @Chapter, @SubChapter,
+                     @Description, @ShortDesc, @Unit, @UnitPrice, @Notes, @IsNP);";
+
+            int totalInserted = 0;
+            using var tx = _conn.BeginTransaction();
+
+            var buffer = new List<object>(batchSize);
+            foreach (var it in items)
+            {
+                buffer.Add(new
+                {
+                    PriceListId = priceListId,
+                    it.Code,
+                    it.SuperChapter,
+                    it.Chapter,
+                    it.SubChapter,
+                    it.Description,
+                    it.ShortDesc,
+                    it.Unit,
+                    it.UnitPrice,
+                    it.Notes,
+                    IsNP = it.IsNP ? 1 : 0
+                });
+
+                if (buffer.Count >= batchSize)
+                {
+                    totalInserted += _conn.Execute(sql, buffer, tx);
+                    buffer.Clear();
+                }
+            }
+
+            // Flush ultimo chunk
+            if (buffer.Count > 0)
+            {
+                totalInserted += _conn.Execute(sql, buffer, tx);
+                buffer.Clear();
+            }
+
+            // Aggiorna metadati listino (RowCount = somma di quanto presente, non solo inserito ora)
+            const string updateListSql = @"
+                UPDATE PriceLists
+                SET RowCount = (SELECT COUNT(*) FROM PriceItems WHERE PriceListId = @pid),
+                    ImportedAt = @ts
+                WHERE Id = @pid;";
+            _conn.Execute(updateListSql, new { pid = priceListId, ts = DateTime.UtcNow }, tx);
+
+            tx.Commit();
+
+            // Rebuild FTS fuori dalla transazione principale: 'rebuild' è un comando meta su virtual table
+            RebuildPriceItemsFts();
+
+            return totalInserted;
+        }
+
+        /// <summary>
+        /// Rebuild esplicito dell'indice FTS5 su PriceItems_FTS.
+        /// Chiamata automaticamente da InsertPriceItemsBatch a fine import.
+        /// Può essere chiamata anche manualmente (es. dopo restore DB).
+        /// </summary>
+        public void RebuildPriceItemsFts()
+        {
+            _conn.Execute("INSERT INTO PriceItems_FTS(PriceItems_FTS) VALUES('rebuild');");
+        }
+
+        /// <summary>Ritorna tutti i listini (attivi e non), ordinati per Priority ascendente.</summary>
+        public IReadOnlyList<PriceList> GetPriceLists()
+        {
+            const string sql = @"
+                SELECT Id, Name, Source, Version, Region,
+                       IsActive, Priority, ImportedAt, RowCount
+                FROM PriceLists
+                ORDER BY Priority ASC, Name ASC;";
+
+            return _conn.Query<PriceListRow>(sql)
+                        .Select(r => r.ToPriceList())
+                        .ToList();
+        }
+
+        /// <summary>
+        /// Livello 1 ricerca: match esatto (case-insensitive) per Code nei listini attivi.
+        /// </summary>
+        public IReadOnlyList<PriceItem> FindByCodeExact(string code)
+        {
+            if (string.IsNullOrWhiteSpace(code))
+                return Array.Empty<PriceItem>();
+
+            const string sql = @"
+                SELECT p.*, pl.Name AS ListName
+                FROM PriceItems p
+                JOIN PriceLists pl ON pl.Id = p.PriceListId
+                WHERE LOWER(p.Code) = LOWER(@code) AND pl.IsActive = 1
+                ORDER BY pl.Priority ASC;";
+
+            return _conn.Query<PriceItemRow>(sql, new { code })
+                        .Select(r => r.ToPriceItem())
+                        .ToList();
+        }
+
+        /// <summary>
+        /// Livello 2 ricerca: FTS5 MATCH su Description + ShortDesc + Chapter.
+        /// Query sanitizzata per evitare errori FTS5 syntax (rimuovi caratteri speciali).
+        /// Limit di default 50 risultati.
+        /// </summary>
+        public IReadOnlyList<PriceItem> SearchFts(string query, int limit = 50)
+        {
+            var ftsQuery = BuildFtsQuery(query);
+            if (string.IsNullOrEmpty(ftsQuery))
+                return Array.Empty<PriceItem>();
+
+            // FTS5 richiede il nome letterale della virtual table nell'operator MATCH
+            // (non è ammesso l'alias). L'alias funziona invece per rowid/rank.
+            const string sql = @"
+                SELECT p.*, pl.Name AS ListName
+                FROM PriceItems_FTS
+                JOIN PriceItems  p  ON p.Id = PriceItems_FTS.rowid
+                JOIN PriceLists  pl ON pl.Id = p.PriceListId
+                WHERE PriceItems_FTS MATCH @query AND pl.IsActive = 1
+                ORDER BY rank
+                LIMIT @limit;";
+
+            return _conn.Query<PriceItemRow>(sql, new { query = ftsQuery, limit })
+                        .Select(r => r.ToPriceItem())
+                        .ToList();
+        }
+
+        /// <summary>
+        /// Carica tutte le voci appartenenti a listini attivi. Usato dal
+        /// <c>PriceItemSearchService</c> per la ricerca fuzzy (livello 3 Levenshtein) come cache one-shot.
+        /// Per listini standard (&lt; 30k voci) è un'operazione &lt; 50ms.
+        /// </summary>
+        public IReadOnlyList<PriceItem> GetAllActivePriceItems()
+        {
+            const string sql = @"
+                SELECT p.*, pl.Name AS ListName
+                FROM PriceItems p
+                JOIN PriceLists pl ON pl.Id = p.PriceListId
+                WHERE pl.IsActive = 1
+                ORDER BY pl.Priority ASC, p.Code ASC;";
+
+            return _conn.Query<PriceItemRow>(sql)
+                        .Select(r => r.ToPriceItem())
+                        .ToList();
+        }
+
+        /// <summary>
+        /// Sanitizza la query utente e la converte in sintassi FTS5 prefix-match per ogni token.
+        /// Rimuove caratteri problematici ("*()^-) e produce 'word1* word2*' (AND implicito).
+        /// Ritorna stringa vuota se non restano token validi.
+        /// </summary>
+        private static string BuildFtsQuery(string? raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return string.Empty;
+
+            // A questo punto raw è non-null (IsNullOrWhiteSpace ha già filtrato); netstandard2.0
+            // non ha [NotNullWhen] su quell'overload, quindi disambiguo esplicitamente.
+            var src = raw!;
+
+            // Stripper caratteri FTS5 problematici: virgolette, star, parentesi, caret, trattino, colon
+            var cleaned = new StringBuilder(src.Length);
+            foreach (var ch in src)
+            {
+                if (ch == '"' || ch == '*' || ch == '(' || ch == ')' ||
+                    ch == '^' || ch == '-' || ch == ':')
+                {
+                    cleaned.Append(' ');
+                }
+                else
+                {
+                    cleaned.Append(ch);
+                }
+            }
+
+            var tokens = cleaned.ToString()
+                .Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Where(t => t.Length > 0)
+                .ToArray();
+
+            if (tokens.Length == 0) return string.Empty;
+
+            // Ogni token → prefix match; AND implicito fra token in FTS5
+            return string.Join(" ", tokens.Select(t => t + "*"));
+        }
+
+        // =====================================================================
         // Transazione esposta per operazioni multi-statement
         // =====================================================================
 
@@ -174,6 +402,70 @@ namespace QtoRevitPlugin.Data
         // =====================================================================
         // Row mappers interni (mappa status Text→Enum)
         // =====================================================================
+
+        private class PriceListRow
+        {
+            public int Id { get; set; }
+            public string Name { get; set; } = string.Empty;
+            public string? Source { get; set; }
+            public string? Version { get; set; }
+            public string? Region { get; set; }
+            public int IsActive { get; set; }
+            public int Priority { get; set; }
+            public DateTime? ImportedAt { get; set; }
+            public int RowCount { get; set; }
+
+            public PriceList ToPriceList() => new()
+            {
+                Id = Id,
+                Name = Name,
+                Source = Source ?? string.Empty,
+                Version = Version ?? string.Empty,
+                Region = Region ?? string.Empty,
+                IsActive = IsActive != 0,
+                Priority = Priority,
+                ImportedAt = ImportedAt ?? default,
+                RowCount = RowCount
+            };
+        }
+
+        /// <summary>
+        /// Mapper per PriceItem con join a PriceLists.Name. Gestisce TEXT nullable → string.Empty
+        /// (il model PriceItem usa string non-nullable con default "").
+        /// </summary>
+        private class PriceItemRow
+        {
+            public int Id { get; set; }
+            public int PriceListId { get; set; }
+            public string Code { get; set; } = string.Empty;
+            public string? SuperChapter { get; set; }
+            public string? Chapter { get; set; }
+            public string? SubChapter { get; set; }
+            public string Description { get; set; } = string.Empty;
+            public string? ShortDesc { get; set; }
+            public string? Unit { get; set; }
+            public double? UnitPrice { get; set; }
+            public string? Notes { get; set; }
+            public int IsNP { get; set; }
+            public string? ListName { get; set; }
+
+            public PriceItem ToPriceItem() => new()
+            {
+                Id = Id,
+                PriceListId = PriceListId,
+                Code = Code,
+                SuperChapter = SuperChapter ?? string.Empty,
+                Chapter = Chapter ?? string.Empty,
+                SubChapter = SubChapter ?? string.Empty,
+                Description = Description,
+                ShortDesc = ShortDesc ?? string.Empty,
+                Unit = Unit ?? string.Empty,
+                UnitPrice = UnitPrice ?? 0d,
+                Notes = Notes ?? string.Empty,
+                IsNP = IsNP != 0,
+                ListName = ListName ?? string.Empty
+            };
+        }
 
         private class SessionRow
         {

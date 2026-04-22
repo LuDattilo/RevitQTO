@@ -88,8 +88,10 @@ namespace QtoRevitPlugin.Data
             int dbVersion = GetCurrentSchemaVersion(conn);
             if (dbVersion >= DatabaseSchema.CurrentVersion) return;
 
-            // Placeholder per future migrazioni (Sprint 2+).
-            // Per ora: se il DB è più vecchio, applica gli statement idempotenti (CREATE TABLE IF NOT EXISTS).
+            // Migrazione v1 → v2 (Sprint 2): aggiunge PriceItems_FTS virtual table.
+            // Tutti gli statement in InitialStatements usano IF NOT EXISTS, quindi idempotenti:
+            // basta rieseguirli per portare un DB v1 a v2 senza perdita di dati.
+            // Se futuri step richiederanno ALTER TABLE o backfill, aggiungere un dispatcher per dbVersion qui.
             using var tx = conn.BeginTransaction();
             foreach (var stmt in DatabaseSchema.InitialStatements)
             {

@@ -25,9 +25,10 @@ namespace QtoRevitPlugin.Tests.Data
         }
 
         [Fact]
-        public void NewDatabase_HasSchemaVersion1()
+        public void NewDatabase_HasCurrentSchemaVersion()
         {
-            _repo.GetSchemaVersion().Should().Be(1);
+            // v2 introdotta in Sprint 2 con PriceItems_FTS
+            _repo.GetSchemaVersion().Should().Be(2);
         }
 
         [Fact]
