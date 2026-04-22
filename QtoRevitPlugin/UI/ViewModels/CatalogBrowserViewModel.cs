@@ -301,20 +301,18 @@ namespace QtoRevitPlugin.UI.ViewModels
 
                     _qtoRepository.InsertAssignment(assignment);
 
-                    // Snapshot SHA256 per Model Diff
-                    var catOst = elem.Category?.Name != null
-                        ? $"OST_{elem.Category.Name}"
-                        : "";
+                    // Snapshot SHA256 per Model Diff (usa BuiltInCategory enum per chiave locale-indipendente)
+                    var catOst = ModelDiffService.TryGetCategoryOst(elem);
                     var rule = _mappingRulesService.GetRule(catOst);
-                    var paramValues = new System.Collections.Generic.List<(string, double)>();
+                    var paramValues = new List<(string, double)>();
                     foreach (var hp in rule.HashParams)
                     {
                         var p = elem.LookupParameter(hp);
                         paramValues.Add((hp, p?.HasValue == true ? p.AsDouble() : 0));
                     }
-                    var snapshotHash = QtoRevitPlugin.Services.ModelDiffService.ComputeHashStatic(elem.UniqueId, paramValues);
+                    var snapshotHash = ModelDiffService.ComputeHashStatic(elem.UniqueId, paramValues);
 
-                    _qtoRepository.UpsertSnapshot(new QtoRevitPlugin.Models.ElementSnapshot
+                    _qtoRepository.UpsertSnapshot(new ElementSnapshot
                     {
                         SessionId = sessionId,
 #if REVIT2024_OR_EARLIER
@@ -325,7 +323,7 @@ namespace QtoRevitPlugin.UI.ViewModels
                         UniqueId = elem.UniqueId,
                         SnapshotHash = snapshotHash,
                         SnapshotQty = qty,
-                        AssignedEP = new System.Collections.Generic.List<string> { favorite!.Code },
+                        AssignedEP = new List<string> { favorite!.Code },
                         LastUpdated = now
                     });
 

@@ -90,7 +90,7 @@ namespace QtoRevitPlugin.Services
             return p != null && p.HasValue ? p.AsDouble() : 0;
         }
 
-        private static string TryGetCategoryOst(Element elem)
+        internal static string TryGetCategoryOst(Element elem)
         {
             try
             {
