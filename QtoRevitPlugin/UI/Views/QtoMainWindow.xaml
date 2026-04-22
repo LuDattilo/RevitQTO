@@ -43,23 +43,19 @@
             </Grid>
         </Border>
 
-        <!-- Contenuto principale — placeholder Sprint 0 -->
+        <!-- Contenuto principale — placeholder, UI operativa a partire da Sprint 2+ -->
         <Border Grid.Row="1" Margin="24" Background="White" CornerRadius="4"
                 BorderBrush="#CCCCCC" BorderThickness="1">
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.6">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.7">
                 <TextBlock Text="QTO Plugin" FontSize="32" FontWeight="Light"
                            HorizontalAlignment="Center" Foreground="#1F4E79" />
-                <TextBlock Text="Sprint 0 – Fondamenta" FontSize="14"
-                           HorizontalAlignment="Center" Foreground="#666" Margin="0,8,0,0" />
-                <TextBlock Text="Il pannello operativo sarà disponibile dallo Sprint 1"
-                           FontSize="11" HorizontalAlignment="Center"
-                           Foreground="#888" Margin="0,4,0,0" />
-                <Button Content="Nuova Sessione"
-                        Command="{Binding NewSessionCommand}"
-                        Margin="0,24,0,0" Padding="16,8"
-                        HorizontalAlignment="Center"
-                        Background="#1F4E79" Foreground="White"
-                        BorderThickness="0" FontSize="12" />
+                <TextBlock Text="Sessione attiva — fondamenta pronte"
+                           FontSize="13" HorizontalAlignment="Center"
+                           Foreground="#555" Margin="0,8,0,0" />
+                <TextBlock TextWrapping="Wrap" MaxWidth="420"
+                           HorizontalAlignment="Center" TextAlignment="Center"
+                           FontSize="11" Foreground="#888" Margin="0,8,0,0"
+                           Text="Caricamento listino, selezione elementi e tagging verranno aggiunti nei prossimi sprint. Il database e la sessione sono già operativi: ogni modifica verrà salvata automaticamente." />
             </StackPanel>
         </Border>
 
