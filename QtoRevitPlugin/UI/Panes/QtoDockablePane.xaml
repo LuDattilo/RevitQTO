@@ -3,15 +3,9 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              MinWidth="420" MinHeight="520">
 
-    <UserControl.Resources>
-        <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="pack://application:,,,/QtoRevitPlugin;component/Theme/QtoTheme.xaml" />
-            </ResourceDictionary.MergedDictionaries>
-        </ResourceDictionary>
-    </UserControl.Resources>
+    <!-- Il tema QtoTheme.xaml è caricato in Application.Current.Resources da QtoApplication.OnStartup -->
 
-    <Grid Background="{StaticResource PanelBgBrush}">
+    <Grid Background="{DynamicResource PanelBgBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -20,7 +14,7 @@
         </Grid.RowDefinitions>
 
         <!-- Header brand + sessione -->
-        <Border Grid.Row="0" Background="{StaticResource BrandPrimaryBrush}" Padding="16,10">
+        <Border Grid.Row="0" Background="{DynamicResource BrandPrimaryBrush}" Padding="16,10">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -28,11 +22,11 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <Border Grid.Column="0" Background="{StaticResource BrandAccentBrush}"
+                <Border Grid.Column="0" Background="{DynamicResource BrandAccentBrush}"
                         Width="28" Height="28" CornerRadius="3"
                         VerticalAlignment="Center">
                     <TextBlock Text="Q" Foreground="White"
-                               FontFamily="{StaticResource FontDisplay}"
+                               FontFamily="{DynamicResource FontDisplay}"
                                FontSize="16" FontWeight="Bold"
                                HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Border>
@@ -40,7 +34,7 @@
                 <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
                     <TextBlock Text="{Binding SessionTitle}"
                                Foreground="White"
-                               FontFamily="{StaticResource FontDisplay}"
+                               FontFamily="{DynamicResource FontDisplay}"
                                FontSize="14" FontWeight="SemiBold"
                                TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="{Binding ProjectSubtitle}"
@@ -53,11 +47,11 @@
                 <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
                     <TextBlock Text="{Binding ProgressText}"
                                Foreground="#BDD7EE"
-                               FontFamily="{StaticResource FontMono}" FontSize="11"
+                               FontFamily="{DynamicResource FontMono}" FontSize="11"
                                HorizontalAlignment="Right" />
                     <TextBlock Text="{Binding AmountText}"
                                Foreground="White"
-                               FontFamily="{StaticResource FontMono}"
+                               FontFamily="{DynamicResource FontMono}"
                                FontSize="13" FontWeight="Bold"
                                HorizontalAlignment="Right" />
                 </StackPanel>
@@ -65,7 +59,7 @@
         </Border>
 
         <!-- View switcher -->
-        <Border Grid.Row="1" Background="White" BorderBrush="{StaticResource EdgeLightBrush}"
+        <Border Grid.Row="1" Background="White" BorderBrush="{DynamicResource EdgeLightBrush}"
                 BorderThickness="0,0,0,1">
             <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                 <StackPanel x:Name="SwitcherHost" Orientation="Horizontal" />
@@ -76,8 +70,8 @@
         <ContentControl Grid.Row="2" x:Name="ViewHost" />
 
         <!-- Status bar -->
-        <Border Grid.Row="3" Background="{StaticResource PanelSubBrush}"
-                BorderBrush="{StaticResource EdgeLightBrush}" BorderThickness="0,1,0,0"
+        <Border Grid.Row="3" Background="{DynamicResource PanelSubBrush}"
+                BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="0,1,0,0"
                 Padding="12,6">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -87,13 +81,13 @@
                 <TextBlock Grid.Column="0"
                            Text="{Binding StatusMessage}"
                            FontSize="11"
-                           Foreground="{StaticResource InkDimBrush}"
+                           Foreground="{DynamicResource InkDimBrush}"
                            VerticalAlignment="Center" />
                 <TextBlock Grid.Column="1"
                            Text="{Binding ActiveView.Reference}"
-                           FontFamily="{StaticResource FontMono}"
+                           FontFamily="{DynamicResource FontMono}"
                            FontSize="10"
-                           Foreground="{StaticResource InkMutedBrush}"
+                           Foreground="{DynamicResource InkMutedBrush}"
                            VerticalAlignment="Center" />
             </Grid>
         </Border>

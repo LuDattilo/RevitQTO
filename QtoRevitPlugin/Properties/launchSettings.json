@@ -1,0 +1,16 @@
+{
+  "profiles": {
+    "Revit 2025": {
+      "commandName": "Executable",
+      "executablePath": "C:\\Program Files\\Autodesk\\Revit 2025\\Revit.exe",
+      "commandLineArgs": "",
+      "workingDirectory": "C:\\Program Files\\Autodesk\\Revit 2025"
+    },
+    "Revit 2025 + file test": {
+      "commandName": "Executable",
+      "executablePath": "C:\\Program Files\\Autodesk\\Revit 2025\\Revit.exe",
+      "commandLineArgs": "\"%USERPROFILE%\\Documents\\QtoTest.rvt\"",
+      "workingDirectory": "C:\\Program Files\\Autodesk\\Revit 2025"
+    }
+  }
+}

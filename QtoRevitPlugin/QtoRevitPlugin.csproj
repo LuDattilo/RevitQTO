@@ -99,4 +99,41 @@
           Condition="Exists('$(OutputPath)runtimes\win-x64\native\e_sqlite3.dll')" />
   </Target>
 
+  <!--
+    Deploy automatico nella cartella addin di Revit 2025 dopo ogni Build.
+    Elimina il passo manuale "cp -r" per testare. Solo se:
+      - target è net8.0-windows (Revit 2025+)
+      - esiste la cartella Addins/2025 (= Revit 2025 installato su questa macchina)
+      - non siamo in CI (variabile CI non impostata)
+    Disattivabile con /p:DeployToRevit=false.
+  -->
+  <PropertyGroup>
+    <DeployToRevit Condition="'$(DeployToRevit)' == ''">true</DeployToRevit>
+    <RevitAddinsFolder>$(APPDATA)\Autodesk\Revit\Addins\2025</RevitAddinsFolder>
+    <RevitAddinSubfolder>$(RevitAddinsFolder)\QtoRevitPlugin</RevitAddinSubfolder>
+  </PropertyGroup>
+
+  <Target Name="DeployToRevit2025"
+          AfterTargets="FlattenNativeSqlite"
+          Condition="'$(TargetFramework)' == 'net8.0-windows' AND '$(DeployToRevit)' == 'true' AND '$(CI)' == '' AND Exists('$(RevitAddinsFolder)')">
+    <Message Importance="high" Text="→ Deploy QTO Plugin a $(RevitAddinSubfolder)" />
+
+    <ItemGroup>
+      <_DeployFiles Include="$(OutputPath)**\*.*"
+                    Exclude="$(OutputPath)**\*.xml;$(OutputPath)**\*.pdb" />
+    </ItemGroup>
+
+    <RemoveDir Directories="$(RevitAddinSubfolder)"
+               Condition="Exists('$(RevitAddinSubfolder)')" />
+    <MakeDir Directories="$(RevitAddinSubfolder)" />
+
+    <Copy SourceFiles="@(_DeployFiles)"
+          DestinationFolder="$(RevitAddinSubfolder)\%(RecursiveDir)"
+          SkipUnchangedFiles="true" />
+
+    <Copy SourceFiles="$(ProjectDir)QtoRevitPlugin.addin"
+          DestinationFolder="$(RevitAddinsFolder)"
+          SkipUnchangedFiles="true" />
+  </Target>
+
 </Project>

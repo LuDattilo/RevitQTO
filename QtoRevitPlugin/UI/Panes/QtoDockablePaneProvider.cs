@@ -5,9 +5,9 @@ using System.Windows;
 namespace QtoRevitPlugin.UI.Panes
 {
     /// <summary>
-    /// Provider Revit per il DockablePane principale. L'istanza del UserControl viene
-    /// creata da OnStartup una sola volta e riusata: questo provider fornisce solo il
-    /// riferimento al pane.
+    /// Provider Revit per il DockablePane principale.
+    /// Creazione eager del UserControl in OnStartup (main thread Revit, contesto pronto);
+    /// VisibleByDefault=false evita il costo di layout iniziale se l'utente non apre il pane.
     /// </summary>
     public class QtoDockablePaneProvider : IDockablePaneProvider
     {
@@ -26,11 +26,9 @@ namespace QtoRevitPlugin.UI.Panes
             data.FrameworkElement = _pane;
             data.InitialState = new DockablePaneState
             {
-                // Flottante di default — l'utente lo trascina dove vuole.
-                // Revit ricorda la posizione tra sessioni.
                 DockPosition = DockPosition.Floating
             };
-            data.VisibleByDefault = true;
+            data.VisibleByDefault = false;
         }
     }
 }
