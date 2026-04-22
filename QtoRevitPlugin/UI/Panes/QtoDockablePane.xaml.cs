@@ -24,6 +24,12 @@ namespace QtoRevitPlugin.UI.Panes
         private readonly DockablePaneViewModel _vm;
         private readonly Dictionary<QtoViewKey, UserControl> _viewCache = new();
         private readonly Dictionary<QtoViewKey, ToggleButton> _buttonCache = new();
+        private UserControl? _noSessionView;
+
+        private const double InitialPaneWidth = 1000;
+        private const double InitialPaneHeight = 920;
+        private const double MinAcceptableWidth = 700;
+        private const double MinAcceptableHeight = 600;
 
         public QtoDockablePane(DockablePaneViewModel vm)
         {
@@ -42,6 +48,47 @@ namespace QtoRevitPlugin.UI.Panes
 
             UpdateActiveView();
             UpdateSessionMenuEnabled();
+
+            // Ogni volta che il pane diventa visible, verifichiamo che la window
+            // contenitore abbia dimensioni accettabili. Se Revit la mostra troppo piccola
+            // (es. persistenza di una docked pane precedente), la riportiamo centrata.
+            IsVisibleChanged += OnIsVisibleChanged;
+        }
+
+        private void OnIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            if (e.NewValue is not true) return;
+            // Dispatch a BackgroundPriority: aspetta che Revit abbia finito il suo layout
+            Dispatcher.BeginInvoke(new Action(EnsureAcceptableSize),
+                System.Windows.Threading.DispatcherPriority.Background);
+        }
+
+        private void EnsureAcceptableSize()
+        {
+            try
+            {
+                var win = Window.GetWindow(this);
+                if (win == null) return;
+
+                // Non toccare la main Revit window
+                var winHandle = new System.Windows.Interop.WindowInteropHelper(win).Handle;
+                var revitHandle = System.Diagnostics.Process.GetCurrentProcess().MainWindowHandle;
+                if (winHandle == revitHandle) return;
+
+                // Se già grande abbastanza, non toccare (rispetta resize dell'utente)
+                if (win.ActualWidth >= MinAcceptableWidth && win.ActualHeight >= MinAcceptableHeight)
+                    return;
+
+                var work = SystemParameters.WorkArea;
+                win.Width = Math.Min(InitialPaneWidth, work.Width - 80);
+                win.Height = Math.Min(InitialPaneHeight, work.Height - 80);
+                win.Left = work.Left + (work.Width - win.Width) / 2;
+                win.Top = work.Top + (work.Height - win.Height) / 2;
+            }
+            catch
+            {
+                // Non critico
+            }
         }
 
         private void BuildSwitcher()
@@ -62,6 +109,23 @@ namespace QtoRevitPlugin.UI.Panes
 
         private void UpdateActiveView()
         {
+            // Nessun computo attivo: mostra empty state globale + disabilita switcher
+            if (!_vm.HasActiveSession)
+            {
+                _noSessionView ??= new PlaceholderView(
+                    "Nessun computo aperto",
+                    "",
+                    0,
+                    "Usa il menu «Sessione ▾» nell'header per creare un nuovo computo CME " +
+                    "o aprire un file .cme esistente. Le funzioni operative si attivano " +
+                    "automaticamente quando apri un computo.");
+                ViewHost.Content = _noSessionView;
+
+                foreach (var btn in _buttonCache.Values)
+                    btn.IsChecked = false;
+                return;
+            }
+
             var active = _vm.ActiveView;
             if (active == null) return;
 
@@ -148,11 +212,20 @@ namespace QtoRevitPlugin.UI.Panes
         private void UpdateSessionMenuEnabled()
         {
             bool hasActive = _vm.HasActiveSession;
+
+            // Menu item
             MiSave.IsEnabled = hasActive;
             MiSaveAs.IsEnabled = hasActive;
             MiRename.IsEnabled = hasActive;
             MiClose.IsEnabled = hasActive;
             MiDelete.IsEnabled = hasActive;
+
+            // Switcher view: abilitati solo se c'è un computo aperto
+            foreach (var btn in _buttonCache.Values)
+                btn.IsEnabled = hasActive;
+
+            // Aggiorna contenuto (passa a empty state se sessione chiusa)
+            UpdateActiveView();
         }
 
         // ---- NUOVO ----------------------------------------------------------

@@ -123,7 +123,7 @@ namespace QtoRevitPlugin.UI.ViewModels
             {
                 HasActiveSession = false;
                 SessionTitle = "Nessuna sessione attiva";
-                ProjectSubtitle = "Avvia QTO dal ribbon per creare o riprendere una sessione";
+                ProjectSubtitle = "Usa il menu «Sessione ▾» per creare o aprire un computo .cme";
                 TotalElements = 0;
                 TaggedElements = 0;
                 TotalAmount = 0;

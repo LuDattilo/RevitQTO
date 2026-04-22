@@ -91,6 +91,9 @@ namespace QtoRevitPlugin.Application
                     // sia nascosto all'avvio. L'utente lo apre con "Avvia QTO".
                     _revitApp = application;
                     application.Idling += HidePaneOnFirstIdle;
+
+                    // Salva e chiudi sessione CME quando l'utente chiude il .rvt associato
+                    application.ControlledApplication.DocumentClosing += OnDocumentClosing;
                 }
 
                 CrashLogger.Info("→ CreateRibbon");
@@ -112,39 +115,144 @@ namespace QtoRevitPlugin.Application
         public Result OnShutdown(UIControlledApplication application)
         {
             CrashLogger.Info("OnShutdown");
+
+            // 1) Salva sessione attiva (se presente) → file .cme sempre consistente
+            try
+            {
+                if (SessionManager?.HasActiveSession == true)
+                {
+                    var filePath = SessionManager.ActiveFilePath;
+                    SessionManager.Flush();
+                    CrashLogger.Info($"OnShutdown: sessione salvata in {filePath}");
+                }
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.WriteException("OnShutdown.Flush", ex);
+            }
+
+            // 2) Nascondi il DockablePane: al prossimo boot Revit non lo ripristinerà visible
+            try
+            {
+                if (CurrentUiApp != null)
+                {
+                    var pane = CurrentUiApp.GetDockablePane(QtoDockablePaneProvider.PaneId);
+                    if (pane != null && pane.IsShown())
+                    {
+                        pane.Hide();
+                        CrashLogger.Info("OnShutdown: DockablePane nascosto");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.WriteException("OnShutdown.HidePane", ex);
+            }
+
             AutoSave?.Dispose();
             SessionManager?.Dispose();
             return Result.Succeeded;
         }
 
         private static UIControlledApplication? _revitApp;
+        private static int _hideAttempts;
+        private const int MaxHideAttempts = 500; // ~5-8 secondi di tentativi (Idling fires ~60-100Hz)
 
         /// <summary>
-        /// Al primo Idling event dopo il boot, nasconde il DockablePane se Revit lo
-        /// aveva persisto come visibile. Unsubscribe subito per non pesare (high-frequency).
+        /// Al primo Idling utile dopo il boot:
+        /// 1) Cattura UIApplication (se non già fatto da LaunchQtoCommand)
+        /// 2) Nasconde il DockablePane se Revit lo aveva persistito come visibile
+        /// Retry pattern: il pane può non essere ancora creato al primo Idling.
+        /// Unsubscribe solo quando entrambi gli obiettivi sono raggiunti.
         /// </summary>
         private static void HidePaneOnFirstIdle(object? sender, Autodesk.Revit.UI.Events.IdlingEventArgs e)
         {
-            // Unsubscribe immediato (oneshot)
+            _hideAttempts++;
+
+            try
+            {
+                if (sender is not UIApplication uiApp) return;
+
+                // 1) Cattura UIApplication una volta per tutte
+                Instance.CurrentUiApp = uiApp;
+
+                // 2) Hide del pane (con retry se non creato)
+                Autodesk.Revit.UI.DockablePane? pane;
+                try
+                {
+                    pane = uiApp.GetDockablePane(QtoDockablePaneProvider.PaneId);
+                }
+                catch (Autodesk.Revit.Exceptions.ArgumentException)
+                {
+                    if (_hideAttempts > MaxHideAttempts)
+                    {
+                        UnsubscribeIdling();
+                        CrashLogger.Warn($"HidePaneOnFirstIdle: pane non creato dopo {MaxHideAttempts} tentativi");
+                    }
+                    return;
+                }
+
+                if (pane != null && pane.IsShown())
+                {
+                    pane.Hide();
+                    CrashLogger.Info($"DockablePane nascosto al boot (tentativo {_hideAttempts})");
+                }
+
+                UnsubscribeIdling();
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.WriteException("HidePaneOnFirstIdle", ex);
+                UnsubscribeIdling();
+            }
+        }
+
+        private static void UnsubscribeIdling()
+        {
             if (_revitApp != null)
             {
                 _revitApp.Idling -= HidePaneOnFirstIdle;
                 _revitApp = null;
             }
+        }
 
+        /// <summary>
+        /// Quando l'utente chiude il file Revit associato al computo CME attivo:
+        /// 1) Flush della sessione (il .cme resta salvato su disco)
+        /// 2) Chiudi la sessione (torna a stato "nessun computo aperto")
+        /// 3) Nascondi il DockablePane
+        /// Così il lavoro non si perde e al prossimo apri .rvt il pane parte pulito.
+        /// </summary>
+        private static void OnDocumentClosing(object? sender, Autodesk.Revit.DB.Events.DocumentClosingEventArgs e)
+        {
             try
             {
-                if (sender is not UIApplication uiApp) return;
-                var pane = uiApp.GetDockablePane(QtoDockablePaneProvider.PaneId);
-                if (pane != null && pane.IsShown())
+                var sessionMgr = Instance.SessionManager;
+                if (sessionMgr?.HasActiveSession != true) return;
+
+                var docPath = string.IsNullOrEmpty(e.Document.PathName)
+                    ? $"unsaved://{e.Document.Title}"
+                    : e.Document.PathName;
+
+                // Chiudi sessione solo se il doc che chiude è quello associato al computo corrente
+                if (sessionMgr.ActiveSession!.ProjectPath == docPath)
                 {
-                    pane.Hide();
-                    CrashLogger.Info("DockablePane nascosto al primo Idling (Revit lo aveva persistito come visibile)");
+                    var cmePath = sessionMgr.ActiveFilePath;
+                    sessionMgr.CloseSession();
+                    CrashLogger.Info($"DocumentClosing: sessione chiusa (file .cme salvato: {cmePath})");
+
+                    // Nascondi pane: al prossimo apri .rvt parte OFF
+                    if (Instance.CurrentUiApp != null)
+                    {
+                        var pane = Instance.CurrentUiApp.GetDockablePane(QtoDockablePaneProvider.PaneId);
+                        if (pane?.IsShown() == true)
+                            pane.Hide();
+                    }
                 }
             }
             catch (Exception ex)
             {
-                CrashLogger.WriteException("HidePaneOnFirstIdle", ex);
+                CrashLogger.WriteException("OnDocumentClosing", ex);
             }
         }
 
