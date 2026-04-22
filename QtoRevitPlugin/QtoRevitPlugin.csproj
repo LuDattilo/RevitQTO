@@ -1,0 +1,74 @@
+<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+
+  <PropertyGroup>
+    <TargetFrameworks>net48;net8.0-windows</TargetFrameworks>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>QtoRevitPlugin</RootNamespace>
+    <AssemblyName>QtoRevitPlugin</AssemblyName>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <!-- net48 = Revit 2022–2024 -->
+  <PropertyGroup Condition="'$(TargetFramework)'=='net48'">
+    <DefineConstants>$(DefineConstants);REVIT2024_OR_EARLIER</DefineConstants>
+  </PropertyGroup>
+
+  <!-- net8.0-windows = Revit 2025+ -->
+  <PropertyGroup Condition="'$(TargetFramework)'=='net8.0-windows'">
+    <DefineConstants>$(DefineConstants);REVIT2025_OR_LATER</DefineConstants>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <!-- Revit API: net48 → Revit 2024 (ultima versione legacy .NET Framework) -->
+  <ItemGroup Condition="'$(TargetFramework)'=='net48'">
+    <Reference Include="RevitAPI">
+      <HintPath>$(RevitDir2024)\RevitAPI.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="RevitAPIUI">
+      <HintPath>$(RevitDir2024)\RevitAPIUI.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!-- Revit API: net8.0-windows → Revit 2025 -->
+  <ItemGroup Condition="'$(TargetFramework)'=='net8.0-windows'">
+    <Reference Include="RevitAPI">
+      <HintPath>$(RevitDir2025)\RevitAPI.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="RevitAPIUI">
+      <HintPath>$(RevitDir2025)\RevitAPIUI.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!-- Riferimento al Core (modelli e logica pura C# senza Revit API) -->
+  <ItemGroup>
+    <ProjectReference Include="..\QtoRevitPlugin.Core\QtoRevitPlugin.Core.csproj" />
+  </ItemGroup>
+
+  <!-- NuGet packages Sprint 0 -->
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.*" />
+  </ItemGroup>
+
+  <!-- NuGet packages Sprint 1–2 (commentati finché non servono) -->
+  <!--
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.*" />
+    <PackageReference Include="SQLite-net-pcl" Version="1.9.*" />
+    <PackageReference Include="NCalc2" Version="2.*" />
+    <PackageReference Include="ClosedXML" Version="0.102.*" />
+  </ItemGroup>
+  -->
+
+  <!-- Addin manifest: copiato in output per ogni versione Revit -->
+  <ItemGroup>
+    <None Include="QtoRevitPlugin.addin" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

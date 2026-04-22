@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Manifest Revit per QTO Plugin – GPA Ingegneria Srl
+  Posizionare il file .addin e la DLL nella cartella addin di Revit:
+    Revit 2022-2024:  %AppData%\Autodesk\Revit\Addins\{Anno}\
+    Revit 2025+:      %AppData%\Autodesk\Revit\Addins\{Anno}\
+  Oppure usare lo script PostBuild per il deployment automatico.
+-->
+<RevitAddIns>
+  <AddIn Type="Application">
+    <Name>QTO Plugin – GPA Ingegneria</Name>
+    <Assembly>QtoRevitPlugin.dll</Assembly>
+    <AddInId>A7B3E2D1-4F85-4C92-B631-2E8A904F5C17</AddInId>
+    <FullClassName>QtoRevitPlugin.Application.QtoApplication</FullClassName>
+    <VendorId>GPA_INGEGNERIA</VendorId>
+    <VendorDescription>GPA Ingegneria Srl – Quantity Take-Off per appalti pubblici italiani (D.Lgs. 36/2023)</VendorDescription>
+  </AddIn>
+</RevitAddIns>

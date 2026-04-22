@@ -1,0 +1,48 @@
+## Visual Studio / .NET
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+bin/
+obj/
+[Bb]in/
+[Oo]bj/
+*.rsuser
+*.pidb
+*.polydata_temp
+
+## NuGet
+packages/
+*.nupkg
+!**/[Pp]ackages/build/
+
+## Build artifacts
+**/artifacts/
+**/publish/
+**/TestResults/
+**/coverage/
+*.coverage
+*.coveragexml
+
+## Revit
+*.addin.user
+
+## Jetbrains
+.idea/
+*.sln.iml
+
+## macOS
+.DS_Store
+
+## Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+## Logs
+*.log
+logs/
+
+## User-specific build overrides (Revit paths)
+Directory.Build.props.user

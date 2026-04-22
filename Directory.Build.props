@@ -1,0 +1,13 @@
+<Project>
+  <PropertyGroup>
+    <!-- Percorsi default installazione Revit. Sovrascrivere in Directory.Build.props.user se necessario. -->
+    <RevitDir2022 Condition="'$(RevitDir2022)'==''">C:\Program Files\Autodesk\Revit 2022</RevitDir2022>
+    <RevitDir2023 Condition="'$(RevitDir2023)'==''">C:\Program Files\Autodesk\Revit 2023</RevitDir2023>
+    <RevitDir2024 Condition="'$(RevitDir2024)'==''">C:\Program Files\Autodesk\Revit 2024</RevitDir2024>
+    <RevitDir2025 Condition="'$(RevitDir2025)'==''">C:\Program Files\Autodesk\Revit 2025</RevitDir2025>
+    <RevitDir2026 Condition="'$(RevitDir2026)'==''">C:\Program Files\Autodesk\Revit 2026</RevitDir2026>
+  </PropertyGroup>
+
+  <!-- Importa overrides locali (ignorato da git) -->
+  <Import Project="Directory.Build.props.user" Condition="Exists('Directory.Build.props.user')" />
+</Project>

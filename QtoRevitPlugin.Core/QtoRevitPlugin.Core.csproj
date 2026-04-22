@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      netstandard2.0 è compatibile con net48 (Revit 2022-2024) e net8.0-windows (Revit 2025+).
+      Questo progetto NON dipende da Revit API: contiene modelli, engines puri C# e parser.
+      Il progetto addin (QtoRevitPlugin) lo referenzia insieme alle DLL Revit.
+    -->
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>QtoRevitPlugin</RootNamespace>
+    <AssemblyName>QtoRevitPlugin.Core</AssemblyName>
+  </PropertyGroup>
+
+</Project>
