@@ -40,6 +40,9 @@ namespace QtoRevitPlugin.Models
         public int Version { get; set; } = 1;
         public AssignmentStatus AuditStatus { get; set; } = AssignmentStatus.Active;
 
+        /// <summary>FK verso ComputoChapters (nullable): raggruppamento a 3 livelli definito dall'utente. null = senza capitolo.</summary>
+        public int? ComputoChapterId { get; set; }
+
         public bool IsDeleted { get; set; }
         public bool IsExcluded { get; set; }
         public string ExclusionReason { get; set; } = string.Empty;
