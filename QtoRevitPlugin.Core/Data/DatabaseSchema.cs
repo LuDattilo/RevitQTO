@@ -14,8 +14,10 @@ namespace QtoRevitPlugin.Data
     /// </summary>
     internal static class DatabaseSchema
     {
+        // v3 (Sprint 4): aggiunta colonna PriceLists.PublicId GUID per riferimenti portabili
+        //                nel DataStorage ES del .rvt (ProjectPriceListSnapshot futuro — Sprint 5).
         // v2 (Sprint 2): aggiunta virtual table PriceItems_FTS per ricerca full-text.
-        public const int CurrentVersion = 2;
+        public const int CurrentVersion = 3;
 
         /// <summary>Ordine di esecuzione degli statement per setup iniziale.</summary>
         public static readonly string[] InitialStatements =
@@ -34,6 +36,14 @@ namespace QtoRevitPlugin.Data
             ModelDiffLog,
             EmbeddingCache
         };
+
+        /// <summary>
+        /// Migration idempotenti v2→v3: aggiungi colonna PublicId a PriceLists se mancante.
+        /// ALTER TABLE ADD COLUMN è idempotente solo con check preventivo — SQLite non supporta
+        /// IF NOT EXISTS su ADD COLUMN. La Migration.cs chiamante fa il check via PRAGMA.
+        /// </summary>
+        public const string MigrateV2ToV3_AddPublicId =
+            "ALTER TABLE PriceLists ADD COLUMN PublicId TEXT;";
 
         // --- Meta --------------------------------------------------------------
 
@@ -69,9 +79,13 @@ CREATE INDEX IF NOT EXISTS IX_Sessions_Status ON Sessions(Status);";
 
         // --- Listini (riempiti in Sprint 2) ------------------------------------
 
+        // PublicId (GUID v3): identificatore STABILE portabile — usato dal
+        // ProjectPriceListSnapshot nel DataStorage del .rvt per riferire un listino
+        // anche quando UserLibrary.db non è presente (collaborazione cross-PC).
         public const string PriceLists = @"
 CREATE TABLE IF NOT EXISTS PriceLists (
     Id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    PublicId    TEXT UNIQUE,
     Name        TEXT NOT NULL,
     Source      TEXT,
     Version     TEXT,

@@ -149,18 +149,26 @@ namespace QtoRevitPlugin.Data
         // Listini (PriceLists + PriceItems + FTS5)
         // =====================================================================
 
-        /// <summary>Inserisce un nuovo listino (PriceLists), ritorna l'Id generato.</summary>
+        /// <summary>
+        /// Inserisce un nuovo listino (PriceLists), ritorna l'Id auto-increment generato.
+        /// Se <see cref="PriceList.PublicId"/> è vuoto, viene generato un GUID stabile (usato
+        /// dal ProjectPriceListSnapshot nel .rvt per riferimenti portabili cross-PC).
+        /// </summary>
         public int InsertPriceList(PriceList list)
         {
+            if (string.IsNullOrWhiteSpace(list.PublicId))
+                list.PublicId = Guid.NewGuid().ToString("D");
+
             const string sql = @"
                 INSERT INTO PriceLists
-                    (Name, Source, Version, Region, IsActive, Priority, ImportedAt, RowCount)
+                    (PublicId, Name, Source, Version, Region, IsActive, Priority, ImportedAt, RowCount)
                 VALUES
-                    (@Name, @Source, @Version, @Region, @IsActive, @Priority, @ImportedAt, @RowCount);
+                    (@PublicId, @Name, @Source, @Version, @Region, @IsActive, @Priority, @ImportedAt, @RowCount);
                 SELECT last_insert_rowid();";
 
             var id = _conn.ExecuteScalar<long>(sql, new
             {
+                list.PublicId,
                 list.Name,
                 list.Source,
                 list.Version,
@@ -277,7 +285,7 @@ namespace QtoRevitPlugin.Data
         public IReadOnlyList<PriceList> GetPriceLists()
         {
             const string sql = @"
-                SELECT Id, Name, Source, Version, Region,
+                SELECT Id, PublicId, Name, Source, Version, Region,
                        IsActive, Priority, ImportedAt, RowCount
                 FROM PriceLists
                 ORDER BY Priority ASC, Name ASC;";
@@ -445,6 +453,7 @@ namespace QtoRevitPlugin.Data
         private class PriceListRow
         {
             public int Id { get; set; }
+            public string? PublicId { get; set; }
             public string Name { get; set; } = string.Empty;
             public string? Source { get; set; }
             public string? Version { get; set; }
@@ -457,6 +466,7 @@ namespace QtoRevitPlugin.Data
             public PriceList ToPriceList() => new()
             {
                 Id = Id,
+                PublicId = PublicId ?? string.Empty,
                 Name = Name,
                 Source = Source ?? string.Empty,
                 Version = Version ?? string.Empty,

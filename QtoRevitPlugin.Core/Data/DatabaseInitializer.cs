@@ -88,17 +88,27 @@ namespace QtoRevitPlugin.Data
             int dbVersion = GetCurrentSchemaVersion(conn);
             if (dbVersion >= DatabaseSchema.CurrentVersion) return;
 
-            // Migrazione v1 → v2 (Sprint 2): aggiunge PriceItems_FTS virtual table.
-            // Tutti gli statement in InitialStatements usano IF NOT EXISTS, quindi idempotenti:
-            // basta rieseguirli per portare un DB v1 a v2 senza perdita di dati.
-            // Se futuri step richiederanno ALTER TABLE o backfill, aggiungere un dispatcher per dbVersion qui.
             using var tx = conn.BeginTransaction();
+
+            // Migrazione v1 → v2 (Sprint 2): aggiunge PriceItems_FTS virtual table.
+            // I CREATE TABLE/VIRTUAL TABLE sono idempotenti (IF NOT EXISTS), basta rieseguirli.
             foreach (var stmt in DatabaseSchema.InitialStatements)
             {
                 using var cmd = conn.CreateCommand();
                 cmd.Transaction = tx;
                 cmd.CommandText = stmt;
                 cmd.ExecuteNonQuery();
+            }
+
+            // Migrazione v2 → v3 (Sprint 4): aggiunge colonna PriceLists.PublicId per
+            // riferimenti portabili nel DataStorage del .rvt. ALTER TABLE non supporta
+            // IF NOT EXISTS → check preventivo via PRAGMA.
+            if (dbVersion < 3 && !ColumnExists(conn, tx, "PriceLists", "PublicId"))
+            {
+                using var alterCmd = conn.CreateCommand();
+                alterCmd.Transaction = tx;
+                alterCmd.CommandText = DatabaseSchema.MigrateV2ToV3_AddPublicId;
+                alterCmd.ExecuteNonQuery();
             }
 
             using (var insert = conn.CreateCommand())
@@ -111,6 +121,26 @@ namespace QtoRevitPlugin.Data
             }
 
             tx.Commit();
+        }
+
+        /// <summary>
+        /// Check idempotente tramite PRAGMA table_info: ritorna true se la colonna esiste.
+        /// Usato per gating di ALTER TABLE ADD COLUMN (che altrimenti fallirebbe su retry).
+        /// </summary>
+        private static bool ColumnExists(SqliteConnection conn, SqliteTransaction tx, string table, string column)
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = $"PRAGMA table_info({table});";
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                // Campo "name" è l'indice 1 nel PRAGMA table_info
+                var name = reader.GetString(1);
+                if (string.Equals(name, column, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            return false;
         }
 
         private static int GetCurrentSchemaVersion(SqliteConnection conn)
