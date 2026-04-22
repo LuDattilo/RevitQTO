@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  core-tests:
+    name: Core + Tests (Revit-free)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore Core
+        run: dotnet restore QtoRevitPlugin.Core/QtoRevitPlugin.Core.csproj
+
+      - name: Restore Tests
+        run: dotnet restore QtoRevitPlugin.Tests/QtoRevitPlugin.Tests.csproj
+
+      - name: Build Core (netstandard2.0)
+        run: dotnet build QtoRevitPlugin.Core/QtoRevitPlugin.Core.csproj -c Release --no-restore
+
+      - name: Build Tests (net8.0)
+        run: dotnet build QtoRevitPlugin.Tests/QtoRevitPlugin.Tests.csproj -c Release --no-restore
+
+      - name: Run Tests
+        run: dotnet test QtoRevitPlugin.Tests/QtoRevitPlugin.Tests.csproj -c Release --no-build --logger "console;verbosity=detailed"
