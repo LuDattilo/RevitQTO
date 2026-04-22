@@ -2,12 +2,9 @@ using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using QtoRevitPlugin.Application;
-using QtoRevitPlugin.Services;
 using QtoRevitPlugin.UI.Panes;
-using QtoRevitPlugin.UI.Views;
 using System;
 using System.Windows;
-using System.Windows.Interop;
 using System.Windows.Threading;
 
 namespace QtoRevitPlugin.Commands
@@ -33,50 +30,13 @@ namespace QtoRevitPlugin.Commands
                 // Memorizza UIApplication per i handler del pane (menu Sessione)
                 QtoApplication.Instance.CurrentUiApp = commandData.Application;
 
-                var sessionMgr = QtoApplication.Instance.SessionManager;
-
-                // Se non c'è ancora una sessione attiva, guida l'utente
-                if (!sessionMgr.HasActiveSession)
-                {
-                    sessionMgr.BindToDocument(doc);
-
-                    var recovery = new RecoveryService();
-                    var analysis = recovery.Analyze(doc, sessionMgr.Repository!);
-                    if (analysis.RecommendedAction != RecoveryAction.NoActionNeeded
-                        && !recovery.CanSyncSilently(analysis))
-                    {
-                        TaskDialog.Show("CME – Recovery",
-                            $"{analysis.Summary}\n\n" +
-                            "La riconciliazione completa è attiva dallo Sprint 3 (scrittura ES).");
-                    }
-
-                    var sessions = sessionMgr.GetSessionsForCurrentDocument(doc);
-                    var projectLabel = string.IsNullOrEmpty(doc.PathName) ? doc.Title : doc.PathName;
-                    var dialog = new SessionListWindow(projectLabel, sessions);
-                    new WindowInteropHelper(dialog).Owner =
-                        System.Diagnostics.Process.GetCurrentProcess().MainWindowHandle;
-
-                    var dialogResult = dialog.ShowDialog();
-                    if (dialogResult != true) return Result.Cancelled;
-
-                    switch (dialog.Result)
-                    {
-                        case SessionDialogResult.NewSession:
-                            sessionMgr.CreateSession(doc, sessionName: string.Empty);
-                            break;
-                        case SessionDialogResult.Resume:
-                            sessionMgr.ResumeSession(dialog.SelectedSessionId);
-                            break;
-                    }
-                }
-
-                // Mostra il DockablePane + resize+center alla prima apertura della sessione
+                // Mostra il DockablePane. Se non c'è sessione attiva, il pane mostra
+                // empty state con istruzioni "Nuovo / Apri" dal menu Sessione nell'header.
                 var pane = commandData.Application.GetDockablePane(QtoDockablePaneProvider.PaneId);
                 if (pane != null)
                 {
                     pane.Show();
-                    // Il resize/center richiede che la Window contenitore esista.
-                    // BeginInvoke con priorità Loaded ci dà il tempo a Revit di crearla.
+                    // Centra e ridimensiona la finestra flottante alla prima apertura
                     Dispatcher.CurrentDispatcher.BeginInvoke(
                         new Action(CenterAndResizeFloatingPane),
                         DispatcherPriority.Loaded);
@@ -91,15 +51,10 @@ namespace QtoRevitPlugin.Commands
             }
         }
 
-        /// <summary>
-        /// Trova la Window WPF che ospita il nostro UserControl del pane, la centra
-        /// sullo schermo attivo e la ridimensiona a una dimensione utilizzabile.
-        /// </summary>
         private static void CenterAndResizeFloatingPane()
         {
             try
             {
-                // Cerca tra le WPF Window aperte quella che contiene il nostro QtoDockablePane
                 foreach (Window w in System.Windows.Application.Current.Windows)
                 {
                     if (ContainsOurPane(w))
@@ -113,10 +68,7 @@ namespace QtoRevitPlugin.Commands
                     }
                 }
             }
-            catch
-            {
-                // Non critico: se non riusciamo a centrare il pane, Revit usa la sua dimensione default.
-            }
+            catch { }
         }
 
         private static bool ContainsOurPane(DependencyObject root)

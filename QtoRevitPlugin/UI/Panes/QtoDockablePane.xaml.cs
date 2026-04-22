@@ -1,12 +1,14 @@
+using Microsoft.Win32;
 using QtoRevitPlugin.Application;
+using QtoRevitPlugin.Services;
 using QtoRevitPlugin.UI.ViewModels;
 using QtoRevitPlugin.UI.Views;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
-using System.Windows.Interop;
 using TaskDialog = Autodesk.Revit.UI.TaskDialog;
 using TaskDialogCommonButtons = Autodesk.Revit.UI.TaskDialogCommonButtons;
 using TaskDialogResult = Autodesk.Revit.UI.TaskDialogResult;
@@ -14,9 +16,8 @@ using TaskDialogResult = Autodesk.Revit.UI.TaskDialogResult;
 namespace QtoRevitPlugin.UI.Panes
 {
     /// <summary>
-    /// Hub UI del plug-in. Ospita la barra switcher per le 9 view + Preview (sempre presente).
-    /// Registrato come Revit DockablePane (stato flottante by default), UI autocontenuta
-    /// separata dal ribbon che contiene solo "Avvia CME".
+    /// Hub UI del plug-in. Ospita la barra switcher per le 9 view + Preview.
+    /// Modello file-based: ogni computo è un file .cme selezionato via OpenFileDialog/SaveFileDialog.
     /// </summary>
     public partial class QtoDockablePane : UserControl
     {
@@ -131,7 +132,7 @@ namespace QtoRevitPlugin.UI.Panes
         }
 
         // =====================================================================
-        // Menu Sessione: apertura + handlers
+        // Menu Sessione: apertura + handlers (file-based .cme)
         // =====================================================================
 
         private void OnSessionMenuClick(object sender, RoutedEventArgs e)
@@ -161,14 +162,28 @@ namespace QtoRevitPlugin.UI.Panes
             var doc = GetActiveDocument();
             if (doc == null) return;
 
-            var sessionMgr = QtoApplication.Instance.SessionManager;
-            if (sessionMgr.Repository == null) sessionMgr.BindToDocument(doc);
+            var dlg = new SaveFileDialog
+            {
+                Title = "Nuovo computo CME",
+                Filter = SessionManager.FileFilter,
+                DefaultExt = SessionManager.FileExtension,
+                AddExtension = true,
+                FileName = SuggestedFileName(doc),
+                InitialDirectory = SuggestedInitialDir(doc)
+            };
+            if (dlg.ShowDialog() != true) return;
 
-            var defaultName = $"Computo {DateTime.Now:yyyy-MM-dd HH:mm}";
-            var name = InputDialog.Prompt("Nuovo computo", "Nome del nuovo computo:", defaultName);
-            if (string.IsNullOrWhiteSpace(name)) return;
-
-            sessionMgr.CreateSession(doc, name);
+            try
+            {
+                QtoApplication.Instance.SessionManager.CreateSession(
+                    dlg.FileName,
+                    doc,
+                    Path.GetFileNameWithoutExtension(dlg.FileName));
+            }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("CME – Errore", $"Impossibile creare il file:\n{ex.Message}");
+            }
         }
 
         // ---- APRI -----------------------------------------------------------
@@ -178,28 +193,23 @@ namespace QtoRevitPlugin.UI.Panes
             var doc = GetActiveDocument();
             if (doc == null) return;
 
-            var sessionMgr = QtoApplication.Instance.SessionManager;
-            if (sessionMgr.Repository == null) sessionMgr.BindToDocument(doc);
-
-            var sessions = sessionMgr.GetSessionsForCurrentDocument(doc);
-            if (sessions.Count == 0)
+            var dlg = new OpenFileDialog
             {
-                TaskDialog.Show("CME", "Non ci sono computi salvati per questo progetto.");
-                return;
+                Title = "Apri computo CME",
+                Filter = SessionManager.FileFilter,
+                DefaultExt = SessionManager.FileExtension,
+                InitialDirectory = SuggestedInitialDir(doc),
+                CheckFileExists = true
+            };
+            if (dlg.ShowDialog() != true) return;
+
+            try
+            {
+                QtoApplication.Instance.SessionManager.OpenSession(dlg.FileName);
             }
-
-            var projectLabel = string.IsNullOrEmpty(doc.PathName) ? doc.Title : doc.PathName;
-            var dialog = new SessionListWindow(projectLabel, sessions);
-            OwnToRevit(dialog);
-            if (dialog.ShowDialog() != true) return;
-
-            if (dialog.Result == SessionDialogResult.Resume)
+            catch (Exception ex)
             {
-                sessionMgr.ResumeSession(dialog.SelectedSessionId);
-            }
-            else if (dialog.Result == SessionDialogResult.NewSession)
-            {
-                OnNewSession(sender, e);
+                TaskDialog.Show("CME – Errore apertura", $"Impossibile aprire il file:\n{ex.Message}");
             }
         }
 
@@ -220,13 +230,28 @@ namespace QtoRevitPlugin.UI.Panes
             var sessionMgr = QtoApplication.Instance.SessionManager;
             if (!sessionMgr.HasActiveSession) return;
 
-            var currentName = sessionMgr.ActiveSession!.SessionName;
-            var newName = InputDialog.Prompt("Salva con nome",
-                "Nome del nuovo computo (duplicato del corrente):",
-                $"{currentName} – copia");
-            if (string.IsNullOrWhiteSpace(newName)) return;
+            var currentPath = sessionMgr.ActiveFilePath ?? "";
+            var dlg = new SaveFileDialog
+            {
+                Title = "Salva computo con nome",
+                Filter = SessionManager.FileFilter,
+                DefaultExt = SessionManager.FileExtension,
+                AddExtension = true,
+                InitialDirectory = string.IsNullOrEmpty(currentPath) ? "" : Path.GetDirectoryName(currentPath),
+                FileName = string.IsNullOrEmpty(currentPath)
+                    ? "nuovo"
+                    : Path.GetFileNameWithoutExtension(currentPath) + " - copia"
+            };
+            if (dlg.ShowDialog() != true) return;
 
-            sessionMgr.ForkSession(newName);
+            try
+            {
+                sessionMgr.SaveAs(dlg.FileName);
+            }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("CME – Errore", $"Impossibile salvare con nome:\n{ex.Message}");
+            }
         }
 
         // ---- RINOMINA -------------------------------------------------------
@@ -237,8 +262,9 @@ namespace QtoRevitPlugin.UI.Panes
             if (!sessionMgr.HasActiveSession) return;
 
             var currentName = sessionMgr.ActiveSession!.SessionName;
-            var newName = InputDialog.Prompt("Rinomina computo",
-                "Nuovo nome per il computo corrente:",
+            var newName = InputDialog.Prompt(
+                "Rinomina computo",
+                "Nuovo nome interno del computo (il file resta lo stesso):",
                 currentName);
             if (string.IsNullOrWhiteSpace(newName) || newName == currentName) return;
 
@@ -261,18 +287,28 @@ namespace QtoRevitPlugin.UI.Panes
             var sessionMgr = QtoApplication.Instance.SessionManager;
             if (!sessionMgr.HasActiveSession) return;
 
-            var name = sessionMgr.ActiveSession!.SessionName;
+            var path = sessionMgr.ActiveFilePath!;
+            var name = Path.GetFileName(path);
+
             var td = new TaskDialog("Elimina computo")
             {
-                MainInstruction = $"Eliminare definitivamente il computo «{name}»?",
-                MainContent = "Tutti i dati collegati (assegnazioni, voci manuali, NP) saranno rimossi.\n" +
-                              "Il file Revit non viene toccato — l'azione impatta solo il database CME locale.",
+                MainInstruction = $"Eliminare definitivamente il file «{name}»?",
+                MainContent = $"Path:\n{path}\n\n" +
+                              "Il file sarà rimosso dal disco. Questa azione non è reversibile.\n" +
+                              "Il file Revit non viene toccato.",
                 CommonButtons = TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No,
                 DefaultButton = TaskDialogResult.No
             };
             if (td.Show() != TaskDialogResult.Yes) return;
 
-            sessionMgr.DeleteSession(sessionMgr.ActiveSession.Id);
+            try
+            {
+                sessionMgr.DeleteActiveFile();
+            }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("CME – Errore eliminazione", ex.Message);
+            }
         }
 
         // =====================================================================
@@ -285,19 +321,30 @@ namespace QtoRevitPlugin.UI.Panes
             var doc = uiApp?.ActiveUIDocument?.Document;
             if (doc == null)
             {
-                TaskDialog.Show("CME", "Apri un progetto Revit prima di operare sulle sessioni.");
+                TaskDialog.Show("CME", "Apri un progetto Revit prima di operare sui computi.");
             }
             return doc;
         }
 
-        private static void OwnToRevit(Window window)
+        /// <summary>Nome file suggerito: "{progetto} - computo {data}.cme"</summary>
+        private static string SuggestedFileName(Autodesk.Revit.DB.Document doc)
         {
-            try
+            var projectName = string.IsNullOrEmpty(doc.PathName)
+                ? doc.Title
+                : Path.GetFileNameWithoutExtension(doc.PathName);
+            return $"{projectName} - computo {DateTime.Now:yyyyMMdd}{SessionManager.FileExtension}";
+        }
+
+        /// <summary>Cartella iniziale dialog: stessa del .rvt se salvato, altrimenti Documents.</summary>
+        private static string SuggestedInitialDir(Autodesk.Revit.DB.Document doc)
+        {
+            if (!string.IsNullOrEmpty(doc.PathName))
             {
-                var helper = new WindowInteropHelper(window);
-                helper.Owner = System.Diagnostics.Process.GetCurrentProcess().MainWindowHandle;
+                var dir = Path.GetDirectoryName(doc.PathName);
+                if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
+                    return dir;
             }
-            catch { }
+            return Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
         }
     }
 }

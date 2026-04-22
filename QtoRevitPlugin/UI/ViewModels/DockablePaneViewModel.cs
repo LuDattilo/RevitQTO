@@ -95,18 +95,20 @@ namespace QtoRevitPlugin.UI.ViewModels
 
         private void BuildViewList()
         {
-            Views.Add(new QtoViewItem(QtoViewKey.Preview, "Preview", "§Fase 11", 1));
+            // Ordine logico di workflow: prima configuri, poi selezioni e vedi preview,
+            // poi tagghi, poi verifichi (health/filtri/viste), poi NP, poi export.
             Views.Add(new QtoViewItem(QtoViewKey.Setup, "Setup", "§Fase 1", 2));
             Views.Add(new QtoViewItem(QtoViewKey.Phase, "Fasi", "§I9", 4));
             Views.Add(new QtoViewItem(QtoViewKey.Selection, "Selezione", "§I3", 4));
+            Views.Add(new QtoViewItem(QtoViewKey.Preview, "Preview", "§Fase 11", 1));
             Views.Add(new QtoViewItem(QtoViewKey.Tagging, "Tagging", "§I1·I2·I12·I13", 5));
-            Views.Add(new QtoViewItem(QtoViewKey.QtoViews, "Viste QTO", "§I14", 9));
-            Views.Add(new QtoViewItem(QtoViewKey.FilterManager, "Filtri Vista", "§I11", 9));
             Views.Add(new QtoViewItem(QtoViewKey.Health, "Health", "§I5", 6));
+            Views.Add(new QtoViewItem(QtoViewKey.FilterManager, "Filtri Vista", "§I11", 9));
+            Views.Add(new QtoViewItem(QtoViewKey.QtoViews, "Viste CME", "§I14", 9));
             Views.Add(new QtoViewItem(QtoViewKey.Np, "Nuovo Prezzo", "§I8", 8));
             Views.Add(new QtoViewItem(QtoViewKey.Export, "Export", "§Fase 12", 9));
 
-            ActiveView = Views.First();   // Preview come default
+            ActiveView = Views.First(v => v.Key == QtoViewKey.Preview);   // Preview come default
         }
 
         private void OnSessionChanged(object? sender, SessionChangedEventArgs e)

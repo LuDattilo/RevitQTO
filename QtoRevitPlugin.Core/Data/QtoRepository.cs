@@ -117,6 +117,20 @@ namespace QtoRevitPlugin.Data
                         .ToList();
         }
 
+        /// <summary>Tutte le sessioni nel DB corrente, ordinate dalla più recente.
+        /// Usato nel modello file-based (.cme): convenzione 1 file = 1 computo,
+        /// se dovessero essercene più di una prendiamo la più recente.</summary>
+        public List<WorkSession> GetAllSessions()
+        {
+            const string sql = @"
+                SELECT * FROM Sessions
+                ORDER BY LastSavedAt DESC, CreatedAt DESC;";
+
+            return _conn.Query<SessionRow>(sql)
+                        .Select(r => r.ToWorkSession())
+                        .ToList();
+        }
+
         public void TouchSession(int sessionId)
         {
             _conn.Execute(
