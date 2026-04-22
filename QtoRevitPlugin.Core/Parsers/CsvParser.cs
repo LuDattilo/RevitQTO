@@ -108,7 +108,8 @@ namespace QtoRevitPlugin.Parsers
             }
 
             var header = rows[0];
-            var map = BuildColumnMap(header);
+            // Mapping euristico centralizzato in ColumnMapping (condiviso con ExcelParser).
+            var map = ColumnMapping.FromHeader(header);
 
             // Validazione colonne obbligatorie: interrompe con warning, items vuoto.
             if (map.Code < 0)
@@ -414,118 +415,11 @@ namespace QtoRevitPlugin.Parsers
             return row[index] ?? string.Empty;
         }
 
-        /// <summary>
-        /// Mappa heuristica header → indici colonna. -1 se colonna non trovata.
-        /// Match case-insensitive, "contains" sul nome normalizzato.
-        /// </summary>
-        private static ColumnMap BuildColumnMap(List<string> header)
-        {
-            var map = new ColumnMap();
-            var normalized = header.Select(h => NormalizeHeader(h)).ToList();
-
-            map.Code = FindColumn(normalized,
-                exact: new[] { "codice", "code" },
-                contains: new[] { "codice", "code", "cod" });
-
-            map.Description = FindColumn(normalized,
-                exact: new[] { "descrizione completa", "descrizione", "description" },
-                contains: new[] { "descrizione completa", "descrizione", "description", "desc" },
-                exclude: new[] { "breve", "short", "abbreviaz" });
-
-            map.ShortDesc = FindColumn(normalized,
-                exact: new[] { "descrizione breve", "descr.breve", "shortdesc", "abbreviazione" },
-                contains: new[] { "descrizione breve", "descr.breve", "descr breve", "shortdesc", "short desc", "abbreviaz" });
-
-            map.Unit = FindColumn(normalized,
-                exact: new[] { "u.m.", "um", "unit", "unità", "unita", "unità di misura", "unita di misura" },
-                contains: new[] { "unità di misura", "unita di misura", "u.m.", "unità", "unita", "unit", "um" });
-
-            map.Price = FindColumn(normalized,
-                exact: new[] { "prezzo unitario", "prezzo", "price", "importo" },
-                contains: new[] { "prezzo unitario", "prezzo", "price", "importo" });
-
-            map.Chapter = FindColumn(normalized,
-                exact: new[] { "capitolo", "chapter" },
-                contains: new[] { "capitolo", "chapter" },
-                exclude: new[] { "super", "sotto", "sub" });
-
-            map.SuperChapter = FindColumn(normalized,
-                exact: new[] { "super capitolo", "supercapitolo", "categoria" },
-                contains: new[] { "super capitolo", "supercapitolo", "categoria" });
-
-            map.SubChapter = FindColumn(normalized,
-                exact: new[] { "sottocapitolo", "sotto capitolo", "subcapitolo" },
-                contains: new[] { "sottocapitolo", "sotto capitolo", "subcapitolo", "sub capitolo" });
-
-            return map;
-        }
-
-        private static string NormalizeHeader(string raw)
-        {
-            if (string.IsNullOrEmpty(raw)) return string.Empty;
-            return raw.Trim().ToLower(CultureInfo.InvariantCulture);
-        }
-
-        /// <summary>
-        /// Cerca indice colonna: prima per match esatto (ordine priorità), poi "contains".
-        /// <paramref name="exclude"/> esclude header che contengono quei token (evita match ambigui).
-        /// </summary>
-        private static int FindColumn(
-            List<string> normalizedHeaders,
-            string[] exact,
-            string[] contains,
-            string[]? exclude = null)
-        {
-            // Pass 1: match esatto in ordine di priorità.
-            foreach (var key in exact)
-            {
-                for (var i = 0; i < normalizedHeaders.Count; i++)
-                {
-                    var h = normalizedHeaders[i];
-                    if (h == key && !IsExcluded(h, exclude))
-                        return i;
-                }
-            }
-
-            // Pass 2: contains in ordine di priorità.
-            foreach (var key in contains)
-            {
-                for (var i = 0; i < normalizedHeaders.Count; i++)
-                {
-                    var h = normalizedHeaders[i];
-                    if (h.Contains(key) && !IsExcluded(h, exclude))
-                        return i;
-                }
-            }
-
-            return -1;
-        }
-
-        private static bool IsExcluded(string header, string[]? exclude)
-        {
-            if (exclude == null) return false;
-            foreach (var token in exclude)
-                if (header.Contains(token)) return true;
-            return false;
-        }
-
         private enum CsvState
         {
             InField,
             InQuotedField,
             AfterClosingQuote
-        }
-
-        private class ColumnMap
-        {
-            public int Code { get; set; } = -1;
-            public int Description { get; set; } = -1;
-            public int ShortDesc { get; set; } = -1;
-            public int Unit { get; set; } = -1;
-            public int Price { get; set; } = -1;
-            public int Chapter { get; set; } = -1;
-            public int SuperChapter { get; set; } = -1;
-            public int SubChapter { get; set; } = -1;
         }
     }
 }

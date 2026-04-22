@@ -34,10 +34,13 @@ namespace QtoRevitPlugin.Extraction
         public const string HeightVariableName = "Height";
 
         /// <summary>
-        /// Nome del Shared Parameter custom per l'altezza utile del Room (gestito in SetupView Sprint 3).
-        /// Si assume definito come Length con display unit metri; il SP è bindato su OST_Rooms.
+        /// Nome del Shared Parameter custom per l'altezza utile del Room.
+        /// Alias verso <see cref="QtoConstants.SpQtoAltezzaLocale"/> — single source of truth:
+        /// la definizione vive in <c>QtoParameterDefinitions.QtoAltezzaLocale</c> ed è creata
+        /// dal <c>SharedParameterManager</c> a setup. Si assume definito come Length con display
+        /// unit metri; il SP è bindato su OST_Rooms + OST_MEPSpaces.
         /// </summary>
-        public const string AltezzaSharedParamName = "QTO_AltezzaLocale";
+        public const string AltezzaSharedParamName = QtoConstants.SpQtoAltezzaLocale;
 
         /// <summary>Altezza di default se il Shared Param non è presente sul Room (2.70 m — standard residenziale).</summary>
         public const double DefaultRoomHeightMeters = 2.70;
