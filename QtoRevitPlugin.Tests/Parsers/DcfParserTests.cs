@@ -312,6 +312,29 @@ Con qualsiasi mezzo.]]></EASY:livello2>
                 .Which.Description.Should().Contain("Livello 3 text").And.Contain("Livello 4 text");
         }
 
+        // -----------------------------------------------------------------
+        // Detection binario ACCA PriMus (AAMVHFSS magic)
+        // -----------------------------------------------------------------
+
+        [Fact]
+        public void Parse_AccaBinaryFormat_DetectedEarlyWithSpecificWarning()
+        {
+            // Magic bytes ACCA PriMus + qualche byte random
+            var binary = new byte[]
+            {
+                (byte)'A', (byte)'A', (byte)'M', (byte)'V',
+                (byte)'H', (byte)'F', (byte)'S', (byte)'S',
+                0xFE, 0xFF, 0xFF, 0x00, 0x12, 0x34, 0x56, 0x78
+            };
+            using var stream = new MemoryStream(binary);
+
+            var result = new DcfParser().Parse(stream, "binario-primus");
+
+            result.Items.Should().BeEmpty();
+            result.Warnings.Should().ContainSingle()
+                .Which.Should().Contain("BINARIO").And.Contain("PriMus").And.Contain("XML");
+        }
+
         [Fact]
         public void Parse_EasyToscanaFormat_OnlyLivello4_UsedAsShortDesc()
         {

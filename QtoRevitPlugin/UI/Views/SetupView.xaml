@@ -140,30 +140,141 @@
                     </Border>
                 </Grid>
 
-                <!-- DataGrid risultati -->
-                <DataGrid Grid.Row="2" x:Name="GridResults"
-                          Margin="0,8,0,0"
-                          ItemsSource="{Binding SearchResults}"
-                          AutoGenerateColumns="False"
-                          CanUserAddRows="False"
-                          CanUserDeleteRows="False"
-                          CanUserResizeRows="False"
-                          HeadersVisibility="Column"
-                          GridLinesVisibility="Horizontal"
-                          RowHeight="24"
-                          FontSize="11"
-                          Background="White"
-                          BorderThickness="1"
-                          BorderBrush="{DynamicResource EdgeLightBrush}"
-                          IsReadOnly="True">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="Codice"      Binding="{Binding Code}"              Width="130" FontFamily="Consolas" />
-                        <DataGridTextColumn Header="Descrizione" Binding="{Binding ShortDescTrimmed}"  Width="*" />
-                        <DataGridTextColumn Header="U.M."        Binding="{Binding Unit}"              Width="50" />
-                        <DataGridTextColumn Header="Prezzo"      Binding="{Binding UnitPriceFormatted}" Width="80" />
-                        <DataGridTextColumn Header="Listino"     Binding="{Binding ListName}"          Width="100" FontSize="10" />
-                    </DataGrid.Columns>
-                </DataGrid>
+                <!-- Split verticale: DataGrid risultati (top) + detail panel (bottom) -->
+                <Grid Grid.Row="2" Margin="0,8,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="2*" MinHeight="100" />
+                        <RowDefinition Height="3" />
+                        <RowDefinition Height="*" MinHeight="100" />
+                    </Grid.RowDefinitions>
+
+                    <!-- DataGrid risultati -->
+                    <DataGrid Grid.Row="0" x:Name="GridResults"
+                              ItemsSource="{Binding SearchResults}"
+                              SelectedItem="{Binding SelectedSearchResult, Mode=TwoWay}"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              CanUserResizeRows="False"
+                              HeadersVisibility="Column"
+                              GridLinesVisibility="Horizontal"
+                              RowHeight="24"
+                              FontSize="11"
+                              Background="White"
+                              BorderThickness="1"
+                              BorderBrush="{DynamicResource EdgeLightBrush}"
+                              IsReadOnly="True">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Codice"      Binding="{Binding Code}"              Width="130" FontFamily="Consolas" />
+                            <DataGridTextColumn Header="Descrizione" Binding="{Binding ShortDescTrimmed}"  Width="*" />
+                            <DataGridTextColumn Header="U.M."        Binding="{Binding Unit}"              Width="50" />
+                            <DataGridTextColumn Header="Prezzo"      Binding="{Binding UnitPriceFormatted}" Width="80" />
+                            <DataGridTextColumn Header="Listino"     Binding="{Binding ListName}"          Width="100" FontSize="10" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <!-- Splitter per ridimensionare -->
+                    <GridSplitter Grid.Row="1"
+                                  Height="3"
+                                  HorizontalAlignment="Stretch"
+                                  VerticalAlignment="Center"
+                                  Background="{DynamicResource EdgeLightBrush}"
+                                  ShowsPreview="False"
+                                  Cursor="SizeNS" />
+
+                    <!-- Detail panel: descrizione estesa della riga selezionata -->
+                    <Border Grid.Row="2"
+                            Background="{DynamicResource PanelSubBrush}"
+                            BorderBrush="{DynamicResource EdgeLightBrush}"
+                            BorderThickness="1"
+                            DataContext="{Binding SelectedSearchResult}">
+                        <Grid>
+                            <!-- Placeholder quando niente è selezionato -->
+                            <TextBlock x:Name="DetailPlaceholder"
+                                       Text="Seleziona una voce per vedere la descrizione estesa"
+                                       FontSize="11" FontStyle="Italic"
+                                       Foreground="{DynamicResource InkMutedBrush}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <!-- Contenuto detail: codice + gerarchia + descrizione full -->
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="10,8">
+                                <ScrollViewer.Style>
+                                    <Style TargetType="ScrollViewer">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ScrollViewer.Style>
+                                <StackPanel>
+                                    <!-- Header: codice + listino + prezzo -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding Code}"
+                                                   FontFamily="Consolas" FontSize="12" FontWeight="Bold"
+                                                   Foreground="{DynamicResource BrandAccentDeepBrush}" />
+                                        <TextBlock Grid.Column="1" Margin="10,0,10,0"
+                                                   Text="{Binding ListName}"
+                                                   FontSize="10"
+                                                   Foreground="{DynamicResource InkMutedBrush}"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="2"
+                                                   Text="{Binding UnitPriceFormatted}"
+                                                   FontFamily="{DynamicResource FontMono}" FontSize="12"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource BrandAccentDeepBrush}" />
+                                    </Grid>
+
+                                    <!-- Gerarchia breadcrumb -->
+                                    <TextBlock Text="{Binding HierarchyPath}"
+                                               Margin="0,4,0,0"
+                                               FontSize="10"
+                                               Foreground="{DynamicResource InkMutedBrush}"
+                                               TextWrapping="Wrap" />
+
+                                    <!-- Separatore sottile -->
+                                    <Border Height="1" Margin="0,6,0,6"
+                                            Background="{DynamicResource EdgeLightBrush}" />
+
+                                    <!-- Descrizione full -->
+                                    <TextBlock Text="{Binding Description}"
+                                               FontSize="11"
+                                               LineHeight="16"
+                                               Foreground="{DynamicResource InkDefaultBrush}"
+                                               TextWrapping="Wrap" />
+
+                                    <!-- UM inline -->
+                                    <Border Margin="0,8,0,0" Padding="6,2"
+                                            HorizontalAlignment="Left"
+                                            Background="{DynamicResource BrandAccentSoftBrush}"
+                                            CornerRadius="2">
+                                        <TextBlock Text="{Binding Unit, StringFormat='U.M.: {0}'}"
+                                                   FontSize="10" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource BrandAccentDeepBrush}" />
+                                    </Border>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
+                </Grid>
 
                 <!-- Stato ricerca -->
                 <TextBlock Grid.Row="3" Margin="0,6,0,0"

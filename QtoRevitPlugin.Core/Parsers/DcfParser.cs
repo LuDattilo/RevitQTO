@@ -93,6 +93,17 @@ namespace QtoRevitPlugin.Parsers
                 }
             };
 
+            // Check precoce: formato binario proprietario ACCA PriMus (magic AAMVHFSS).
+            // Il plugin legge solo XML — serve export esplicito da PriMus.
+            if (IsAccaBinaryFormat(stream))
+            {
+                result.Warnings.Add(
+                    "File in formato BINARIO proprietario ACCA PriMus (non XML). " +
+                    "Per importarlo esporta da PriMus come XML: File → Esporta → DCF XML o XPWE. " +
+                    "In alternativa scarica il listino in formato Excel (.xlsx) o CSV dal sito del committente.");
+                return result;
+            }
+
             XDocument xdoc;
             try
             {
@@ -198,6 +209,35 @@ namespace QtoRevitPlugin.Parsers
         // ---------------------------------------------------------------------
         // Helpers
         // ---------------------------------------------------------------------
+
+        /// <summary>
+        /// Rileva il formato binario nativo ACCA PriMus controllando la magic "AAMVHFSS"
+        /// nei primi 8 byte dello stream. Ripristina la posizione dopo il peek.
+        /// Se lo stream non è seekable, ritorna false (non invasivo: tenterà parsing XML e
+        /// fallirà con warning generico in ogni caso).
+        /// </summary>
+        private static bool IsAccaBinaryFormat(Stream stream)
+        {
+            if (!stream.CanSeek) return false;
+
+            var pos = stream.Position;
+            var buffer = new byte[8];
+            int read;
+            try
+            {
+                read = stream.Read(buffer, 0, 8);
+            }
+            finally
+            {
+                try { stream.Position = pos; } catch { /* stream may be one-shot */ }
+            }
+
+            if (read < 8) return false;
+            return buffer[0] == 'A' && buffer[1] == 'A' &&
+                   buffer[2] == 'M' && buffer[3] == 'V' &&
+                   buffer[4] == 'H' && buffer[5] == 'F' &&
+                   buffer[6] == 'S' && buffer[7] == 'S';
+        }
 
         /// <summary>
         /// Mappa un'estensione file al valore di <see cref="PriceList.Source"/>.

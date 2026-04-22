@@ -57,7 +57,18 @@ namespace QtoRevitPlugin.UI.Views
                 Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
                 var result = _vm.ImportFromFile(dlg.FileName);
 
-                if (result != null && result.Warnings.Count > 0)
+                if (result == null) return;
+
+                if (result.Items.Count == 0)
+                {
+                    // Fallimento totale: spiega all'utente cosa è successo
+                    var detail = result.Warnings.Count > 0
+                        ? string.Join("\n\n", result.Warnings.Take(3))
+                        : "Il file non contiene voci EP leggibili o è in un formato non riconosciuto.";
+                    TaskDialog.Show("CME – Import non completato",
+                        $"Nessuna voce importata da «{System.IO.Path.GetFileName(dlg.FileName)}».\n\n{detail}");
+                }
+                else if (result.Warnings.Count > 0)
                 {
                     var preview = string.Join("\n", result.Warnings.Take(5));
                     var suffix = result.Warnings.Count > 5 ? $"\n\n(+ altre {result.Warnings.Count - 5} warning)" : "";

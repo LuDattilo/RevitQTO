@@ -41,6 +41,7 @@ namespace QtoRevitPlugin.UI.ViewModels
         [ObservableProperty] private bool _isBusy;
         [ObservableProperty] private string _lastSearchLevel = "";
         [ObservableProperty] private PriceListRow? _selectedPriceList;
+        [ObservableProperty] private PriceItemRow? _selectedSearchResult;
 
         public bool HasSessionActive => QtoApplication.Instance?.SessionManager?.HasActiveSession ?? false;
 
@@ -253,19 +254,26 @@ namespace QtoRevitPlugin.UI.ViewModels
         public PriceItemRow(PriceItem item)
         {
             Code = item.Code;
+            SuperChapter = item.SuperChapter;
+            Chapter = item.Chapter;
+            SubChapter = item.SubChapter;
             ShortDesc = !string.IsNullOrWhiteSpace(item.ShortDesc) ? item.ShortDesc : item.Description;
+            Description = item.Description;
             Unit = item.Unit;
             UnitPrice = item.UnitPrice;
             ListName = item.ListName;
-            Chapter = item.Chapter;
         }
 
         public string Code { get; }
+        public string SuperChapter { get; }
+        public string Chapter { get; }
+        public string SubChapter { get; }
         public string ShortDesc { get; }
+        /// <summary>Description completa multi-line (es. livello3 + livello4 concatenati in EASY Toscana).</summary>
+        public string Description { get; }
         public string Unit { get; }
         public double UnitPrice { get; }
         public string ListName { get; }
-        public string Chapter { get; }
 
         public string ShortDescTrimmed =>
             string.IsNullOrEmpty(ShortDesc) ? "" :
@@ -273,5 +281,18 @@ namespace QtoRevitPlugin.UI.ViewModels
             ShortDesc.Replace('\n', ' ');
 
         public string UnitPriceFormatted => UnitPrice > 0 ? $"€ {UnitPrice:N2}" : "—";
+
+        /// <summary>Path gerarchico visualizzabile nel detail panel (Super &gt; Chapter &gt; Sub).</summary>
+        public string HierarchyPath
+        {
+            get
+            {
+                var parts = new System.Collections.Generic.List<string>(3);
+                if (!string.IsNullOrWhiteSpace(SuperChapter)) parts.Add(SuperChapter);
+                if (!string.IsNullOrWhiteSpace(Chapter)) parts.Add(Chapter);
+                if (!string.IsNullOrWhiteSpace(SubChapter)) parts.Add(SubChapter);
+                return string.Join("  ›  ", parts);
+            }
+        }
     }
 }
