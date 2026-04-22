@@ -32,24 +32,26 @@ namespace QtoRevitPlugin.UI.Views
 
         private void OnImportClick(object sender, RoutedEventArgs e)
         {
+            // UserLibrary è sempre disponibile dopo OnStartup — nessun pre-requisito di computo aperto
             if (!_vm.HasSessionActive)
             {
                 TaskDialog.Show("CME – Setup",
-                    "Apri un computo .cme dal menu «Sessione ▾» prima di importare listini.");
+                    "UserLibrary non inizializzata. Riavvia Revit.");
                 return;
             }
 
-            // Filtri: solo formati effettivamente importabili.
-            // Il .dcf binario nativo ACCA PriMus NON è leggibile (formato proprietario) —
-            // se l'utente ha solo .dcf deve esportare da PriMus come .xpwe o .xml.
-            // Il parser accetta comunque .dcf per l'edge case di .dcf con contenuto XML,
-            // ma non lo pubblicizziamo nel dialog per evitare confusione.
+            // Priorità formati (spec):
+            //   1. XML (prezzari regionali open data, es. Regione Toscana EASY schema)
+            //   2. XPWE (DEI, PriMus-net interscambio tra software professionali)
+            //   3. Excel/CSV (import universale da qualsiasi fonte)
+            //   ❌ DCF binario ACCA proprietario: NON supportato. Warning guidato nel parser.
             var dlg = new OpenFileDialog
             {
                 Title = "Importa listino prezzi",
                 Filter = "Listini supportati (*.xml;*.xpwe;*.xlsx;*.xlsm;*.csv;*.tsv;*.txt)|" +
                          "*.xml;*.xpwe;*.xlsx;*.xlsm;*.csv;*.tsv;*.txt|" +
-                         "ACCA PriMus XML (*.xpwe;*.xml)|*.xpwe;*.xml|" +
+                         "XML - Prezzari regionali (*.xml)|*.xml|" +
+                         "XPWE - DEI / PriMus-net (*.xpwe)|*.xpwe|" +
                          "Excel (*.xlsx;*.xlsm)|*.xlsx;*.xlsm|" +
                          "CSV/TSV (*.csv;*.tsv;*.txt)|*.csv;*.tsv;*.txt|" +
                          "Tutti i file (*.*)|*.*",
@@ -103,16 +105,10 @@ namespace QtoRevitPlugin.UI.Views
 
         private void OnBrowseCatalogClick(object sender, RoutedEventArgs e)
         {
-            if (!_vm.HasSessionActive)
-            {
-                TaskDialog.Show("CME – Setup",
-                    "Apri un computo .cme dal menu «Sessione ▾» prima di sfogliare un listino.");
-                return;
-            }
             if (_vm.PriceLists.Count == 0)
             {
                 TaskDialog.Show("CME – Setup",
-                    "Nessun listino caricato. Importane uno con «+ Importa listino…» prima di sfogliare.");
+                    "Nessun listino caricato nella UserLibrary. Importane uno con «+ Importa listino…» prima di sfogliare.");
                 return;
             }
 
@@ -140,11 +136,12 @@ namespace QtoRevitPlugin.UI.Views
                 return;
             }
 
-            var td = new TaskDialog("Elimina listino")
+            var td = new TaskDialog("Elimina listino dalla UserLibrary")
             {
-                MainInstruction = $"Eliminare il listino «{selected.Name}»?",
-                MainContent = $"{selected.RowCount} voci saranno rimosse dal computo corrente.\n" +
-                              "L'operazione non è reversibile ma non tocca il file sorgente.",
+                MainInstruction = $"Eliminare il listino «{selected.Name}» dalla libreria?",
+                MainContent = $"{selected.RowCount} voci saranno rimosse dalla UserLibrary globale.\n" +
+                              "L'operazione riguarda TUTTI i computi futuri e non è reversibile.\n" +
+                              "Il file sorgente non viene toccato — potrai re-importarlo.",
                 CommonButtons = TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No,
                 DefaultButton = TaskDialogResult.No
             };

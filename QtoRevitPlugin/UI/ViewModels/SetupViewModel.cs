@@ -43,7 +43,11 @@ namespace QtoRevitPlugin.UI.ViewModels
         [ObservableProperty] private PriceListRow? _selectedPriceList;
         [ObservableProperty] private PriceItemRow? _selectedSearchResult;
 
-        public bool HasSessionActive => QtoApplication.Instance?.SessionManager?.HasActiveSession ?? false;
+        /// <summary>
+        /// True quando c'è una UserLibrary disponibile (sempre true se il plugin è avviato correttamente).
+        /// Mantenuto per UX check in altri punti della UI.
+        /// </summary>
+        public bool HasSessionActive => QtoApplication.Instance?.UserLibrary?.Library != null;
 
         // ---------------------------------------------------------------------
         // Ctor
@@ -54,17 +58,11 @@ namespace QtoRevitPlugin.UI.ViewModels
             _searchDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
             _searchDebounce.Tick += OnSearchDebounceTick;
 
-            // Aggiorna quando la sessione cambia (nuovo computo = listini diversi)
-            if (QtoApplication.Instance?.SessionManager != null)
-            {
-                QtoApplication.Instance.SessionManager.SessionChanged += (_, _) => RefreshPriceLists();
-            }
-
             RefreshPriceLists();
         }
 
         // ---------------------------------------------------------------------
-        // Listini
+        // Listini (da UserLibrary globale — persistenti tra sessioni)
         // ---------------------------------------------------------------------
 
         public void RefreshPriceLists()
@@ -73,7 +71,7 @@ namespace QtoRevitPlugin.UI.ViewModels
             var repo = GetActiveRepo();
             if (repo == null)
             {
-                StatusMessage = "Nessun computo aperto — apri un file .cme per gestire i listini";
+                StatusMessage = "UserLibrary non inizializzata — riavvia Revit";
                 return;
             }
 
@@ -86,22 +84,22 @@ namespace QtoRevitPlugin.UI.ViewModels
                 }
 
                 StatusMessage = lists.Count == 0
-                    ? "Nessun listino caricato — clicca «Importa listino…»"
-                    : $"{lists.Count} listino(i) · {lists.Sum(l => l.RowCount)} voci totali";
+                    ? "Libreria vuota — clicca «+ Importa listino…» per aggiungerne uno (persistente)"
+                    : $"{lists.Count} listino(i) in libreria · {lists.Sum(l => l.RowCount)} voci totali · persistenti tra computi";
 
                 // Reset search service cache
                 _searchService = new PriceItemSearchService(repo);
             }
             catch (Exception ex)
             {
-                StatusMessage = $"Errore lettura listini: {ex.Message}";
+                StatusMessage = $"Errore lettura libreria: {ex.Message}";
             }
         }
 
         public PriceListImportResult? ImportFromFile(string filePath)
         {
             var repo = GetActiveRepo();
-            if (repo == null) throw new InvalidOperationException("Nessun computo attivo.");
+            if (repo == null) throw new InvalidOperationException("UserLibrary non inizializzata.");
 
             var parser = FindParserFor(filePath);
             if (parser == null)
@@ -207,7 +205,9 @@ namespace QtoRevitPlugin.UI.ViewModels
 
         private static QtoRepository? GetActiveRepo()
         {
-            return QtoApplication.Instance?.SessionManager?.Repository;
+            // Listini sono nella UserLibrary globale (persistenti), NON nel .cme.
+            // Così l'import del listino è one-time: disponibile per ogni computo futuro.
+            return QtoApplication.Instance?.UserLibrary?.Library;
         }
 
         private static IPriceListParser? FindParserFor(string filePath)

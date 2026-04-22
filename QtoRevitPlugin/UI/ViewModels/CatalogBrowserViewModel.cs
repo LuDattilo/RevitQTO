@@ -35,10 +35,11 @@ namespace QtoRevitPlugin.UI.ViewModels
         public void LoadAvailableLists()
         {
             AvailableLists.Clear();
-            var repo = QtoApplication.Instance?.SessionManager?.Repository;
+            // Listini sono nella UserLibrary globale, non nel .cme
+            var repo = QtoApplication.Instance?.UserLibrary?.Library;
             if (repo == null)
             {
-                StatusMessage = "Nessun computo aperto.";
+                StatusMessage = "UserLibrary non inizializzata — riavvia Revit.";
                 return;
             }
 
@@ -67,7 +68,7 @@ namespace QtoRevitPlugin.UI.ViewModels
         private void BuildTreeForList(int listId)
         {
             Tree.Clear();
-            var repo = QtoApplication.Instance?.SessionManager?.Repository;
+            var repo = QtoApplication.Instance?.UserLibrary?.Library;
             if (repo == null) return;
 
             IsLoading = true;

@@ -31,6 +31,12 @@ namespace QtoRevitPlugin.Application
         public DockablePaneViewModel PaneViewModel { get; private set; } = null!;
         public UIApplication? CurrentUiApp { get; set; }
 
+        /// <summary>
+        /// Libreria globale dei listini — persistita in %AppData%\QtoPlugin\UserLibrary.db,
+        /// condivisa da tutti i computi .cme aperti da questo utente.
+        /// </summary>
+        public UserLibraryManager UserLibrary { get; private set; } = null!;
+
         // One-shot: al primo Idling catturiamo l'UIApplication.
         // Non tentiamo Hide/Show sul pane: quella è gestita da Revit via UIState.dat.
         private UIControlledApplication? _appForIdling;
@@ -50,6 +56,10 @@ namespace QtoRevitPlugin.Application
 
                 CrashLogger.Info("→ Loading QtoTheme into Application.Current.Resources");
                 LoadThemeIntoApplicationResources();
+
+                CrashLogger.Info("→ UserLibraryManager (listini globali)");
+                UserLibrary = new UserLibraryManager();
+                CrashLogger.Info($"   UserLibrary path: {UserLibrary.LibraryPath}");
 
                 CrashLogger.Info("→ SessionManager + AutoSave + PaneVM");
                 SessionManager = new SessionManager();
@@ -121,6 +131,7 @@ namespace QtoRevitPlugin.Application
 
             AutoSave?.Dispose();
             SessionManager?.Dispose();
+            UserLibrary?.Dispose();
             return Result.Succeeded;
         }
 

@@ -40,7 +40,7 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0"
-                               Text="LISTINI PREZZI CARICATI"
+                               Text="LISTINI IN LIBRERIA (PERSISTENTI · CONDIVISI TRA COMPUTI)"
                                Style="{DynamicResource SectionLabelStyle}"
                                VerticalAlignment="Center" />
                     <StackPanel Grid.Column="1" Orientation="Horizontal">
