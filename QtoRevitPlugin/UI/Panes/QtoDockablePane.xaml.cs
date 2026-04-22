@@ -353,6 +353,16 @@ namespace QtoRevitPlugin.UI.Panes
             sessionMgr.CloseSession();
         }
 
+        // ---- IMPOSTAZIONI ---------------------------------------------------
+
+        private void OnSettings(object sender, RoutedEventArgs e)
+        {
+            var dlg = new SettingsDialog();
+            new System.Windows.Interop.WindowInteropHelper(dlg).Owner =
+                System.Diagnostics.Process.GetCurrentProcess().MainWindowHandle;
+            dlg.ShowDialog();
+        }
+
         // ---- ELIMINA --------------------------------------------------------
 
         private void OnDelete(object sender, RoutedEventArgs e)

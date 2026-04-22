@@ -78,6 +78,8 @@
                                 <MenuItem x:Name="MiClose" Header="Chiudi computo" Click="OnClose" />
                                 <Separator />
                                 <MenuItem x:Name="MiDelete" Header="Elimina…" Click="OnDelete" />
+                                <Separator />
+                                <MenuItem x:Name="MiSettings" Header="Impostazioni…" Click="OnSettings" />
                             </ContextMenu>
                         </Button.ContextMenu>
                     </Button>
