@@ -132,6 +132,32 @@ namespace QtoRevitPlugin.Services
             _repository!.UpdateSession(_activeSession);
         }
 
+        /// <summary>Rinomina la sessione attiva e salva.</summary>
+        public void RenameActiveSession(string newName)
+        {
+            if (_activeSession == null) throw new InvalidOperationException("Nessuna sessione attiva.");
+            _activeSession.SessionName = newName;
+            _activeSession.LastSavedAt = DateTime.UtcNow;
+            _repository!.UpdateSession(_activeSession);
+            SessionChanged?.Invoke(this,
+                new SessionChangedEventArgs(_activeSession, SessionChangeKind.Renamed));
+        }
+
+        /// <summary>Elimina una sessione dal DB (hard-delete, cascade su dati collegati).</summary>
+        public int DeleteSession(int sessionId)
+        {
+            EnsureRepository();
+            int deleted = _repository!.DeleteSession(sessionId);
+            if (_activeSession?.Id == sessionId)
+            {
+                var closed = _activeSession;
+                _activeSession = null;
+                SessionChanged?.Invoke(this,
+                    new SessionChangedEventArgs(closed, SessionChangeKind.Deleted));
+            }
+            return deleted;
+        }
+
         // =====================================================================
         // Helpers
         // =====================================================================
@@ -181,7 +207,9 @@ namespace QtoRevitPlugin.Services
         Created,
         Resumed,
         Forked,
-        Closed
+        Renamed,
+        Closed,
+        Deleted
     }
 
     public class SessionChangedEventArgs : EventArgs

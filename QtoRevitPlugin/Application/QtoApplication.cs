@@ -22,6 +22,10 @@ namespace QtoRevitPlugin.Application
         /// <summary>ViewModel radice del DockablePane, persistente per tutta la sessione Revit.</summary>
         public DockablePaneViewModel PaneViewModel { get; private set; } = null!;
 
+        /// <summary>UIApplication catturata all'ultimo click di "Avvia QTO". Usata dai
+        /// ContextMenu handler del pane che non hanno accesso diretto a commandData.</summary>
+        public UIApplication? CurrentUiApp { get; set; }
+
         /// <summary>
         /// Flag diagnostico: se true, salta la registrazione del DockablePane.
         /// Controlla via env var QTO_DISABLE_PANE=1. Usato per isolare crash.
@@ -79,8 +83,14 @@ namespace QtoRevitPlugin.Application
                     var provider = new QtoDockablePaneProvider(pane);
                     application.RegisterDockablePane(
                         QtoDockablePaneProvider.PaneId,
-                        "QTO Plugin",
+                        "CME – Computo Metrico Estimativo",
                         provider);
+
+                    // Revit persiste lo stato visible/hidden del pane tra sessioni.
+                    // Forziamo Hide() al primo Idling per garantire che il pane
+                    // sia nascosto all'avvio. L'utente lo apre con "Avvia QTO".
+                    _revitApp = application;
+                    application.Idling += HidePaneOnFirstIdle;
                 }
 
                 CrashLogger.Info("→ CreateRibbon");
@@ -91,7 +101,7 @@ namespace QtoRevitPlugin.Application
             catch (Exception ex)
             {
                 CrashLogger.WriteException("OnStartup", ex);
-                TaskDialog.Show("QTO Plugin – Errore avvio",
+                TaskDialog.Show("CME – Errore avvio",
                     $"{ex.GetType().Name}: {ex.Message}\n\nLog: %AppData%\\QtoPlugin\\startup.log");
                 return Result.Failed;
             }
@@ -105,6 +115,37 @@ namespace QtoRevitPlugin.Application
             AutoSave?.Dispose();
             SessionManager?.Dispose();
             return Result.Succeeded;
+        }
+
+        private static UIControlledApplication? _revitApp;
+
+        /// <summary>
+        /// Al primo Idling event dopo il boot, nasconde il DockablePane se Revit lo
+        /// aveva persisto come visibile. Unsubscribe subito per non pesare (high-frequency).
+        /// </summary>
+        private static void HidePaneOnFirstIdle(object? sender, Autodesk.Revit.UI.Events.IdlingEventArgs e)
+        {
+            // Unsubscribe immediato (oneshot)
+            if (_revitApp != null)
+            {
+                _revitApp.Idling -= HidePaneOnFirstIdle;
+                _revitApp = null;
+            }
+
+            try
+            {
+                if (sender is not UIApplication uiApp) return;
+                var pane = uiApp.GetDockablePane(QtoDockablePaneProvider.PaneId);
+                if (pane != null && pane.IsShown())
+                {
+                    pane.Hide();
+                    CrashLogger.Info("DockablePane nascosto al primo Idling (Revit lo aveva persistito come visibile)");
+                }
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.WriteException("HidePaneOnFirstIdle", ex);
+            }
         }
 
         /// <summary>
@@ -144,7 +185,7 @@ namespace QtoRevitPlugin.Application
 
         private static void CreateRibbon(UIControlledApplication application)
         {
-            const string tabName = "QTO";
+            const string tabName = "CME";
 
             try
             {
@@ -174,18 +215,18 @@ namespace QtoRevitPlugin.Application
             try
             {
                 var launchButton = new PushButtonData(
-                    "LaunchQto",
-                    "Avvia QTO",
+                    "LaunchCme",
+                    "Avvia CME",
                     assemblyPath,
                     "QtoRevitPlugin.Commands.LaunchQtoCommand")
                 {
-                    ToolTip = "Apre il pannello QTO",
+                    ToolTip = "Apre il pannello CME – Computo Metrico Estimativo",
                     LargeImage = IconFactory.CreateLaunchIcon(32),
                     Image = IconFactory.CreateLaunchIcon(16)
                 };
 
                 panel.AddItem(launchButton);
-                CrashLogger.Info("  PushButton LaunchQto aggiunto");
+                CrashLogger.Info("  PushButton LaunchCme aggiunto");
             }
             catch (Exception ex)
             {
