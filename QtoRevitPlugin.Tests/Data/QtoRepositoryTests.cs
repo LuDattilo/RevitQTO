@@ -27,9 +27,10 @@ namespace QtoRevitPlugin.Tests.Data
         [Fact]
         public void NewDatabase_HasCurrentSchemaVersion()
         {
+            // v4 introdotta in Sprint 6 con ChangeLog + ElementSnapshots + audit fields
             // v3 introdotta in Sprint 4 con PriceLists.PublicId (GUID portabile per snapshot .rvt)
             // v2 introdotta in Sprint 2 con PriceItems_FTS
-            _repo.GetSchemaVersion().Should().Be(3);
+            _repo.GetSchemaVersion().Should().Be(4);
         }
 
         [Fact]
