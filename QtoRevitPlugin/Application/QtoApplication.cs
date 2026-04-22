@@ -1,4 +1,5 @@
 using Autodesk.Revit.UI;
+using RevitAsync = Revit.Async;
 using System;
 using System.Reflection;
 
@@ -14,6 +15,10 @@ namespace QtoRevitPlugin.Application
 
             try
             {
+                // Inizializza il wrapper async per ExternalEvent — richiesto una sola volta in OnStartup.
+                // Permette a ViewModel di chiamare: await RevitTask.RunAsync(app => { ... })
+                RevitAsync.RevitTask.Initialize(application);
+
                 CreateRibbon(application);
             }
             catch (Exception ex)

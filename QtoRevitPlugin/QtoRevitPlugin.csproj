@@ -54,6 +54,12 @@
   <!-- NuGet packages Sprint 0 -->
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.*" />
+    <!--
+      Revit.Async: wrapper async/await su IExternalEventHandler.
+      Golden rule: il ViewModel non chiama mai Revit API. Tutte le scritture passano da
+      RevitTask.RunAsync(app => { ... }) che gira sul thread Revit dentro un modal context.
+    -->
+    <PackageReference Include="Revit.Async" Version="2.*" />
   </ItemGroup>
 
   <!-- NuGet packages Sprint 1–2 (commentati finché non servono) -->
