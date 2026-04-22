@@ -34,6 +34,12 @@ namespace QtoRevitPlugin.Models
         public DateTime AssignedAt { get; set; } = DateTime.UtcNow;
         public DateTime? ModifiedAt { get; set; }
 
+        public string CreatedBy { get; set; } = "";
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public string? ModifiedBy { get; set; }
+        public int Version { get; set; } = 1;
+        public AssignmentStatus AuditStatus { get; set; } = AssignmentStatus.Active;
+
         public bool IsDeleted { get; set; }
         public bool IsExcluded { get; set; }
         public string ExclusionReason { get; set; } = string.Empty;

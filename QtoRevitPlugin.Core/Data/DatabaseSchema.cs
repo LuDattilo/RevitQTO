@@ -14,10 +14,12 @@ namespace QtoRevitPlugin.Data
     /// </summary>
     internal static class DatabaseSchema
     {
+        // v4 (Sprint 6): ChangeLog + ElementSnapshots + colonne audit su QtoAssignments
+        //                (CreatedBy, CreatedAt, ModifiedBy, Version, AuditStatus).
         // v3 (Sprint 4): aggiunta colonna PriceLists.PublicId GUID per riferimenti portabili
         //                nel DataStorage ES del .rvt (ProjectPriceListSnapshot futuro — Sprint 5).
         // v2 (Sprint 2): aggiunta virtual table PriceItems_FTS per ricerca full-text.
-        public const int CurrentVersion = 3;
+        public const int CurrentVersion = 4;
 
         /// <summary>Ordine di esecuzione degli statement per setup iniziale.</summary>
         public static readonly string[] InitialStatements =
@@ -34,6 +36,8 @@ namespace QtoRevitPlugin.Data
             SelectionRules,
             MeasurementRules,
             ModelDiffLog,
+            ChangeLog,
+            ElementSnapshots,
             EmbeddingCache
         };
 
@@ -259,6 +263,46 @@ CREATE TABLE IF NOT EXISTS ModelDiffLog (
     Resolved         INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS IX_ModelDiffLog_Session ON ModelDiffLog(SessionId);";
+
+        // --- ChangeLog (Sprint 6) -----------------------------------------------
+
+        public const string ChangeLog = @"
+CREATE TABLE IF NOT EXISTS ChangeLog (
+    ChangeId        INTEGER PRIMARY KEY AUTOINCREMENT,
+    SessionId       INTEGER NOT NULL,
+    ElementUniqueId TEXT NOT NULL,
+    PriceItemCode   TEXT NOT NULL,
+    ChangeType      TEXT NOT NULL,
+    OldValueJson    TEXT,
+    NewValueJson    TEXT,
+    UserId          TEXT NOT NULL,
+    Timestamp       TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS IX_ChangeLog_Session ON ChangeLog(SessionId);";
+
+        // --- ElementSnapshots (Sprint 6) ----------------------------------------
+
+        public const string ElementSnapshots = @"
+CREATE TABLE IF NOT EXISTS ElementSnapshots (
+    Id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    SessionId      INTEGER NOT NULL REFERENCES Sessions(Id) ON DELETE CASCADE,
+    ElementId      INTEGER NOT NULL,
+    UniqueId       TEXT NOT NULL,
+    SnapshotHash   TEXT NOT NULL,
+    SnapshotQty    REAL NOT NULL DEFAULT 0,
+    AssignedEPJson TEXT NOT NULL DEFAULT '[]',
+    LastUpdated    TEXT NOT NULL,
+    UNIQUE(SessionId, UniqueId)
+);
+CREATE INDEX IF NOT EXISTS IX_ElementSnapshots_Session ON ElementSnapshots(SessionId);";
+
+        // --- Migration v3 → v4 (Sprint 6) audit columns on QtoAssignments ------
+
+        public const string MigrateV3ToV4_CreatedBy   = "ALTER TABLE QtoAssignments ADD COLUMN CreatedBy TEXT NOT NULL DEFAULT '';";
+        public const string MigrateV3ToV4_CreatedAt   = "ALTER TABLE QtoAssignments ADD COLUMN CreatedAt TEXT NOT NULL DEFAULT '';";
+        public const string MigrateV3ToV4_ModifiedBy  = "ALTER TABLE QtoAssignments ADD COLUMN ModifiedBy TEXT;";
+        public const string MigrateV3ToV4_Version     = "ALTER TABLE QtoAssignments ADD COLUMN Version INTEGER NOT NULL DEFAULT 1;";
+        public const string MigrateV3ToV4_AuditStatus = "ALTER TABLE QtoAssignments ADD COLUMN AuditStatus TEXT NOT NULL DEFAULT 'Active';";
 
         // --- Embedding cache AI (Sprint 10) ------------------------------------
 

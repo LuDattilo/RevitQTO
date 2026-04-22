@@ -76,7 +76,7 @@ namespace QtoRevitPlugin.Data
                 versionCmd.Transaction = tx;
                 versionCmd.CommandText = "INSERT INTO SchemaInfo (Version, Notes) VALUES ($v, $n);";
                 versionCmd.Parameters.AddWithValue("$v", DatabaseSchema.CurrentVersion);
-                versionCmd.Parameters.AddWithValue("$n", "Schema iniziale Sprint 1");
+                versionCmd.Parameters.AddWithValue("$n", "Schema iniziale Sprint 1-6");
                 versionCmd.ExecuteNonQuery();
             }
 
@@ -111,6 +111,23 @@ namespace QtoRevitPlugin.Data
                 alterCmd.ExecuteNonQuery();
             }
 
+            if (dbVersion < 4)
+            {
+                ExecuteStatement(conn, tx, DatabaseSchema.ChangeLog);
+                ExecuteStatement(conn, tx, DatabaseSchema.ElementSnapshots);
+
+                if (!ColumnExists(conn, tx, "QtoAssignments", "CreatedBy"))
+                    ExecuteStatement(conn, tx, DatabaseSchema.MigrateV3ToV4_CreatedBy);
+                if (!ColumnExists(conn, tx, "QtoAssignments", "CreatedAt"))
+                    ExecuteStatement(conn, tx, DatabaseSchema.MigrateV3ToV4_CreatedAt);
+                if (!ColumnExists(conn, tx, "QtoAssignments", "ModifiedBy"))
+                    ExecuteStatement(conn, tx, DatabaseSchema.MigrateV3ToV4_ModifiedBy);
+                if (!ColumnExists(conn, tx, "QtoAssignments", "Version"))
+                    ExecuteStatement(conn, tx, DatabaseSchema.MigrateV3ToV4_Version);
+                if (!ColumnExists(conn, tx, "QtoAssignments", "AuditStatus"))
+                    ExecuteStatement(conn, tx, DatabaseSchema.MigrateV3ToV4_AuditStatus);
+            }
+
             using (var insert = conn.CreateCommand())
             {
                 insert.Transaction = tx;
@@ -121,6 +138,14 @@ namespace QtoRevitPlugin.Data
             }
 
             tx.Commit();
+        }
+
+        private static void ExecuteStatement(SqliteConnection conn, SqliteTransaction tx, string sql)
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = sql;
+            cmd.ExecuteNonQuery();
         }
 
         /// <summary>
