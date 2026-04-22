@@ -28,6 +28,19 @@ packages/
 ## Revit
 *.addin.user
 
+## Dati utente NON committabili (potrebbero contenere info cliente/progetto)
+# File listini / computi PriMus nativi (formato binario proprietario o XML con dati reali):
+# teniamoli SOLO in locale, fuori dal repo.
+*.dcf
+*.xpwe
+*.cme
+*.rvt
+*.rvt.*
+
+# Cartelle locali per test con dati reali (es. listini regionali, computi clienti)
+/samples-local/
+/testdata-local/
+
 ## Jetbrains
 .idea/
 *.sln.iml
