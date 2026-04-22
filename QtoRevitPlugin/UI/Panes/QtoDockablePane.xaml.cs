@@ -131,10 +131,11 @@ namespace QtoRevitPlugin.UI.Panes
 
                 QtoViewKey.Selection => new SelectionView(),
 
-                QtoViewKey.Tagging => new PlaceholderView("Assegnazione EP", item.Reference, item.AvailableInSprint,
-                    "3 sorgenti di quantità: (A) famiglie Revit con multi-EP, " +
-                    "(B) Room/Space con formula NCalc, (C) voci manuali svincolate dal modello. " +
-                    "Scrittura bidirezionale dei parametri CME_Codice / CME_Descrizione / CME_Stato."),
+                // Sprint 4 Task 3: MappingView condivide il tag "Tagging" finché non
+                // creiamo una TaggingView dedicata in Sprint 5. Per ora la MappingView
+                // permette CRUD in-memory di formule Room (Sorgente B) e voci manuali (Sorgente C)
+                // + preview read-only delle famiglie (Sorgente A).
+                QtoViewKey.Tagging => new MappingView(),
 
                 QtoViewKey.QtoViews => new PlaceholderView("Viste CME Dedicate", item.Reference, item.AvailableInSprint,
                     "Vista 3D isometrica CME + piante 2D per livello + 3 Schedule nativi " +

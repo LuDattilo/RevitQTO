@@ -13,14 +13,28 @@
         <!-- ═════════════════════════════════════════════════════════════ -->
         <!-- Titolo view                                                   -->
         <!-- ═════════════════════════════════════════════════════════════ -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="16,14,16,4">
-            <TextBlock Text="Setup" Style="{DynamicResource ViewTitleStyle}" />
-            <TextBlock Text="§ Fase 1"
+        <Grid Grid.Row="0" Margin="16,14,16,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="Setup" Style="{DynamicResource ViewTitleStyle}" />
+            <TextBlock Grid.Column="1" Text="§ Fase 1"
                        VerticalAlignment="Bottom"
                        Foreground="{DynamicResource InkMutedBrush}"
                        FontFamily="{DynamicResource FontMono}" FontSize="10"
                        Margin="8,0,0,12" />
-        </StackPanel>
+            <Button Grid.Column="3" x:Name="BtnPopout" Click="OnPopoutClick"
+                    Content="⤢ Apri in finestra"
+                    Padding="8,3" FontSize="10"
+                    Background="Transparent" Foreground="{DynamicResource InkDimBrush}"
+                    BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1"
+                    Cursor="Hand"
+                    VerticalAlignment="Center"
+                    ToolTip="Apre questa scheda in una finestra separata per workflow multi-monitor" />
+        </Grid>
 
         <!-- ═════════════════════════════════════════════════════════════ -->
         <!-- Listini caricati + toolbar                                    -->

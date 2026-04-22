@@ -98,6 +98,15 @@ namespace QtoRevitPlugin.UI.Views
         // ---------------------------------------------------------------------
 
         // ---------------------------------------------------------------------
+        // Pop-out: apre questa scheda in finestra separata (workflow multi-monitor)
+        // ---------------------------------------------------------------------
+
+        private void OnPopoutClick(object sender, RoutedEventArgs e)
+        {
+            PopoutWindow.Popout(new SetupView(), "CME · Setup");
+        }
+
+        // ---------------------------------------------------------------------
         // Sfoglia listino — apre Window standalone con TreeView gerarchico
         // ---------------------------------------------------------------------
 

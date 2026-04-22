@@ -44,6 +44,12 @@ namespace QtoRevitPlugin.UI.Views
             }
         }
 
+        /// <summary>Apre la scheda in finestra separata (workflow multi-monitor).</summary>
+        private void OnPopoutClick(object sender, RoutedEventArgs e)
+        {
+            PopoutWindow.Popout(new PhaseFilterView(), "CME · Fasi Revit");
+        }
+
         /// <summary>Click "Conferma fase" → salva sulla sessione.</summary>
         private void OnConfirmClick(object sender, RoutedEventArgs e)
         {
