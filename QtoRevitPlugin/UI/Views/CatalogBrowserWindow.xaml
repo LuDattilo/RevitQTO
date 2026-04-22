@@ -13,6 +13,8 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -61,8 +63,44 @@
             </Grid>
         </Border>
 
+        <!-- Sezione Preferiti -->
+        <GroupBox Grid.Row="2" Header="&#x2B50; Preferiti" Margin="4,4,4,4">
+            <StackPanel>
+                <ListBox ItemsSource="{Binding Favorites}"
+                         SelectedItem="{Binding ActiveFavoriteItem}"
+                         MaxHeight="120">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding Code}" FontWeight="Bold" Width="80" Margin="0,0,4,0"/>
+                                <TextBlock Text="{Binding ShortDesc}" Width="150" Margin="0,0,4,0"/>
+                                <TextBlock Text="{Binding UnitPrice, StringFormat='&#x20AC; {0:N2}'}" Width="70"/>
+                                <TextBlock Text="{Binding Unit}" Foreground="Gray"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                    <Button Content="Rimuovi" Command="{Binding RemoveFavoriteCommand}" Margin="0,0,4,0"/>
+                </StackPanel>
+            </StackPanel>
+        </GroupBox>
+
+        <!-- Parametro quantitativo + ASSEGNA -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="4,4,4,0">
+            <TextBlock Text="Param:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <ComboBox ItemsSource="{Binding AllowedParams}"
+                      SelectedItem="{Binding SelectedQuantityParam}"
+                      Width="120"/>
+            <Button Content="&#x2713; ASSEGNA AGLI ELEMENTI SELEZIONATI"
+                    Command="{Binding AssignCommand}"
+                    IsEnabled="{Binding CanAssign}"
+                    Background="#1E6FD9" Foreground="White"
+                    FontWeight="Bold" Padding="8,4" Margin="8,0,0,0"/>
+        </StackPanel>
+
         <!-- TreeView (left) + Detail panel (right) split -->
-        <Grid Grid.Row="2">
+        <Grid Grid.Row="4">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="3*" MinWidth="300" />
                 <ColumnDefinition Width="3" />
@@ -228,7 +266,7 @@
         </Grid>
 
         <!-- Status bar -->
-        <Border Grid.Row="3"
+        <Border Grid.Row="5"
                 Background="{DynamicResource PanelSubBrush}"
                 BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="0,1,0,0"
                 Padding="16,6">
@@ -238,7 +276,7 @@
         </Border>
 
         <!-- Footer: chiudi -->
-        <Border Grid.Row="4" Background="White"
+        <Border Grid.Row="6" Background="White"
                 BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="0,1,0,0"
                 Padding="16,8">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">

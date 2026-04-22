@@ -1,7 +1,9 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using QtoRevitPlugin.Application;
 using QtoRevitPlugin.Data;
 using QtoRevitPlugin.Models;
+using QtoRevitPlugin.Services;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -18,6 +20,9 @@ namespace QtoRevitPlugin.UI.ViewModels
     /// </summary>
     public partial class CatalogBrowserViewModel : ViewModelBase
     {
+        private readonly FileFavoritesRepository _favoritesRepo;
+        private readonly MappingRulesService _mappingRulesService;
+
         public ObservableCollection<PriceListRow> AvailableLists { get; } = new();
         public ObservableCollection<CatalogNode> Tree { get; } = new();
 
@@ -27,9 +32,18 @@ namespace QtoRevitPlugin.UI.ViewModels
         [ObservableProperty] private string _statusMessage = string.Empty;
         [ObservableProperty] private bool _isLoading;
 
+        [ObservableProperty] private ObservableCollection<FavoriteItem> _favorites = new ObservableCollection<FavoriteItem>();
+        [ObservableProperty] private FavoriteItem? _activeFavoriteItem;
+        [ObservableProperty] private string _selectedQuantityParam = "Count";
+        [ObservableProperty] private ObservableCollection<string> _allowedParams = new ObservableCollection<string> { "Area", "Volume", "Length", "Count" };
+        [ObservableProperty] private bool _canAssign;
+
         public CatalogBrowserViewModel()
         {
+            _favoritesRepo = new FileFavoritesRepository(FileFavoritesRepository.GetDefaultGlobalDir());
+            _mappingRulesService = new MappingRulesService();
             LoadAvailableLists();
+            LoadFavorites();
         }
 
         public void LoadAvailableLists()
@@ -151,6 +165,64 @@ namespace QtoRevitPlugin.UI.ViewModels
 
         private static string EmptyToLabel(string? value, string fallback) =>
             string.IsNullOrWhiteSpace(value) ? fallback : value!;
+
+        // ── Favorites ────────────────────────────────────────────────────────────
+
+        private void LoadFavorites()
+        {
+            var set = _favoritesRepo.LoadGlobal();
+            Favorites.Clear();
+            foreach (var item in set.Items)
+                Favorites.Add(item);
+        }
+
+        public void AddToFavorites(FavoriteItem item)
+        {
+            if (!Favorites.Contains(item))
+                Favorites.Add(item);
+            SaveFavorites();
+        }
+
+        public void RemoveFromFavorites(FavoriteItem item)
+        {
+            Favorites.Remove(item);
+            SaveFavorites();
+        }
+
+        private void SaveFavorites()
+        {
+            var set = new FavoriteSet { Items = new System.Collections.Generic.List<FavoriteItem>(Favorites) };
+            _favoritesRepo.SaveGlobal(set);
+        }
+
+        public void OnRevitCategoryChanged(string revitCategoryOst)
+        {
+            var rule = _mappingRulesService.GetRule(revitCategoryOst);
+            SelectedQuantityParam = rule.DefaultParam;
+            AllowedParams = new ObservableCollection<string>(rule.AllowedParams);
+        }
+
+        partial void OnActiveFavoriteItemChanged(FavoriteItem? value)
+            => CanAssign = value != null;
+
+        [RelayCommand]
+        private void AddSelectedToFavorites()
+        {
+            // stub — will be wired to selection in Task 11
+        }
+
+        [RelayCommand]
+        private void RemoveFavorite()
+        {
+            if (ActiveFavoriteItem != null)
+                RemoveFromFavorites(ActiveFavoriteItem);
+        }
+
+        [RelayCommand]
+        private void Assign()
+        {
+            // stub — will be implemented in Task 11
+        }
     }
 
     /// <summary>
