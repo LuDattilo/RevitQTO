@@ -37,6 +37,21 @@ packages/
 *.rvt
 *.rvt.*
 
+# Listini regionali scaricati (XML/XLS/CSV reali) — pattern per nome comuni
+Firenze*.xml
+Firenze*.xlsx
+Firenze*.csv
+*[Pp]rezz*.xml
+*[Pp]rezz*.xlsx
+*[Pp]rezz*.csv
+*[Ll]istin*.xml
+*[Ll]istin*.xlsx
+*[Tt]oscan*.xml
+*[Tt]oscan*.xlsx
+*[Ll]ombard*.xml
+*TOS25*.xml
+*DEI*.xlsx
+
 # Cartelle locali per test con dati reali (es. listini regionali, computi clienti)
 /samples-local/
 /testdata-local/
