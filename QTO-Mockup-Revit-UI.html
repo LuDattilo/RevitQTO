@@ -1,0 +1,1862 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1440">
+<title>QTO Plug-in – Mockup UI Revit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ─── Design tokens ────────────────────────────────────────────── */
+:root {
+  --font-display: 'Archivo', system-ui, sans-serif;
+  --font-body:    'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, monospace;
+
+  /* Revit chrome */
+  --revit-bg:     #1c1917;
+  --revit-panel:  #252524;
+  --revit-edge:   #3a3936;
+  --revit-ribbon: #33312d;
+  --revit-text:   #e7e5e4;
+  --revit-dim:    #a8a29e;
+
+  /* Plug-in content */
+  --panel-bg:     #fafaf9;
+  --panel-edge:   #e7e5e4;
+  --panel-edge-strong: #d6d3d1;
+  --panel-sub:    #f5f5f4;
+  --ink:          #0c0a09;
+  --ink-dim:      #57534e;
+  --ink-muted:    #78716c;
+
+  /* Engineering accent (orange cantiere, non purple) */
+  --accent:       #ea580c;
+  --accent-deep:  #9a3412;
+  --accent-soft:  #fed7aa;
+  --accent-cool:  #075985;
+
+  /* State colors — matching spec QTO-Implementazioni-v3.md */
+  --st-computato: #16a34a;
+  --st-mancante:  #dc2626;
+  --st-added:     #ea580c;
+  --st-parziale:  #ca8a04;
+  --st-multiep:   #2563eb;
+  --st-escluso:   #78716c;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: var(--font-body);
+  background: #0c0a09;
+  color: var(--revit-text);
+  font-size: 13px;
+  line-height: 1.5;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ─── Revit window frame ───────────────────────────────────────── */
+.revit-window {
+  background: var(--revit-bg);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.revit-titlebar {
+  height: 32px;
+  background: #0c0a09;
+  border-bottom: 1px solid #1c1917;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 12px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: #a8a29e;
+}
+.revit-titlebar .dots { display: flex; gap: 6px; }
+.revit-titlebar .dot {
+  width: 11px; height: 11px; border-radius: 50%;
+  background: #44403c;
+}
+.revit-titlebar .spacer { flex: 1; }
+.revit-titlebar .title { color: var(--revit-text); font-weight: 600; }
+.revit-titlebar .project { font-family: var(--font-mono); font-size: 10.5px; color: var(--accent); }
+
+/* ─── Ribbon ───────────────────────────────────────────────────── */
+.revit-ribbon {
+  background: var(--revit-ribbon);
+  border-bottom: 1px solid var(--revit-edge);
+}
+.ribbon-tabs {
+  height: 28px;
+  display: flex;
+  align-items: flex-end;
+  padding: 0 8px;
+  gap: 2px;
+  border-bottom: 1px solid #2a2825;
+}
+.ribbon-tab {
+  padding: 4px 14px 3px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--revit-dim);
+  border: 1px solid transparent;
+  border-bottom: none;
+  cursor: pointer;
+  text-transform: uppercase;
+  user-select: none;
+}
+.ribbon-tab.active {
+  color: #fff;
+  background: var(--revit-panel);
+  border-color: var(--revit-edge);
+  border-bottom: 1px solid var(--revit-panel);
+  margin-bottom: -1px;
+  position: relative;
+  z-index: 1;
+}
+.ribbon-tab.qto-tab.active {
+  color: var(--accent);
+  border-top: 2px solid var(--accent);
+  padding-top: 3px;
+}
+
+.ribbon-body {
+  height: 94px;
+  background: var(--revit-panel);
+  display: flex;
+  padding: 6px 0;
+}
+.ribbon-panel {
+  display: flex;
+  flex-direction: column;
+  padding: 0 14px;
+  border-right: 1px solid var(--revit-edge);
+  min-width: 0;
+}
+.ribbon-panel:last-child { border-right: none; }
+.ribbon-panel-title {
+  font-family: var(--font-display);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--revit-dim);
+  text-transform: uppercase;
+  text-align: center;
+  margin-top: auto;
+  padding-top: 4px;
+  border-top: 1px solid transparent;
+}
+.ribbon-panel-buttons {
+  flex: 1;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.ribbon-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  padding: 4px 8px 2px;
+  min-width: 52px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  color: var(--revit-text);
+  transition: all 0.15s;
+}
+.ribbon-btn:hover {
+  background: #3f3d39;
+  border-color: var(--revit-edge);
+}
+.ribbon-btn.active {
+  background: #4a3520;
+  border-color: var(--accent-deep);
+}
+.ribbon-btn .icon {
+  width: 32px; height: 32px;
+  background: linear-gradient(135deg, #44403c 0%, #292524 100%);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  border: 1px solid #57534e;
+}
+.ribbon-btn.primary .icon {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-deep) 100%);
+  color: #fff;
+  border-color: var(--accent-deep);
+}
+.ribbon-btn .label {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  color: var(--revit-text);
+}
+
+/* ─── Main area: viewport + docked pane ───────────────────────── */
+.revit-main {
+  flex: 1;
+  display: flex;
+  min-height: 680px;
+  background: var(--revit-bg);
+  position: relative;
+}
+
+/* Project browser (stub left) */
+.revit-browser {
+  width: 180px;
+  background: var(--revit-panel);
+  border-right: 1px solid var(--revit-edge);
+  padding: 8px 0;
+  font-family: var(--font-display);
+  font-size: 11px;
+  color: var(--revit-dim);
+}
+.revit-browser-header {
+  padding: 4px 12px;
+  font-weight: 600;
+  color: var(--revit-text);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 9.5px;
+  border-bottom: 1px solid var(--revit-edge);
+  margin-bottom: 6px;
+}
+.browser-item {
+  padding: 2px 12px 2px 18px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.browser-item::before { content: "▸ "; color: #57534e; }
+.browser-item.open::before { content: "▾ "; }
+.browser-item.leaf { padding-left: 32px; }
+.browser-item.leaf::before { content: ""; }
+.browser-item:hover { background: #2e2c29; color: var(--revit-text); }
+.browser-item.sel { background: #4a3520; color: var(--accent); }
+
+/* Viewport */
+.revit-viewport {
+  flex: 1;
+  background:
+    radial-gradient(ellipse at center top, #3a3936 0%, #1c1917 60%),
+    #1c1917;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid var(--revit-edge);
+}
+.viewport-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(234, 88, 12, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(234, 88, 12, 0.05) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse at center, #000 0%, transparent 70%);
+}
+.viewport-building {
+  position: relative;
+  width: 520px;
+  height: 380px;
+  transform: perspective(1200px) rotateX(55deg) rotateZ(-30deg);
+}
+.viewport-building .floor {
+  position: absolute;
+  left: 0; right: 0;
+  border: 1.5px solid #78716c;
+  background: rgba(234, 88, 12, 0.02);
+}
+.viewport-building .floor::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-right: 1.5px solid #78716c;
+  border-bottom: 1.5px solid #78716c;
+  background-image: linear-gradient(to right, #57534e 1px, transparent 1px);
+  background-size: 60px 100%;
+}
+.viewport-building .floor.f0 { top: 330px; height: 0; }
+.viewport-building .floor.f1 { top: 220px; height: 0; }
+.viewport-building .floor.f2 { top: 110px; height: 0; }
+.viewport-building .floor.f3 { top: 0; height: 0; }
+.viewport-building .wall {
+  position: absolute;
+  height: 110px;
+  border-left: 1.5px solid #78716c;
+  border-right: 1.5px solid #78716c;
+}
+.viewport-building .wall.tagged { border-color: var(--st-computato); box-shadow: inset 0 0 0 1px var(--st-computato); background: rgba(22, 163, 74, 0.08); }
+.viewport-building .wall.missing { border-color: var(--st-mancante); box-shadow: inset 0 0 0 1px var(--st-mancante); background: rgba(220, 38, 38, 0.08); }
+.viewport-building .wall.added   { border-color: var(--st-added); box-shadow: inset 0 0 0 1px var(--st-added); background: rgba(234, 88, 12, 0.12); }
+.viewport-building .wall.partial { border-color: var(--st-parziale); box-shadow: inset 0 0 0 1px var(--st-parziale); background: rgba(202, 138, 4, 0.1); }
+.viewport-building .wall.multi   { border-color: var(--st-multiep); box-shadow: inset 0 0 0 1px var(--st-multiep); background: rgba(37, 99, 235, 0.1); }
+
+.viewport-label {
+  position: absolute;
+  top: 14px; left: 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--revit-dim);
+  letter-spacing: 0.03em;
+}
+.viewport-label b { color: var(--accent); font-weight: 600; }
+
+.viewport-compass {
+  position: absolute;
+  bottom: 18px; right: 18px;
+  width: 58px; height: 58px;
+  border: 1px solid var(--revit-edge);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+  background: rgba(28, 25, 23, 0.7);
+  backdrop-filter: blur(6px);
+}
+.viewport-compass::before {
+  content: "N";
+  position: absolute;
+  top: 4px;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--revit-text);
+}
+
+/* ─── Dockable pane (plug-in) ─────────────────────────────────── */
+.qto-dock {
+  width: 420px;
+  background: var(--panel-bg);
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--revit-edge);
+}
+.dock-header {
+  padding: 10px 14px 8px;
+  background: var(--panel-sub);
+  border-bottom: 1px solid var(--panel-edge);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dock-header .logo {
+  width: 22px; height: 22px;
+  background: var(--ink);
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: -0.04em;
+  border-radius: 2px;
+}
+.dock-header .name {
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.dock-header .version {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-muted);
+  margin-left: auto;
+}
+.dock-header .pill {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  padding: 2px 6px;
+  background: var(--accent);
+  color: #fff;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 2px;
+}
+
+/* View switcher */
+.view-switcher {
+  background: var(--ink);
+  color: var(--revit-text);
+  padding: 6px 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  border-bottom: 1px solid var(--accent-deep);
+}
+.vs-label {
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  text-transform: uppercase;
+  width: 100%;
+  padding-bottom: 4px;
+}
+.vs-btn {
+  font-family: var(--font-display);
+  font-size: 10.5px;
+  font-weight: 500;
+  padding: 4px 8px;
+  background: transparent;
+  color: var(--revit-dim);
+  border: 1px solid #3a3936;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  border-radius: 2px;
+  transition: all 0.15s;
+}
+.vs-btn:hover { color: var(--revit-text); border-color: #57534e; }
+.vs-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent-deep);
+}
+
+/* ─── View panels ─────────────────────────────────────────────── */
+.view-stack {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+.view-panel {
+  display: none;
+  padding: 14px 16px;
+  height: 100%;
+  overflow-y: auto;
+  animation: fadeIn 0.25s ease-out;
+}
+.view-panel.active { display: block; }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.view-title {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  padding-bottom: 8px;
+  margin: 0 0 12px;
+  border-bottom: 2px solid var(--ink);
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.view-title .ref {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--accent);
+  letter-spacing: 0;
+  text-transform: none;
+  margin-left: auto;
+}
+
+.section {
+  margin-bottom: 16px;
+}
+.section-label {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.section-label::before {
+  content: "";
+  width: 10px; height: 1.5px;
+  background: var(--accent);
+}
+
+/* Form controls */
+.field {
+  margin-bottom: 10px;
+}
+.field label {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--ink-dim);
+  margin-bottom: 3px;
+}
+.field input, .field select, .field textarea {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--panel-edge-strong);
+  background: #fff;
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  color: var(--ink);
+  border-radius: 0;
+}
+.field input:focus, .field select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.15);
+}
+.field .mono { font-family: var(--font-mono); }
+.row { display: flex; gap: 8px; }
+.row > * { flex: 1; }
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  font-size: 12.5px;
+}
+.check:hover { background: var(--panel-sub); border-left-color: var(--panel-edge-strong); }
+.check.on { border-left-color: var(--accent); background: #fff7ed; }
+.check input { margin: 0; }
+.check .meta {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--ink-muted);
+}
+
+.btn {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 7px 14px;
+  border: 1px solid var(--panel-edge-strong);
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+  border-radius: 0;
+  transition: all 0.15s;
+}
+.btn:hover { background: var(--panel-sub); border-color: var(--ink-dim); }
+.btn.primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent-deep);
+}
+.btn.primary:hover { background: var(--accent-deep); }
+.btn.ghost { background: transparent; border-color: transparent; color: var(--ink-dim); }
+.btn.ghost:hover { color: var(--accent); background: #fff7ed; }
+.btn.sm { font-size: 10px; padding: 4px 8px; }
+.btn-bar {
+  display: flex;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--panel-edge);
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+/* Filter rules builder */
+.rule {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 0.8fr 1fr auto;
+  gap: 4px;
+  margin-bottom: 4px;
+  padding: 4px;
+  background: var(--panel-sub);
+  border: 1px solid var(--panel-edge);
+  align-items: center;
+}
+.rule select, .rule input {
+  padding: 4px 6px;
+  font-size: 11.5px;
+  font-family: var(--font-body);
+  border: 1px solid var(--panel-edge-strong);
+  background: #fff;
+}
+.rule .rm {
+  width: 22px; height: 22px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+.rule .rm:hover { color: var(--st-mancante); border-color: var(--st-mancante); }
+
+/* Elements list */
+.el-list {
+  border: 1px solid var(--panel-edge-strong);
+  max-height: 220px;
+  overflow-y: auto;
+  background: #fff;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+.el-row {
+  display: grid;
+  grid-template-columns: 20px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--panel-sub);
+}
+.el-row:last-child { border-bottom: none; }
+.el-row:hover { background: #fff7ed; }
+.el-row.sel { background: #fed7aa; }
+.el-row .dot-state {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.el-row input { margin: 0; }
+.el-row .eid { color: var(--accent); font-weight: 600; }
+.el-row .tag {
+  font-size: 9.5px;
+  padding: 1px 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+.tag-computato { background: var(--st-computato); }
+.tag-mancante  { background: var(--st-mancante); }
+.tag-parziale  { background: var(--st-parziale); }
+.tag-multi     { background: var(--st-multiep); }
+.tag-added     { background: var(--st-added); }
+.tag-escluso   { background: var(--st-escluso); }
+
+/* Result grid */
+.grid-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.grid-table th {
+  background: var(--ink);
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  padding: 5px 8px;
+  text-align: left;
+  border-right: 1px solid #3a3936;
+}
+.grid-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--panel-edge);
+  border-right: 1px solid var(--panel-sub);
+}
+.grid-table tr:hover td { background: #fff7ed; }
+.grid-table tr.total td {
+  background: #fed7aa;
+  font-weight: 700;
+  border-top: 2px solid var(--accent);
+}
+.grid-table td.num { text-align: right; }
+.grid-table td.qty { color: var(--accent-cool); font-weight: 600; }
+.grid-table td.price { color: var(--ink); font-weight: 600; }
+
+/* Tab bar for sub-sections */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--panel-edge-strong);
+  margin-bottom: 12px;
+}
+.tab {
+  padding: 6px 12px;
+  font-family: var(--font-display);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-bottom: none;
+  color: var(--ink-muted);
+  margin-bottom: -1px;
+}
+.tab.active {
+  background: #fff;
+  border-color: var(--panel-edge-strong);
+  color: var(--accent);
+  border-top: 2px solid var(--accent);
+}
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* Legend chips */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-family: var(--font-display);
+  font-size: 10px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  border: 1px solid var(--panel-edge-strong);
+  background: #fff;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.chip .sq {
+  width: 10px; height: 10px;
+  display: inline-block;
+}
+.chip .cnt {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--ink-dim);
+}
+
+/* Formula editor */
+.formula-editor {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid var(--panel-edge-strong);
+  border-left: 3px solid var(--accent);
+  color: var(--ink);
+  white-space: pre-wrap;
+  min-height: 48px;
+}
+.formula-editor .kw { color: var(--accent); font-weight: 600; }
+.formula-editor .param { color: var(--accent-cool); font-weight: 600; }
+.formula-editor .num { color: var(--st-computato); }
+
+.param-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.param-chip {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  padding: 2px 7px;
+  background: #e0f2fe;
+  color: var(--accent-cool);
+  border: 1px solid #bae6fd;
+  cursor: pointer;
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 600;
+}
+.param-chip:hover { background: var(--accent-cool); color: #fff; }
+.param-chip.custom { background: #fff7ed; color: var(--accent-deep); border-color: var(--accent-soft); }
+
+/* Health check stats */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.stat {
+  background: #fff;
+  border: 1px solid var(--panel-edge);
+  padding: 8px 10px;
+  position: relative;
+  overflow: hidden;
+}
+.stat::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--col, var(--accent));
+}
+.stat .num {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--ink);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.stat .lbl {
+  font-family: var(--font-display);
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+  margin-top: 4px;
+}
+
+/* Preview pane card */
+.pv-card {
+  background: #fff;
+  border: 1px solid var(--panel-edge);
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+.pv-card .k {
+  font-family: var(--font-display);
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+}
+.pv-card .v {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+.pv-card .v .u {
+  font-size: 11px;
+  color: var(--ink-muted);
+  font-weight: 400;
+  margin-left: 2px;
+}
+.pv-inline {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.pv-calc {
+  background: #fff7ed;
+  border: 1px dashed var(--accent-soft);
+  padding: 8px 10px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--ink);
+  margin: 8px 0;
+}
+.pv-calc .r { color: var(--accent); font-weight: 700; }
+
+/* Progress bar */
+.prog {
+  background: var(--panel-sub);
+  height: 18px;
+  border: 1px solid var(--panel-edge-strong);
+  position: relative;
+  overflow: hidden;
+}
+.prog-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-deep) 100%);
+  transition: width 0.4s;
+  position: relative;
+}
+.prog-fill::after {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0;
+  right: 0;
+  width: 1px;
+  background: #fff;
+  opacity: 0.4;
+}
+.prog-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  letter-spacing: 0.04em;
+}
+
+/* Filter rule block (FilterManager view) */
+.fm-filter {
+  background: #fff;
+  border: 1px solid var(--panel-edge);
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border-left: 4px solid var(--col, var(--accent));
+}
+.fm-filter-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+.fm-filter-name {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.fm-filter-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-muted);
+}
+.fm-rule {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-dim);
+  margin-top: 4px;
+}
+.fm-rule .op { color: var(--accent-cool); font-weight: 600; }
+.fm-rule .val { color: var(--ink); font-weight: 600; }
+
+/* Status bar */
+.revit-status {
+  height: 26px;
+  background: var(--accent-deep);
+  color: #fff;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  border-top: 1px solid var(--accent);
+}
+.revit-status .sep {
+  width: 1px; height: 14px;
+  background: rgba(255,255,255,0.25);
+}
+.revit-status .pulse {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+  70% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
+
+/* Floating elements info bubble */
+.info-callout {
+  position: absolute;
+  background: #1c1917;
+  color: var(--revit-text);
+  border: 1px solid var(--accent);
+  padding: 8px 10px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  max-width: 240px;
+  line-height: 1.4;
+  border-radius: 2px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+.info-callout::before {
+  content: "";
+  position: absolute;
+  left: -6px; top: 12px;
+  width: 10px; height: 10px;
+  background: #1c1917;
+  border-left: 1px solid var(--accent);
+  border-bottom: 1px solid var(--accent);
+  transform: rotate(45deg);
+}
+.info-callout .hdr {
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  margin-bottom: 4px;
+}
+
+/* Master key — document header */
+.doc-head {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  background: #000;
+  color: var(--accent);
+  z-index: 100;
+  padding: 6px 16px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  border-bottom: 1px solid var(--accent-deep);
+}
+.doc-head .t {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fff;
+}
+.doc-head .spacer { flex: 1; }
+.revit-window { margin-top: 30px; }
+
+/* NP analysis table */
+.np-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+.np-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--panel-edge);
+}
+.np-table td:first-child {
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  width: 50%;
+}
+.np-table td:last-child {
+  text-align: right;
+  color: var(--accent-cool);
+  font-weight: 600;
+}
+.np-table tr.sum td {
+  background: var(--panel-sub);
+  border-top: 1px solid var(--ink-dim);
+  font-weight: 700;
+}
+.np-table tr.final td {
+  background: var(--ink);
+  color: #fff;
+  border-top: 2px solid var(--accent);
+}
+.np-table tr.final td:last-child {
+  color: var(--accent);
+  font-size: 14px;
+}
+.np-workflow {
+  display: flex;
+  gap: 0;
+  margin: 10px 0;
+}
+.np-step {
+  flex: 1;
+  text-align: center;
+  padding: 6px 4px;
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: #fff;
+  border: 1px solid var(--panel-edge-strong);
+  position: relative;
+  color: var(--ink-muted);
+}
+.np-step::after {
+  content: "▸";
+  position: absolute;
+  right: -7px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--panel-edge-strong);
+  z-index: 2;
+  background: var(--panel-bg);
+  padding: 0 1px;
+  font-size: 12px;
+}
+.np-step:last-child::after { display: none; }
+.np-step.done { background: var(--st-computato); color: #fff; border-color: var(--st-computato); }
+.np-step.current {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent-deep);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3);
+}
+</style>
+</head>
+<body>
+
+<div class="doc-head">
+  <span class="t">QTO-Mockup-Revit-UI.html</span>
+  <span>mockup funzionale · v1 · 22/04/2026</span>
+  <span class="spacer"></span>
+  <span>GPA Ingegneria Srl / L. Dattilo</span>
+</div>
+
+<div class="revit-window">
+
+  <!-- Titlebar -->
+  <div class="revit-titlebar">
+    <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+    <span class="title">Autodesk Revit 2025</span>
+    <span>—</span>
+    <span class="project">Snowdon_Towers_Sample.rvt</span>
+    <span>— Vista 3D: {3D}</span>
+    <span class="spacer"></span>
+    <span>luigi.dattilo@gpapartners.com</span>
+  </div>
+
+  <!-- Ribbon -->
+  <div class="revit-ribbon">
+    <div class="ribbon-tabs">
+      <div class="ribbon-tab">Architecture</div>
+      <div class="ribbon-tab">Structure</div>
+      <div class="ribbon-tab">Steel</div>
+      <div class="ribbon-tab">Systems</div>
+      <div class="ribbon-tab">Insert</div>
+      <div class="ribbon-tab">Annotate</div>
+      <div class="ribbon-tab">Analyze</div>
+      <div class="ribbon-tab">Collaborate</div>
+      <div class="ribbon-tab">View</div>
+      <div class="ribbon-tab">Manage</div>
+      <div class="ribbon-tab">Add-ins</div>
+      <div class="ribbon-tab qto-tab active">QTO · Computi</div>
+    </div>
+    <div class="ribbon-body">
+      <div class="ribbon-panel">
+        <div class="ribbon-panel-buttons">
+          <div class="ribbon-btn primary" data-view="setup">
+            <div class="icon">Q</div>
+            <div class="label">Avvia QTO</div>
+          </div>
+        </div>
+        <div class="ribbon-panel-title">Start</div>
+      </div>
+
+      <div class="ribbon-panel">
+        <div class="ribbon-panel-buttons">
+          <div class="ribbon-btn" data-view="phase">
+            <div class="icon">◔</div>
+            <div class="label">Fasi Revit</div>
+          </div>
+          <div class="ribbon-btn" data-view="selection">
+            <div class="icon">⊟</div>
+            <div class="label">Seleziona</div>
+          </div>
+          <div class="ribbon-btn" data-view="tagging">
+            <div class="icon">≡</div>
+            <div class="label">Assegna EP</div>
+          </div>
+        </div>
+        <div class="ribbon-panel-title">Workflow</div>
+      </div>
+
+      <div class="ribbon-panel">
+        <div class="ribbon-panel-buttons">
+          <div class="ribbon-btn" data-view="filter-mgr">
+            <div class="icon">▣</div>
+            <div class="label">Filtri Vista</div>
+          </div>
+          <div class="ribbon-btn" data-view="health">
+            <div class="icon">✓</div>
+            <div class="label">Health Check</div>
+          </div>
+        </div>
+        <div class="ribbon-panel-title">Verifiche</div>
+      </div>
+
+      <div class="ribbon-panel">
+        <div class="ribbon-panel-buttons">
+          <div class="ribbon-btn" data-view="np">
+            <div class="icon">N</div>
+            <div class="label">Nuovi Prezzi</div>
+          </div>
+          <div class="ribbon-btn" data-view="export">
+            <div class="icon">↗</div>
+            <div class="label">Esporta</div>
+          </div>
+        </div>
+        <div class="ribbon-panel-title">Nuovi Prezzi · Export</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main area -->
+  <div class="revit-main">
+
+    <!-- Project browser stub -->
+    <div class="revit-browser">
+      <div class="revit-browser-header">Project Browser</div>
+      <div class="browser-item open">Viste (all)</div>
+      <div class="browser-item leaf">Floor Plans</div>
+      <div class="browser-item leaf">Ceiling Plans</div>
+      <div class="browser-item leaf sel">3D Views › {3D}</div>
+      <div class="browser-item leaf">Elevations</div>
+      <div class="browser-item leaf">Sections</div>
+      <div class="browser-item open" style="margin-top:8px">Fasi</div>
+      <div class="browser-item leaf">Esistente</div>
+      <div class="browser-item leaf">Demolizioni</div>
+      <div class="browser-item leaf" style="color:var(--accent)">Progetto ◉</div>
+      <div class="browser-item open" style="margin-top:8px">Famiglie</div>
+      <div class="browser-item leaf">Walls · 142</div>
+      <div class="browser-item leaf">Floors · 28</div>
+      <div class="browser-item leaf">Rooms · 84</div>
+    </div>
+
+    <!-- Viewport -->
+    <div class="revit-viewport">
+      <div class="viewport-grid"></div>
+      <div class="viewport-label">3D VIEW · <b>Sorgente A + B visibili</b> · 318 elementi · fase "Progetto"</div>
+
+      <div class="viewport-building">
+        <!-- Floor slabs -->
+        <div class="floor f0"></div>
+        <div class="floor f1"></div>
+        <div class="floor f2"></div>
+        <div class="floor f3"></div>
+
+        <!-- Walls with states -->
+        <div class="wall tagged"   style="left:40px;  top:220px; width:110px;"></div>
+        <div class="wall tagged"   style="left:150px; top:220px; width:110px;"></div>
+        <div class="wall multi"    style="left:260px; top:220px; width:110px;"></div>
+        <div class="wall missing"  style="left:370px; top:220px; width:110px;"></div>
+
+        <div class="wall added"    style="left:40px;  top:110px; width:110px;"></div>
+        <div class="wall partial"  style="left:150px; top:110px; width:110px;"></div>
+        <div class="wall tagged"   style="left:260px; top:110px; width:110px;"></div>
+        <div class="wall tagged"   style="left:370px; top:110px; width:110px;"></div>
+
+        <div class="wall tagged"   style="left:40px;  top:0;    width:110px;"></div>
+        <div class="wall tagged"   style="left:150px; top:0;    width:110px;"></div>
+        <div class="wall missing"  style="left:260px; top:0;    width:110px;"></div>
+        <div class="wall tagged"   style="left:370px; top:0;    width:110px;"></div>
+      </div>
+
+      <div class="info-callout" style="top:120px; left:62%;">
+        <div class="hdr">ELEMENTO SELEZIONATO</div>
+        Muro Portante 30cm<br>
+        <span style="color:var(--accent)">ID 112345</span> · fase Progetto<br>
+        QtoAssignments: 2 voci<br>
+        <span style="color:var(--st-multiep)">● Multi-EP</span>
+      </div>
+
+      <div class="viewport-compass">{3D}</div>
+    </div>
+
+    <!-- Dockable pane -->
+    <div class="qto-dock">
+      <div class="dock-header">
+        <div class="logo">Q</div>
+        <div class="name">QTO Plug-in</div>
+        <div class="version">v1.0</div>
+        <div class="pill">LIVE</div>
+      </div>
+
+      <div class="view-switcher">
+        <div class="vs-label">Vista corrente</div>
+        <button class="vs-btn active" data-view="preview">Preview</button>
+        <button class="vs-btn" data-view="phase">Fasi</button>
+        <button class="vs-btn" data-view="selection">Selezione</button>
+        <button class="vs-btn" data-view="tagging">Tagging</button>
+        <button class="vs-btn" data-view="filter-mgr">Filtri Vista</button>
+        <button class="vs-btn" data-view="health">Health</button>
+        <button class="vs-btn" data-view="np">Nuovo Prezzo</button>
+        <button class="vs-btn" data-view="export">Export</button>
+      </div>
+
+      <div class="view-stack">
+
+        <!-- ══════ PREVIEW PANE (DockablePane live) ══════ -->
+        <div class="view-panel active" data-panel="preview">
+          <h3 class="view-title">Preview Live <span class="ref">§Fase 11</span></h3>
+
+          <div class="tabs">
+            <div class="tab active" data-tab="sel">Selezione Corrente</div>
+            <div class="tab" data-tab="sum">Riepilogo</div>
+          </div>
+
+          <div class="tab-panel active" data-tab-panel="sel">
+            <div class="section-label">Muro Portante 30cm · ID 112345</div>
+
+            <div class="pv-inline">
+              <div class="pv-card">
+                <div class="k">Quantità lorda</div>
+                <div class="v">45,20<span class="u">m²</span></div>
+              </div>
+              <div class="pv-card">
+                <div class="k">Quantità netta</div>
+                <div class="v" style="color:var(--accent)">42,10<span class="u">m²</span></div>
+              </div>
+            </div>
+
+            <div class="pv-calc">
+              <b>45,20 m²</b> lordi<br>
+              − <b>3,10 m²</b> (2 aperture > soglia 2,00 m²)<br>
+              = <span class="r">42,10 m² netti</span>
+            </div>
+
+            <div class="pv-inline">
+              <div class="pv-card">
+                <div class="k">Prezzo unitario</div>
+                <div class="v">85,00<span class="u">€/m²</span></div>
+              </div>
+              <div class="pv-card" style="border-color:var(--accent);border-width:2px">
+                <div class="k">Totale voce</div>
+                <div class="v" style="color:var(--accent);font-size:22px">3.578,50<span class="u">€</span></div>
+              </div>
+            </div>
+
+            <div class="section-label" style="margin-top:12px">Voce EP · A.02.001</div>
+            <div class="pv-card" style="font-size:11.5px">
+              Muratura in mattoni pieni, s=30cm, malta bastarda · m²<br>
+              <span style="color:var(--ink-muted);font-family:var(--font-mono);font-size:10.5px">Listino: Prezzario Toscana 2024 · Cap. A.02</span>
+            </div>
+
+            <div class="btn-bar">
+              <button class="btn">Annulla</button>
+              <button class="btn primary" style="flex:1">▸ INSERISCI ASSEGNAZIONE</button>
+            </div>
+          </div>
+
+          <div class="tab-panel" data-tab-panel="sum">
+            <div class="section-label">Avanzamento Sessione</div>
+            <div class="prog">
+              <div class="prog-fill" style="width:44.7%"></div>
+              <div class="prog-label">142 / 318 · 44,7%</div>
+            </div>
+            <table class="grid-table" style="margin-top:10px">
+              <thead>
+                <tr><th>Codice EP</th><th>Q.tà</th><th>U.M.</th><th class="num">Totale</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>A.02.001</td><td class="qty num">547,20</td><td>m²</td><td class="num price">46.512,00</td></tr>
+                <tr><td>A.02.015</td><td class="qty num">218,50</td><td>m²</td><td class="num price">8.740,00</td></tr>
+                <tr><td>B.01.003</td><td class="qty num">412,80</td><td>m²</td><td class="num price">12.384,00</td></tr>
+                <tr><td>B.04.012</td><td class="qty num">84,00</td><td>m³</td><td class="num price">9.240,00</td></tr>
+                <tr class="total"><td colspan="3">TOTALE PARZIALE</td><td class="num">48.320,50</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ══════ PHASE FILTER VIEW ══════ -->
+        <div class="view-panel" data-panel="phase">
+          <h3 class="view-title">Filtro Fase Revit <span class="ref">§I9 · Fase 0</span></h3>
+
+          <div class="section">
+            <div class="section-label">Fasi disponibili nel modello</div>
+            <div class="legend">
+              <span class="chip"><span class="sq" style="background:var(--st-escluso)"></span>Esistente</span>
+              <span class="chip"><span class="sq" style="background:var(--st-mancante)"></span>Demolizioni</span>
+              <span class="chip" style="border-color:var(--accent);border-width:2px"><span class="sq" style="background:var(--accent)"></span>Progetto ◉</span>
+              <span class="chip"><span class="sq" style="background:#a8a29e"></span>Futuro</span>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-label">Fase di lavoro</div>
+            <div class="check on">
+              <input type="checkbox" checked> <b>Nuova costruzione</b>
+              <span class="meta">Phase Created = Progetto</span>
+            </div>
+            <div class="check on">
+              <input type="checkbox" checked> <b>Demolizioni</b>
+              <span class="meta">Phase Demolished = Progetto</span>
+            </div>
+            <div class="check">
+              <input type="checkbox"> Esistente <em>(solo visualizzazione, escluso dal computo)</em>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-label">Mappatura Fase → Listino</div>
+            <table class="grid-table">
+              <thead><tr><th>Fase</th><th>Listino → capitolo</th></tr></thead>
+              <tbody>
+                <tr><td>Progetto</td><td>Tutti i capitoli Toscana 2024</td></tr>
+                <tr><td>Demolizioni</td><td>Auto-filtrato cap. Demolizioni</td></tr>
+                <tr><td>Esistente</td><td>— (escluso)</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="btn-bar">
+            <button class="btn ghost">Annulla</button>
+            <button class="btn primary" style="flex:1">Avanti → Selezione Elementi</button>
+          </div>
+        </div>
+
+        <!-- ══════ SELECTION VIEW (FilterBuilder) ══════ -->
+        <div class="view-panel" data-panel="selection">
+          <h3 class="view-title">Selezione Elementi <span class="ref">§I3 · Fase 2</span></h3>
+
+          <div class="section">
+            <div class="section-label">Regole filtro (stile Revit)</div>
+            <div class="field">
+              <label>Categoria target</label>
+              <select><option>Muri (OST_Walls)</option><option>Solai (OST_Floors)</option><option>Rooms</option></select>
+            </div>
+
+            <div class="rule">
+              <select><option>Funzione</option></select>
+              <select><option>uguale a</option></select>
+              <select><option>=</option></select>
+              <input type="text" value="Esterno">
+              <button class="rm">×</button>
+            </div>
+            <div class="rule">
+              <select><option>Tipo</option></select>
+              <select><option>contiene</option></select>
+              <select><option>⊃</option></select>
+              <input type="text" value="Portante">
+              <button class="rm">×</button>
+            </div>
+            <div class="rule">
+              <select><option>QTO_Stato</option></select>
+              <select><option>è vuoto</option></select>
+              <select><option>—</option></select>
+              <input type="text" placeholder="(nessun valore)">
+              <button class="rm">×</button>
+            </div>
+
+            <button class="btn sm" style="margin-top:4px">+ Aggiungi regola</button>
+          </div>
+
+          <div class="section">
+            <div class="field">
+              <label>Cerca nel filtro (ricerca testuale inline)</label>
+              <input type="text" class="mono" placeholder="es. M30 · Piano 02 · …">
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-label">Risultati — 47 elementi</div>
+            <div class="el-list">
+              <div class="el-row sel"><input type="checkbox" checked><div><span class="eid">ID 112345</span> Muro Portante 30cm · Piano 02</div><span class="tag tag-multi">Multi-EP</span></div>
+              <div class="el-row sel"><input type="checkbox" checked><div><span class="eid">ID 112346</span> Muro Portante 30cm · Piano 02</div><span class="tag tag-computato">Comput.</span></div>
+              <div class="el-row sel"><input type="checkbox" checked><div><span class="eid">ID 112348</span> Muro Portante 30cm · Piano 01</div><span class="tag tag-mancante">Mancante</span></div>
+              <div class="el-row"><input type="checkbox"><div><span class="eid">ID 112349</span> Muro Portante 30cm · Piano 01</div><span class="tag tag-parziale">Parziale</span></div>
+              <div class="el-row"><input type="checkbox"><div><span class="eid">ID 112352</span> Muro Portante 30cm · Piano 03</div><span class="tag tag-added">Nuovo</span></div>
+              <div class="el-row"><input type="checkbox"><div><span class="eid">ID 112356</span> Muro Portante 30cm · Piano 03</div><span class="tag tag-computato">Comput.</span></div>
+              <div class="el-row"><input type="checkbox"><div><span class="eid">ID 112361</span> Muro Portante 30cm · Piano GF</div><span class="tag tag-escluso">Escluso</span></div>
+            </div>
+          </div>
+
+          <div class="btn-bar">
+            <button class="btn sm">Tutti</button>
+            <button class="btn sm">Nessuno</button>
+            <button class="btn sm">Isola</button>
+            <button class="btn sm">Nascondi</button>
+            <button class="btn sm">Togli isol.</button>
+            <span style="flex:1"></span>
+            <button class="btn primary">▸ INSERISCI</button>
+          </div>
+        </div>
+
+        <!-- ══════ TAGGING VIEW ══════ -->
+        <div class="view-panel" data-panel="tagging">
+          <h3 class="view-title">Assegnazione EP <span class="ref">§I1·I2 · 3 sorgenti</span></h3>
+
+          <div class="tabs">
+            <div class="tab active" data-tab="srcA">◉ Sorgente A · Modello</div>
+            <div class="tab" data-tab="srcB">◈ Sorgente B · Room+NCalc</div>
+            <div class="tab" data-tab="srcC">◆ Sorgente C · Manuale</div>
+          </div>
+
+          <div class="tab-panel active" data-tab-panel="srcA">
+            <div class="section-label">Ricerca listino (FTS5 multi-listino)</div>
+            <div class="field">
+              <input type="text" class="mono" value="muratura mattoni pieni 30" placeholder="codice o testo libero…">
+            </div>
+            <div class="el-list" style="font-family:var(--font-body);font-size:12px;max-height:160px">
+              <div class="el-row sel" style="grid-template-columns:auto 1fr auto">
+                <span style="color:var(--accent);font-family:var(--font-mono);font-weight:700">A.02.001</span>
+                <div>Muratura in mattoni pieni, s=30cm, malta bastarda</div>
+                <span style="font-family:var(--font-mono);color:var(--ink-dim)">85,00 €/m² · <b style="color:var(--accent-cool)">T</b></span>
+              </div>
+              <div class="el-row" style="grid-template-columns:auto 1fr auto">
+                <span style="color:var(--accent);font-family:var(--font-mono);font-weight:700">A.02.015</span>
+                <div>Muratura in blocchi cemento alleggerito s=25cm</div>
+                <span style="font-family:var(--font-mono);color:var(--ink-dim)">62,50 €/m² · <b style="color:var(--accent-cool)">T</b></span>
+              </div>
+              <div class="el-row" style="grid-template-columns:auto 1fr auto">
+                <span style="color:var(--accent);font-family:var(--font-mono);font-weight:700">A.02.003</span>
+                <div>Muratura mattoni forati s=12cm · Tavolato</div>
+                <span style="font-family:var(--font-mono);color:var(--ink-dim)">45,80 €/m² · <b style="color:var(--accent-cool)">D</b></span>
+              </div>
+            </div>
+
+            <div class="section-label" style="margin-top:14px">Assegnazioni esistenti — Muro ID 112345</div>
+            <table class="grid-table">
+              <thead><tr><th>Codice</th><th>Descrizione</th><th class="num">Q.tà</th><th>UM</th><th></th></tr></thead>
+              <tbody>
+                <tr><td>A.02.001</td><td>Muratura mattoni pieni 30cm</td><td class="qty num">45,20</td><td>m²</td><td><button class="btn sm ghost">×</button></td></tr>
+                <tr><td>B.01.003</td><td>Intonaco civile interno</td><td class="qty num">38,70</td><td>m²</td><td><button class="btn sm ghost">×</button></td></tr>
+              </tbody>
+            </table>
+
+            <div class="btn-bar">
+              <button class="btn sm">Sostituisci</button>
+              <span style="flex:1"></span>
+              <button class="btn primary">+ Aggiungi assegnazione</button>
+            </div>
+          </div>
+
+          <div class="tab-panel" data-tab-panel="srcB">
+            <div class="section-label">Room target → formula NCalc</div>
+            <div class="field">
+              <label>Room selezionato</label>
+              <select class="mono"><option>Room 203 · "Soggiorno" · Piano 02 · Area 28,50 m²</option></select>
+            </div>
+
+            <div class="field">
+              <label>Formula quantità</label>
+              <div class="formula-editor"><span class="param">Perimeter</span> <span class="kw">*</span> <span class="param">H_Controsoffitto</span> <span class="kw">-</span> <span class="param">LargTotAperture</span> <span class="kw">*</span> <span class="param">H_Controsoffitto</span></div>
+
+              <div class="param-chips">
+                <span class="param-chip">Area</span>
+                <span class="param-chip">Volume</span>
+                <span class="param-chip">Perimeter</span>
+                <span class="param-chip">Unbounded Height</span>
+                <span class="param-chip custom">H_Controsoffitto</span>
+                <span class="param-chip custom">LargTotAperture</span>
+              </div>
+            </div>
+
+            <div class="pv-calc">
+              Valutazione test → Room 203:<br>
+              Perimeter = <b>21,40 m</b> · H_Controsoffitto = <b>2,70 m</b> · LargTotAperture = <b>3,20 m</b><br>
+              = 21,40 × 2,70 − 3,20 × 2,70<br>
+              = <span class="r">49,14 m²</span>
+            </div>
+
+            <div class="section-label" style="margin-top:10px">Applica a</div>
+            <div class="check on"><input type="checkbox" checked> Room selezionato (1 Room)</div>
+            <div class="check"><input type="checkbox"> Tutti i Rooms del piano (12 Rooms)</div>
+            <div class="check"><input type="checkbox"> Tutti i Rooms del progetto (84 Rooms)</div>
+
+            <div class="btn-bar">
+              <button class="btn">Salva come preset</button>
+              <span style="flex:1"></span>
+              <button class="btn primary">▸ Applica formula</button>
+            </div>
+          </div>
+
+          <div class="tab-panel" data-tab-panel="srcC">
+            <div class="section-label">Voci manuali — svincolate dal modello</div>
+            <table class="grid-table">
+              <thead><tr><th>Codice EP</th><th>Descrizione</th><th class="num">Q.tà</th><th>UM</th><th class="num">€/U</th><th class="num">Totale</th><th>📎</th></tr></thead>
+              <tbody>
+                <tr><td>OS.001</td><td>Oneri sicurezza COVID</td><td class="qty num">1,00</td><td>cad</td><td class="price num">1.200,00</td><td class="price num">1.200,00</td><td style="text-align:center">●</td></tr>
+                <tr><td>TR.042</td><td>Trasporto a discarica</td><td class="qty num">5,00</td><td>m³</td><td class="price num">85,00</td><td class="price num">425,00</td><td style="text-align:center">●</td></tr>
+                <tr><td>MD.010</td><td>Manodopera extra lavori</td><td class="qty num">8,00</td><td>h</td><td class="price num">32,50</td><td class="price num">260,00</td><td></td></tr>
+                <tr class="total"><td colspan="5">Totale voci manuali (3)</td><td class="num">1.885,00</td><td></td></tr>
+              </tbody>
+            </table>
+
+            <div class="btn-bar">
+              <button class="btn">+ Nuova voce</button>
+              <button class="btn">Import CSV</button>
+              <button class="btn">Allega giustificativo</button>
+              <span style="flex:1"></span>
+              <button class="btn primary">Salva</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══════ FILTER MANAGER VIEW (§I11) ══════ -->
+        <div class="view-panel" data-panel="filter-mgr">
+          <h3 class="view-title">Filtri Vista Nativi <span class="ref">§I11 · nuova</span></h3>
+
+          <div class="section">
+            <div class="section-label">3 ParameterFilterElement persistenti</div>
+
+            <div class="fm-filter" style="--col:var(--st-computato)">
+              <div class="fm-filter-head">
+                <span class="fm-filter-name">◉ QTO_Taggati</span>
+                <span class="fm-filter-count">142 elementi · verde solido</span>
+              </div>
+              <div class="fm-rule">
+                <span>QTO_Stato</span>
+                <span class="op">Equals</span>
+                <span class="val">"COMPUTATO"</span>
+                <span class="op">OR</span>
+                <span class="val">"PARZIALE"</span>
+              </div>
+            </div>
+
+            <div class="fm-filter" style="--col:var(--st-mancante)">
+              <div class="fm-filter-head">
+                <span class="fm-filter-name">◉ QTO_Mancanti</span>
+                <span class="fm-filter-count">164 elementi · rosso solido</span>
+              </div>
+              <div class="fm-rule">
+                <span>QTO_Stato</span>
+                <span class="op">Equals ""</span>
+                <span class="op">OR</span>
+                <span class="op">HasNoValue</span>
+              </div>
+            </div>
+
+            <div class="fm-filter" style="--col:var(--st-escluso)">
+              <div class="fm-filter-head">
+                <span class="fm-filter-name">◉ QTO_Anomalie</span>
+                <span class="fm-filter-count">12 elementi · halftone + pattern</span>
+              </div>
+              <div class="fm-rule">
+                <span>QTO_Stato</span>
+                <span class="op">Equals</span>
+                <span class="val">"NP"</span>
+                <span class="op">OR</span>
+                <span class="val">"ESCLUSO"</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-label">Scope di applicazione</div>
+            <div class="check on"><input type="radio" name="scope" checked> Vista corrente <em>({3D})</em></div>
+            <div class="check"><input type="radio" name="scope"> Template corrente <em>(propaga a tutte le viste dal template)</em></div>
+            <div class="check"><input type="radio" name="scope"> Set viste selezionate <em>(scegli da tree-view)</em></div>
+          </div>
+
+          <div class="section">
+            <div class="check"><input type="checkbox"> Aggiungi legenda auto-generata nei fogli</div>
+          </div>
+
+          <div class="btn-bar">
+            <button class="btn">Preview temporanea</button>
+            <button class="btn">Rimuovi filtri QTO</button>
+            <span style="flex:1"></span>
+            <button class="btn primary">▸ Applica (TransactionGroup)</button>
+          </div>
+        </div>
+
+        <!-- ══════ HEALTH CHECK VIEW ══════ -->
+        <div class="view-panel" data-panel="health">
+          <h3 class="view-title">Health Check <span class="ref">§I5 · Fase 8</span></h3>
+
+          <div class="stat-grid">
+            <div class="stat" style="--col:var(--st-computato)"><div class="num">142</div><div class="lbl">✅ Computati</div></div>
+            <div class="stat" style="--col:var(--st-mancante)"><div class="num">164</div><div class="lbl">❌ Mancanti</div></div>
+            <div class="stat" style="--col:var(--st-parziale)"><div class="num">8</div><div class="lbl">⚠ Parziali</div></div>
+            <div class="stat" style="--col:var(--st-multiep)"><div class="num">14</div><div class="lbl">🔄 Multi-EP</div></div>
+            <div class="stat" style="--col:var(--st-added)"><div class="num">22</div><div class="lbl">🆕 Aggiunti</div></div>
+            <div class="stat" style="--col:var(--st-escluso)"><div class="num">12</div><div class="lbl">🚫 Esclusi</div></div>
+          </div>
+
+          <div class="section">
+            <div class="section-label">Filtri visualizzazione</div>
+            <div class="legend">
+              <span class="chip" style="border-color:var(--st-computato)"><span class="sq" style="background:var(--st-computato)"></span>Computati <span class="cnt">142</span></span>
+              <span class="chip" style="border-color:var(--st-mancante);border-width:2px;background:#fef2f2"><span class="sq" style="background:var(--st-mancante)"></span>Mancanti <span class="cnt">164 ◉</span></span>
+              <span class="chip"><span class="sq" style="background:var(--st-parziale)"></span>Parziali <span class="cnt">8</span></span>
+              <span class="chip"><span class="sq" style="background:var(--st-multiep)"></span>Multi-EP <span class="cnt">14</span></span>
+              <span class="chip"><span class="sq" style="background:var(--st-added)"></span>Aggiunti <span class="cnt">22</span></span>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-label">Elementi critici (filtro: Mancanti) — dbl-click per navigare</div>
+            <table class="grid-table">
+              <thead><tr><th>ID</th><th>Categoria · Famiglia</th><th>Fase</th><th>Motivo</th></tr></thead>
+              <tbody>
+                <tr><td>112348</td><td>Muri · Muro Portante 30cm</td><td>Progetto</td><td style="color:var(--st-mancante)">QtoAssignments vuoto</td></tr>
+                <tr><td>112612</td><td>Solai · Solaio misto 25cm</td><td>Progetto</td><td style="color:var(--st-mancante)">QtoAssignments vuoto</td></tr>
+                <tr><td>112788</td><td>Porte · Porta 80x210</td><td>Progetto</td><td style="color:var(--st-parziale)">Quantità = 0</td></tr>
+                <tr><td>113042</td><td>Generic · Cappotto termico</td><td>Progetto</td><td style="color:var(--st-added)">Aggiunto post 21/04/2026</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="btn-bar">
+            <button class="btn">Esporta report Excel</button>
+            <button class="btn">Applica override grafici</button>
+            <span style="flex:1"></span>
+            <button class="btn primary">▸ Naviga al primo critico</button>
+          </div>
+        </div>
+
+        <!-- ══════ NP — NUOVI PREZZI ══════ -->
+        <div class="view-panel" data-panel="np">
+          <h3 class="view-title">Nuovo Prezzo <span class="ref">§I8 · D.Lgs. 36/2023</span></h3>
+
+          <div class="np-workflow">
+            <div class="np-step done">1 · Bozza</div>
+            <div class="np-step current">2 · Concordato</div>
+            <div class="np-step">3 · Approvato RUP</div>
+          </div>
+
+          <div class="row">
+            <div class="field"><label>Codice NP</label><input class="mono" value="NP.003"></div>
+            <div class="field"><label>UM</label><input class="mono" value="m²"></div>
+          </div>
+
+          <div class="field">
+            <label>Descrizione</label>
+            <textarea rows="2">Cappotto termico lana di roccia sp.12cm con finitura siliconica bianca (non presente in Toscana 2024)</textarea>
+          </div>
+
+          <div class="section">
+            <div class="section-label">Analisi prezzi — componenti CT</div>
+            <table class="np-table">
+              <tr><td>Manodopera</td><td>42,00 €</td></tr>
+              <tr><td>Materiali</td><td>68,50 €</td></tr>
+              <tr><td>Noli</td><td>6,00 €</td></tr>
+              <tr><td>Trasporti</td><td>3,20 €</td></tr>
+              <tr class="sum"><td>Costo Tecnico CT</td><td>119,70 €</td></tr>
+              <tr><td>Spese generali (15%)</td><td>× 1,150</td></tr>
+              <tr><td>Utile impresa (10%)</td><td>× 1,100</td></tr>
+              <tr><td>Ribasso asta (opzionale)</td><td>0%</td></tr>
+              <tr class="final"><td>PREZZO UNITARIO</td><td>151,47 €/m²</td></tr>
+            </table>
+          </div>
+
+          <div class="section" style="font-family:var(--font-mono);font-size:10.5px;color:var(--ink-muted);padding:8px;background:var(--panel-sub);border-left:3px solid var(--accent-cool)">
+            <b style="color:var(--ink)">Rif. normativo:</b> art. 5, comma 7, All. II.14 D.Lgs. 36/2023 · art. 120 varianti · parere MIT 3545/2025 per ribasso asta
+          </div>
+
+          <div class="btn-bar">
+            <button class="btn">Allega verbale</button>
+            <span style="flex:1"></span>
+            <button class="btn">← Bozza</button>
+            <button class="btn primary">▸ Approva (RUP)</button>
+          </div>
+        </div>
+
+        <!-- ══════ EXPORT VIEW ══════ -->
+        <div class="view-panel" data-panel="export">
+          <h3 class="view-title">Esporta Computo <span class="ref">§Fase 12</span></h3>
+
+          <div class="section">
+            <div class="section-label">Formato</div>
+            <div class="check on"><input type="radio" name="fmt" checked> <b>XPWE</b> — PriMus-ready, gerarchia capitoli <span class="meta">primario</span></div>
+            <div class="check on"><input type="radio" name="fmt" checked> <b>Excel .xlsx</b> — computo con NP evidenziati + foglio analisi</div>
+            <div class="check"><input type="radio" name="fmt"> <b>TSV</b> — testo tabulato compatibile SA</div>
+            <div class="check"><input type="radio" name="fmt"> <b>Delta report</b> — solo elementi cambiati dall'ultimo export</div>
+          </div>
+
+          <div class="section">
+            <div class="section-label">Sorgenti incluse</div>
+            <div class="check on"><input type="checkbox" checked> ◉ Sorgente A (modello) — 306 elementi</div>
+            <div class="check on"><input type="checkbox" checked> ◈ Sorgente B (Rooms+NCalc) — 84 rooms · 12 formule</div>
+            <div class="check on"><input type="checkbox" checked> ◆ Sorgente C (manuali) — 3 voci</div>
+          </div>
+
+          <div class="section">
+            <div class="section-label">Anteprima righe export</div>
+            <table class="grid-table">
+              <thead><tr><th>Cap.</th><th>Codice</th><th>Descrizione</th><th class="num">Q.tà</th><th>UM</th><th class="num">€/U</th><th class="num">Totale</th></tr></thead>
+              <tbody>
+                <tr><td>A.02</td><td>A.02.001</td><td>Muratura mattoni pieni 30cm</td><td class="qty num">547,20</td><td>m²</td><td>85,00</td><td class="price num">46.512,00</td></tr>
+                <tr><td>B.01</td><td>B.01.003</td><td>Intonaco civile interno</td><td class="qty num">412,80</td><td>m²</td><td>30,00</td><td class="price num">12.384,00</td></tr>
+                <tr style="background:#fff7ed"><td>NP</td><td>NP.003</td><td>Cappotto lana roccia 12cm</td><td class="qty num">218,50</td><td>m²</td><td>151,47</td><td class="price num">33.096,12</td></tr>
+                <tr style="background:#fef3c7"><td>M</td><td>OS.001</td><td>Oneri sicurezza — da verbale 12/03</td><td class="qty num">1,00</td><td>cad</td><td>1.200,00</td><td class="price num">1.200,00</td></tr>
+                <tr class="total"><td colspan="6">TOTALE COMPUTO</td><td class="num">218.428,32</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="btn-bar">
+            <button class="btn ghost">Annulla</button>
+            <button class="btn">Anteprima PDF</button>
+            <span style="flex:1"></span>
+            <button class="btn primary">▸ ESPORTA</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Status bar -->
+  <div class="revit-status">
+    <span class="pulse"></span>
+    <span>SALVATO 17:32</span>
+    <span class="sep"></span>
+    <span>Sessione: <b>"Computo Lotto A · Strutture"</b></span>
+    <span class="sep"></span>
+    <span>142 / 318 · 44,7%</span>
+    <span class="sep"></span>
+    <span>€ <b>48.320,50</b></span>
+    <span class="sep"></span>
+    <span>Sync Revit ✓</span>
+    <span style="flex:1"></span>
+    <span>Ollama locale ● ready</span>
+    <span class="sep"></span>
+    <span>DB: Snowdon_Towers.db · 2,4 MB</span>
+  </div>
+
+</div>
+
+<script>
+// View switcher
+document.querySelectorAll('.vs-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const v = btn.dataset.view;
+    document.querySelectorAll('.vs-btn').forEach(b => b.classList.toggle('active', b === btn));
+    document.querySelectorAll('.view-panel').forEach(p => p.classList.toggle('active', p.dataset.panel === v));
+    document.querySelectorAll('.ribbon-btn').forEach(rb => rb.classList.toggle('active', rb.dataset.view === v));
+  });
+});
+
+// Ribbon buttons also drive the switcher
+document.querySelectorAll('.ribbon-btn').forEach(rb => {
+  rb.addEventListener('click', () => {
+    const v = rb.dataset.view;
+    if (!v) return;
+    const target = document.querySelector(`.vs-btn[data-view="${v}"]`);
+    if (target) target.click();
+  });
+});
+
+// Sub-tab switcher (scoped to each view-panel)
+document.querySelectorAll('.view-panel').forEach(panel => {
+  const tabs = panel.querySelectorAll(':scope > .tabs .tab');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const k = tab.dataset.tab;
+      panel.querySelectorAll(':scope > .tabs .tab').forEach(t => t.classList.toggle('active', t === tab));
+      panel.querySelectorAll(':scope > .tab-panel').forEach(tp => tp.classList.toggle('active', tp.dataset.tabPanel === k));
+    });
+  });
+});
+</script>
+
+</body>
+</html>

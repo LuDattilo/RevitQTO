@@ -46,3 +46,7 @@ logs/
 
 ## User-specific build overrides (Revit paths)
 Directory.Build.props.user
+
+## Claude Code / Superpowers session state (not versioned)
+.claude/
+.superpowers/

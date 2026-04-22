@@ -1,4 +1,6 @@
 using Autodesk.Revit.UI;
+using QtoRevitPlugin.Services;
+using QtoRevitPlugin.UI.ViewModels;
 using System;
 using System.Windows;
 using System.Windows.Interop;
@@ -8,14 +10,19 @@ namespace QtoRevitPlugin.UI.Views
     public partial class QtoMainWindow : Window
     {
         private readonly UIApplication _uiApp;
+        private readonly SessionManager _sessionManager;
+        private readonly MainWindowViewModel _vm;
 
-        public QtoMainWindow(UIApplication uiApp)
+        public QtoMainWindow(UIApplication uiApp, SessionManager sessionManager)
         {
-            _uiApp = uiApp;
+            _uiApp = uiApp ?? throw new ArgumentNullException(nameof(uiApp));
+            _sessionManager = sessionManager ?? throw new ArgumentNullException(nameof(sessionManager));
             InitializeComponent();
 
-            // Aggancia la finestra WPF come figlia della finestra principale di Revit
-            // per garantire il corretto z-order (la finestra non sparisce dietro Revit al click)
+            _vm = (MainWindowViewModel)DataContext;
+            RefreshFromSession();
+            _sessionManager.SessionChanged += (_, _) => Dispatcher.Invoke(RefreshFromSession);
+
             Loaded += OnLoaded;
         }
 
@@ -26,10 +33,32 @@ namespace QtoRevitPlugin.UI.Views
                 var helper = new WindowInteropHelper(this);
                 helper.Owner = System.Diagnostics.Process.GetCurrentProcess().MainWindowHandle;
             }
-            catch (Exception)
+            catch
             {
-                // Non critico — la finestra funziona comunque
+                // Non critico
             }
+        }
+
+        private void RefreshFromSession()
+        {
+            var session = _sessionManager.ActiveSession;
+            if (session == null)
+            {
+                _vm.SessionTitle = "Nessuna sessione attiva";
+                _vm.TotalElements = 0;
+                _vm.TaggedElements = 0;
+                _vm.TotalAmount = 0;
+                _vm.StatusMessage = "Pronto";
+                return;
+            }
+
+            _vm.SessionTitle = $"{session.ProjectName} · {session.SessionName}";
+            _vm.TotalElements = session.TotalElements;
+            _vm.TaggedElements = session.TaggedElements;
+            _vm.TotalAmount = session.TotalAmount;
+            _vm.StatusMessage = session.LastSavedAt.HasValue
+                ? $"Salvato {session.LastSavedAt.Value.ToLocalTime():HH:mm}"
+                : "Sessione creata";
         }
     }
 }

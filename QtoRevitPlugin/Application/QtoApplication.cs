@@ -1,4 +1,5 @@
 using Autodesk.Revit.UI;
+using QtoRevitPlugin.Services;
 using RevitAsync = Revit.Async;
 using System;
 using System.Reflection;
@@ -9,6 +10,12 @@ namespace QtoRevitPlugin.Application
     {
         public static QtoApplication Instance { get; private set; } = null!;
 
+        /// <summary>Gestore sessione condiviso tra i comandi. Singleton per sessione Revit.</summary>
+        public SessionManager SessionManager { get; private set; } = null!;
+
+        /// <summary>AutoSave condiviso. Avviato al primo CreateSession/ResumeSession.</summary>
+        public AutoSaveService AutoSave { get; private set; } = null!;
+
         public Result OnStartup(UIControlledApplication application)
         {
             Instance = this;
@@ -18,6 +25,24 @@ namespace QtoRevitPlugin.Application
                 // Inizializza il wrapper async per ExternalEvent — richiesto una sola volta in OnStartup.
                 // Permette a ViewModel di chiamare: await RevitTask.RunAsync(app => { ... })
                 RevitAsync.RevitTask.Initialize(application);
+
+                SessionManager = new SessionManager();
+                AutoSave = new AutoSaveService(SessionManager);
+
+                // Avvia AutoSave solo quando esiste una sessione attiva
+                SessionManager.SessionChanged += (_, args) =>
+                {
+                    if (args.Kind == SessionChangeKind.Created
+                     || args.Kind == SessionChangeKind.Resumed
+                     || args.Kind == SessionChangeKind.Forked)
+                    {
+                        AutoSave.Start();
+                    }
+                    else if (args.Kind == SessionChangeKind.Closed)
+                    {
+                        AutoSave.Stop();
+                    }
+                };
 
                 CreateRibbon(application);
             }
@@ -32,6 +57,8 @@ namespace QtoRevitPlugin.Application
 
         public Result OnShutdown(UIControlledApplication application)
         {
+            AutoSave?.Dispose();
+            SessionManager?.Dispose();
             return Result.Succeeded;
         }
 

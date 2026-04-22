@@ -13,4 +13,14 @@
     <AssemblyName>QtoRevitPlugin.Core</AssemblyName>
   </PropertyGroup>
 
+  <!--
+    Sprint 1 NuGet: SQLite locale + Dapper come ORM leggero.
+    Microsoft.Data.Sqlite 6.x è l'ultima versione compatibile netstandard2.0.
+    Dapper 2.x elimina boilerplate CRUD mantenendo controllo SQL raw (utile per FTS5).
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="6.0.*" />
+    <PackageReference Include="Dapper" Version="2.1.*" />
+  </ItemGroup>
+
 </Project>
