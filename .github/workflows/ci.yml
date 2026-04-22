@@ -9,7 +9,10 @@ on:
 jobs:
   core-tests:
     name: Core + Tests (Revit-free)
-    runs-on: ubuntu-latest
+    # Windows runner: SQLite native (e_sqlite3.dll) caricato senza RID-specific probing
+    # che su Linux cercava alpine-* e falliva. Core resta netstandard2.0 cross-platform,
+    # ma i test istanziano SqliteConnection quindi serve la native lib.
+    runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v4
