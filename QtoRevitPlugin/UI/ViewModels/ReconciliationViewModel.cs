@@ -4,7 +4,6 @@ using QtoRevitPlugin.Data;
 using QtoRevitPlugin.Services;
 using System.Collections.ObjectModel;
 using System.Linq;
-using ModelDiffResult = QtoRevitPlugin.Services.ModelDiffResult;
 
 namespace QtoRevitPlugin.UI.ViewModels
 {
@@ -36,6 +35,15 @@ namespace QtoRevitPlugin.UI.ViewModels
                 AddedItems.Add(a);
         }
 
+        partial void OnDeletedItemsChanged(ObservableCollection<DiffEntryViewModel> value)
+            => OnPropertyChanged(nameof(DeletedCount));
+
+        partial void OnModifiedItemsChanged(ObservableCollection<DiffEntryViewModel> value)
+            => OnPropertyChanged(nameof(ModifiedCount));
+
+        partial void OnAddedItemsChanged(ObservableCollection<Autodesk.Revit.DB.Element> value)
+            => OnPropertyChanged(nameof(AddedCount));
+
         [RelayCommand]
         private void AcceptAll()
         {
@@ -50,13 +58,15 @@ namespace QtoRevitPlugin.UI.ViewModels
         {
             DeletedItems.Clear();
             ModifiedItems.Clear();
+            OnPropertyChanged(nameof(DeletedCount));
+            OnPropertyChanged(nameof(ModifiedCount));
         }
     }
 
     public partial class DiffEntryViewModel : ObservableObject
     {
         public DiffEntry Entry { get; }
-        public string ElementLabel => $"Elem. {Entry.Snapshot.UniqueId.Substring(0, 8)}\u2026";
+        public string ElementLabel => $"Elem. {Entry.Snapshot.UniqueId.Substring(0, System.Math.Min(8, Entry.Snapshot.UniqueId.Length))}\u2026";
         public string EpCode => Entry.Snapshot.AssignedEP.FirstOrDefault() ?? "";
         public string Delta => Entry.Delta;
         public string OldQtyLabel => $"{Entry.OldQty:N2}";
