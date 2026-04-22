@@ -26,11 +26,6 @@ namespace QtoRevitPlugin.UI.Panes
         private readonly Dictionary<QtoViewKey, ToggleButton> _buttonCache = new();
         private UserControl? _noSessionView;
 
-        private const double InitialPaneWidth = 1000;
-        private const double InitialPaneHeight = 920;
-        private const double MinAcceptableWidth = 700;
-        private const double MinAcceptableHeight = 600;
-
         public QtoDockablePane(DockablePaneViewModel vm)
         {
             _vm = vm;
@@ -49,46 +44,8 @@ namespace QtoRevitPlugin.UI.Panes
             UpdateActiveView();
             UpdateSessionMenuEnabled();
 
-            // Ogni volta che il pane diventa visible, verifichiamo che la window
-            // contenitore abbia dimensioni accettabili. Se Revit la mostra troppo piccola
-            // (es. persistenza di una docked pane precedente), la riportiamo centrata.
-            IsVisibleChanged += OnIsVisibleChanged;
-        }
-
-        private void OnIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
-        {
-            if (e.NewValue is not true) return;
-            // Dispatch a BackgroundPriority: aspetta che Revit abbia finito il suo layout
-            Dispatcher.BeginInvoke(new Action(EnsureAcceptableSize),
-                System.Windows.Threading.DispatcherPriority.Background);
-        }
-
-        private void EnsureAcceptableSize()
-        {
-            try
-            {
-                var win = Window.GetWindow(this);
-                if (win == null) return;
-
-                // Non toccare la main Revit window
-                var winHandle = new System.Windows.Interop.WindowInteropHelper(win).Handle;
-                var revitHandle = System.Diagnostics.Process.GetCurrentProcess().MainWindowHandle;
-                if (winHandle == revitHandle) return;
-
-                // Se già grande abbastanza, non toccare (rispetta resize dell'utente)
-                if (win.ActualWidth >= MinAcceptableWidth && win.ActualHeight >= MinAcceptableHeight)
-                    return;
-
-                var work = SystemParameters.WorkArea;
-                win.Width = Math.Min(InitialPaneWidth, work.Width - 80);
-                win.Height = Math.Min(InitialPaneHeight, work.Height - 80);
-                win.Left = work.Left + (work.Width - win.Width) / 2;
-                win.Top = work.Top + (work.Height - win.Height) / 2;
-            }
-            catch
-            {
-                // Non critico
-            }
+            // §I15: dimensioni e posizione sono gestite da DockablePaneState.FloatingRectangle
+            // e dal MinWidth/MinHeight dello XAML. Niente logica custom qui.
         }
 
         private void BuildSwitcher()

@@ -946,6 +946,159 @@ Il tool `modify_schedule` di RC è particolarmente utile: una volta creata la sc
 
 ---
 
+## I15. Registrazione DockablePane (pattern corretto)
+
+**Requisito**: il `DockablePane` del plug-in (namespace `QtoPreviewPane`, label utente **"CME · Computo"**) deve:
+1. Registrarsi **una volta sola** in `OnStartup`
+2. **NON** auto-mostrarsi all'apertura di ogni documento Revit
+3. Avere dimensioni iniziali adeguate sia in modalità **flottante** (default per workflow multi-monitor) che dockata
+4. Rispettare la persistenza nativa di Revit per lo stato di visibilità
+
+### Sintomi comuni di malconfigurazione
+
+| Sintomo osservato | Root cause |
+|---|---|
+| "Il pannello è già aperto all'apertura di qualunque file Revit" | Revit persiste lo stato di visibilità dei DockablePane a livello di **profilo utente** (file `UIState.dat`). È nativo, non un bug. Diventa patologico se il plug-in chiama `pane.Show()` in event handler come `DocumentOpened` o `ViewActivated`, forzando la riapertura anche quando l'utente l'aveva chiuso |
+| "Il pannello è troppo piccolo" (tipico 150×100 px) | `DockablePaneProviderData.InitialState` non configurato + `MinWidth`/`MinHeight` della UserControl root non impostati → Revit applica un fallback minuscolo |
+| "Il pannello parte ancorato invece di flottante" | `InitialState.DockPosition` default a `Right` o `Tabbed`. Per il workflow multi-monitor serve `DockPosition.Floating` esplicito |
+| "La posizione flottante è sempre in alto a sinistra schermo primario" | `InitialState.FloatingRectangle` non configurato → Revit parte a coordinate (0,0) del monitor primario |
+
+### Fix 1 — Registrazione in `OnStartup` (idempotente, no Show)
+
+```csharp
+public class QtoApplication : IExternalApplication
+{
+    // Guid STABILE tra versioni (mai rigenerarlo, altrimenti Revit perde
+    // lo stato di visibilità persistito tra le sessioni)
+    public static readonly DockablePaneId PaneId =
+        new(new Guid("A4B2C1D0-E5F6-7890-ABCD-EF1234567891"));
+
+    public Result OnStartup(UIControlledApplication app)
+    {
+        // Registrazione una sola volta, SENZA Show()
+        var provider = new QtoPaneProvider();
+        app.RegisterDockablePane(PaneId, "CME · Computo", provider);
+
+        // ❌ NON fare mai questo:
+        // app.ControlledApplication.DocumentOpened += (s, e) => ShowPane();
+        // app.ViewActivated += (s, e) => ShowPane();
+        //
+        // Revit persiste lo stato di visibilità da solo. Se forzi Show negli
+        // eventi, l'utente non riesce MAI a chiudere il pannello definitivamente.
+
+        return Result.Succeeded;
+    }
+}
+```
+
+### Fix 2 — `DockablePaneProviderData.InitialState` completo
+
+```csharp
+public class QtoPaneProvider : IDockablePaneProvider
+{
+    private QtoPreviewPane _paneWindow;
+
+    public void SetupDockablePane(DockablePaneProviderData data)
+    {
+        _paneWindow ??= new QtoPreviewPane();
+        data.FrameworkElement = _paneWindow;
+
+        data.InitialState = new DockablePaneState
+        {
+            // Decisione architetturale: pannelli flottanti per workflow multi-monitor
+            DockPosition = DockPosition.Floating,
+
+            // Coordinate iniziali: NON (0,0). Calcola in base al monitor primario:
+            // primary_width - pane_width - 80 per avere il pannello in alto a destra
+            FloatingRectangle = ComputeInitialFloatingRect(),
+
+            // Dimensioni minime in modalità dockata (fallback se utente lo ancora)
+            MinimumWidth = 420,
+            MinimumHeight = 600
+        };
+
+        // ❌ NON impostare data.VisibleByDefault: la visibilità è gestita da Revit
+        // in base allo stato utente persistito. Settarla forza un comportamento
+        // che "ruba" il controllo all'utente.
+    }
+
+    private Rectangle ComputeInitialFloatingRect()
+    {
+        var primary = System.Windows.Forms.Screen.PrimaryScreen.WorkingArea;
+        const int w = 520, h = 760;
+        return new Rectangle(
+            primary.Right - w - 40,   // 40px margine destro
+            primary.Top + 80,          // 80px sotto la barra Revit
+            w, h);
+    }
+}
+```
+
+### Fix 3 — UserControl XAML con minimi espliciti
+
+```xml
+<UserControl x:Class="QtoPlugin.UI.Panes.QtoPreviewPane"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             MinWidth="420"
+             MinHeight="600"
+             d:DesignWidth="520"
+             d:DesignHeight="760"
+             FontFamily="{StaticResource FontBody}"
+             FontSize="{StaticResource FontSizeBody}"
+             Background="{StaticResource PanelBgBrush}">
+  <!-- ... layout QtoPreviewPane con tab Selezione Corrente / Riepilogo ... -->
+</UserControl>
+```
+
+I minimi XAML servono come **secondo livello di difesa**: se Revit 2026+ cambia il comportamento di `InitialState` (già successo tra 2024 e 2025), la UserControl si auto-protegge dal rendering micro.
+
+### Fix 4 — Apertura su richiesta esplicita (pulsante ribbon)
+
+L'utente apre il pannello tramite il pulsante "Avvia QTO" nel ribbon (primo pulsante del panel "Start"). Dopo l'apertura, Revit persiste lo stato e lo ripropone alla sessione successiva senza ulteriore codice del plug-in:
+
+```csharp
+// LaunchQtoCommand.cs
+public Result Execute(ExternalCommandData commandData, ref string msg, ElementSet els)
+{
+    var uiApp = commandData.Application;
+    var pane = uiApp.GetDockablePane(QtoApplication.PaneId);
+
+    if (pane.IsShown())
+    {
+        // Già aperto → porta in focus
+        pane.Show();  // no-op se visibile, ma garantisce il focus
+    }
+    else
+    {
+        pane.Show();  // prima apertura della sessione utente
+    }
+    return Result.Succeeded;
+}
+```
+
+### Comportamento nativo Revit — non toccare
+
+Revit gestisce autonomamente (senza intervento del plug-in):
+- Persistenza stato visibilità tra sessioni (`UIState.dat`)
+- Persistenza posizione + dimensione flottante per quel `DockablePaneId`
+- Ripristino della configurazione all'avvio successivo
+
+**Regola d'oro**: il plug-in **registra** il pane e **risponde** al click utente. Non forza visibilità, non monitora eventi di apertura documento per "riattivare". Lascia Revit fare il suo lavoro.
+
+### Validazione con RevitCortex
+
+Il plug-in `RevitCortex v1.0.13` (riferimento implementativo) registra il proprio DockablePane esattamente con questo pattern: una sola `RegisterDockablePane` in startup, nessun forcing di visibilità, dimensioni iniziali configurate. Il comportamento "si apre sempre" che talvolta viene osservato è, appunto, persistenza nativa Revit — non va "corretta" ma documentata nel manuale utente come "chiudi il pannello quando non serve; Revit ricorderà la scelta".
+
+### Troubleshooting rapido
+
+Se dopo questi fix il pane appare ancora minuscolo alla prima apertura:
+1. Cancella il file `%AppData%\Autodesk\Revit\<versione>\UIState.dat` — forza un reset dello stato persistito (l'utente perde anche altre configurazioni DockablePane, avvisare)
+2. Verifica che `GetDockablePane(paneId)` NON lanci `InvalidOperationException` — se lo fa, il `Guid` è cambiato tra build (non deve MAI succedere)
+3. Log del `data.InitialState` effettivamente applicato: se `DockPosition` viene sovrascritto a `Tabbed`, un altro plug-in ha "rubato" la posizione (raro ma possibile con toolkit concorrenti)
+
+---
+
 ## Matrice di Impatto – Sprint
 
 La tabella mostra in quale sprint viene sviluppata ogni implementazione aggiuntiva.
@@ -966,3 +1119,4 @@ La tabella mostra in quale sprint viene sviluppata ogni implementazione aggiunti
 | I12 – Sorgente B Room+NCalc | 4–5 | NCalc + ParameterNameResolver + FormulaEditorView |
 | I13 – Sorgente C voci manuali | 5 | Schema DB `ManualItems` + tab TaggingView |
 | I14 – Viste QTO dedicate (3D + 2D + Schedules) | 5 | §I11 FilterManager + Level iteration + Multi-Category Schedules |
+| I15 – Registrazione DockablePane corretta | 0 (Sprint 0 setup) | IDockablePaneProvider + DockablePaneState + UIState.dat |
