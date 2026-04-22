@@ -95,6 +95,42 @@ namespace QtoRevitPlugin.UI.Views
         // Elimina listino
         // ---------------------------------------------------------------------
 
+        // ---------------------------------------------------------------------
+        // Sfoglia listino — apre Window standalone con TreeView gerarchico
+        // ---------------------------------------------------------------------
+
+        private CatalogBrowserWindow? _catalogWindow;
+
+        private void OnBrowseCatalogClick(object sender, RoutedEventArgs e)
+        {
+            if (!_vm.HasSessionActive)
+            {
+                TaskDialog.Show("CME – Setup",
+                    "Apri un computo .cme dal menu «Sessione ▾» prima di sfogliare un listino.");
+                return;
+            }
+            if (_vm.PriceLists.Count == 0)
+            {
+                TaskDialog.Show("CME – Setup",
+                    "Nessun listino caricato. Importane uno con «+ Importa listino…» prima di sfogliare.");
+                return;
+            }
+
+            // Riusa la window se già aperta, altrimenti ne crea una nuova non-modal.
+            if (_catalogWindow != null && _catalogWindow.IsLoaded)
+            {
+                _catalogWindow.Activate();
+                return;
+            }
+            _catalogWindow = new CatalogBrowserWindow();
+            _catalogWindow.Closed += (_, _) => _catalogWindow = null;
+            _catalogWindow.Show();
+        }
+
+        // ---------------------------------------------------------------------
+        // Elimina listino
+        // ---------------------------------------------------------------------
+
         private void OnDeleteClick(object sender, RoutedEventArgs e)
         {
             var selected = _vm.SelectedPriceList;

@@ -335,6 +335,25 @@ namespace QtoRevitPlugin.Data
         }
 
         /// <summary>
+        /// Carica tutte le voci di UN listino specifico, ordinate per gerarchia
+        /// (SuperChapter → Chapter → SubChapter → Code). Usato dal CatalogBrowserWindow
+        /// per costruire il TreeView di anteprima.
+        /// </summary>
+        public IReadOnlyList<PriceItem> GetPriceItemsByList(int priceListId)
+        {
+            const string sql = @"
+                SELECT p.*, pl.Name AS ListName
+                FROM PriceItems p
+                JOIN PriceLists pl ON pl.Id = p.PriceListId
+                WHERE p.PriceListId = @id
+                ORDER BY p.SuperChapter, p.Chapter, p.SubChapter, p.Code;";
+
+            return _conn.Query<PriceItemRow>(sql, new { id = priceListId })
+                        .Select(r => r.ToPriceItem())
+                        .ToList();
+        }
+
+        /// <summary>
         /// Carica tutte le voci appartenenti a listini attivi. Usato dal
         /// <c>PriceItemSearchService</c> per la ricerca fuzzy (livello 3 Levenshtein) come cache one-shot.
         /// Per listini standard (&lt; 30k voci) è un'operazione &lt; 50ms.
