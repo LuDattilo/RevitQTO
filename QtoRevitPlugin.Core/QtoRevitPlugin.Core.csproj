@@ -21,6 +21,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="6.0.*" />
     <PackageReference Include="Dapper" Version="2.1.*" />
+    <!-- Sprint 2 Sorgente B: valutazione formule NCalc su parametri Room/Space Revit -->
+    <PackageReference Include="NCalc2" Version="2.*" />
   </ItemGroup>
 
 </Project>
