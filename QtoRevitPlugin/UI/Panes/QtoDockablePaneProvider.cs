@@ -15,11 +15,12 @@ namespace QtoRevitPlugin.UI.Panes
     /// </summary>
     public class QtoDockablePaneProvider : IDockablePaneProvider
     {
-        // Guid STABILE — mai cambiare, altrimenti Revit perde lo stato persistito utente
-        public static readonly Guid PaneGuid = new("A4B2C1D0-E5F6-7890-ABCD-EF1234567891");
-        public static readonly DockablePaneId PaneId = new DockablePaneId(PaneGuid);
+        // Forwarding a QtoConstants (fonte unica di verità per GUID e identificativi).
+        // Mantenuti per backward compat con i consumer di QtoDockablePaneProvider.{PaneGuid,PaneId,PaneTitle}.
+        public static Guid PaneGuid => QtoConstants.MainPaneGuid;
+        public static DockablePaneId PaneId => QtoConstants.MainPaneId;
 
-        public const string PaneTitle = "CME · Computo";
+        public const string PaneTitle = QtoConstants.MainPaneTitle;
 
         // Dimensione iniziale flottante
         private const int InitialWidth = 520;

@@ -11,31 +11,30 @@ using System.Reflection;
 namespace QtoRevitPlugin.Application
 {
     /// <summary>
-    /// Applicazione plug-in (IExternalApplication). §I15 pattern:
+    /// Applicazione plug-in (IExternalApplication). §I15 pattern puro:
     /// - Registra il DockablePane UNA VOLTA in OnStartup, senza Show()
-    /// - Handler Idling one-shot: al primo idle forza Hide() per bypassare il restore
-    ///   automatico di UIState.dat (scelta UX: il pane parte SEMPRE chiuso, si apre solo via ribbon)
-    /// - Posizione/dimensione restano persistite da Revit (solo la visibilità è sovrascritta)
+    /// - Handler Idling one-shot per CATTURARE <see cref="UIApplication"/> early in
+    ///   <see cref="CurrentUiApp"/> (necessario ai menu Sessione quando il pane è già
+    ///   visibile dal restore di UIState.dat e l'utente non ha ancora cliccato ribbon).
+    /// - Visibilità/posizione/dimensione delegate interamente a Revit (UIState.dat).
+    ///   Il pane si riapre come l'utente l'ha lasciato l'ultima sessione — niente force-Hide.
     /// </summary>
     public class QtoApplication : IExternalApplication
     {
         public static QtoApplication Instance { get; private set; } = null!;
 
         /// <summary>Guid stabile esposto come alias del PaneId nel provider (comodità LaunchQtoCommand).</summary>
-        public static DockablePaneId PaneId => QtoDockablePaneProvider.PaneId;
+        public static DockablePaneId PaneId => QtoConstants.MainPaneId;
 
         public SessionManager SessionManager { get; private set; } = null!;
         public AutoSaveService AutoSave { get; private set; } = null!;
         public DockablePaneViewModel PaneViewModel { get; private set; } = null!;
         public UIApplication? CurrentUiApp { get; set; }
 
-        // One-shot: al primo Idling nascondiamo il pane (override del restore di UIState.dat)
-        // Retry pattern: il pane può non essere ancora "creato" da Revit ai primi Idling
-        // (registrazione != creazione). Riproviamo finché Hide riesce o max attempts.
+        // One-shot: al primo Idling catturiamo l'UIApplication.
+        // Non tentiamo Hide/Show sul pane: quella è gestita da Revit via UIState.dat.
         private UIControlledApplication? _appForIdling;
-        private bool _hiddenAtStartup;
-        private int _idlingAttempts;
-        private const int MaxIdlingAttempts = 30; // ~3s a frequenza Idling Revit
+        private bool _uiAppCaptured;
 
         public Result OnStartup(UIControlledApplication application)
         {
@@ -87,7 +86,7 @@ namespace QtoRevitPlugin.Application
                 CrashLogger.Info("→ CreateRibbon");
                 CreateRibbon(application);
 
-                // Idling one-shot: forza pane chiuso all'avvio (bypass UIState.dat restore)
+                // Idling one-shot: cattura UIApplication in CurrentUiApp (per menu Sessione)
                 _appForIdling = application;
                 application.Idling += OnFirstIdling;
 
@@ -126,70 +125,23 @@ namespace QtoRevitPlugin.Application
         }
 
         /// <summary>
-        /// Handler Idling con retry: al primo idle cattura UIApplication (necessario per
-        /// GetActiveDocument dai menu Sessione quando il pane è già visibile da restore UIState.dat)
-        /// e tenta Hide() sul DockablePane. Il pane può non essere ancora "creato" ai primi Idling
-        /// (registrazione != istanziazione): in quel caso ritenta finché riesce o fino a MaxIdlingAttempts.
-        /// Si unsubscribe SOLO dopo successo (o abbandono per timeout).
+        /// Handler Idling one-shot: cattura <see cref="UIApplication"/> in
+        /// <see cref="CurrentUiApp"/> (necessario per GetActiveDocument dai menu Sessione
+        /// quando il pane è già visibile da restore UIState.dat e l'utente non ha cliccato ribbon).
+        /// NON tocca la visibilità del pane — quella è gestita da Revit.
         /// </summary>
         private void OnFirstIdling(object? sender, IdlingEventArgs e)
         {
-            if (_hiddenAtStartup) return;
+            if (_uiAppCaptured) return;
 
-            // Cattura UIApplication EARLY: risolve il bug "Apri un progetto Revit" quando il pane
-            // è già visibile (UIState.dat restore) e l'utente apre menu Sessione senza aver mai cliccato ribbon
             if (sender is UIApplication uiApp)
             {
                 CurrentUiApp = uiApp;
-            }
-            else
-            {
-                // Caso teorico: sender non è UIApplication. Abbandoniamo.
-                UnsubscribeIdling();
-                return;
+                _uiAppCaptured = true;
+                CrashLogger.Info("UIApplication captured at first Idling");
             }
 
-            _idlingAttempts++;
-            if (_idlingAttempts > MaxIdlingAttempts)
-            {
-                CrashLogger.Warn($"OnFirstIdling: abbandono dopo {_idlingAttempts} tentativi (pane non creato in tempo)");
-                _hiddenAtStartup = true;
-                UnsubscribeIdling();
-                return;
-            }
-
-            try
-            {
-                var pane = CurrentUiApp.GetDockablePane(PaneId);
-                if (pane != null)
-                {
-                    if (pane.IsShown())
-                    {
-                        pane.Hide();
-                        CrashLogger.Info($"Pane hidden al tentativo {_idlingAttempts} (override UIState.dat restore)");
-                    }
-                    else
-                    {
-                        CrashLogger.Info($"Pane già nascosto al tentativo {_idlingAttempts}");
-                    }
-                    _hiddenAtStartup = true;
-                    UnsubscribeIdling();
-                }
-            }
-            catch (Autodesk.Revit.Exceptions.ArgumentException)
-            {
-                // "The requested dockable pane has not been created yet" — normal nei primi tentativi.
-                // Log spam-free: solo ogni 5 tentativi.
-                if (_idlingAttempts == 1 || _idlingAttempts % 5 == 0)
-                    CrashLogger.Info($"OnFirstIdling: pane non ancora creato (tentativo {_idlingAttempts}), retry...");
-                // NON unsubscribe: continua al prossimo Idling
-            }
-            catch (Exception ex)
-            {
-                CrashLogger.WriteException("OnFirstIdling", ex);
-                _hiddenAtStartup = true;
-                UnsubscribeIdling();
-            }
+            UnsubscribeIdling();
         }
 
         private void UnsubscribeIdling()
@@ -233,13 +185,11 @@ namespace QtoRevitPlugin.Application
 
         private static void CreateRibbon(UIControlledApplication application)
         {
-            const string tabName = "CME";
-
-            try { application.CreateRibbonTab(tabName); }
+            try { application.CreateRibbonTab(QtoConstants.RibbonTabName); }
             catch { /* già esistente */ }
 
             var assemblyPath = Assembly.GetExecutingAssembly().Location;
-            RibbonPanel panel = application.CreateRibbonPanel(tabName, "Computo Metrico");
+            RibbonPanel panel = application.CreateRibbonPanel(QtoConstants.RibbonTabName, QtoConstants.RibbonPanelName);
 
             var launchButton = new PushButtonData(
                 "LaunchCme",
