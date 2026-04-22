@@ -237,26 +237,40 @@ namespace QtoRevitPlugin.Services
 
         private void LaunchModelDiff(int sessionId, IReadOnlyList<ElementSnapshot> snapshots)
         {
+            // Capture repository reference before async work — _repository can be nulled by CloseCurrent()
+            var capturedRepo = _repository;
+            if (capturedRepo == null) return;
+
             _ = Revit.Async.RevitTask.RunAsync(app =>
             {
-                var doc = app.ActiveUIDocument?.Document;
-                if (doc == null) return;
-
-                var mappingRules = new MappingRulesService();
-                var diffSvc = new ModelDiffService(mappingRules);
-                var result = diffSvc.ComputeDiff(doc, snapshots, mappingRules);
-
-                if (result.Deleted.Count == 0 && result.Modified.Count == 0 && result.Added.Count == 0)
-                    return;
-
-                System.Windows.Application.Current.Dispatcher.BeginInvoke(new System.Action(() =>
+                try
                 {
-                    var userContext = QtoRevitPlugin.Application.QtoApplication.Instance?.UserContext
-                        ?? new WindowsUserContext();
-                    var vm = new ReconciliationViewModel(result, _repository!, userContext);
-                    var window = new ReconciliationWindow(vm);
-                    window.Show();
-                }));
+                    var doc = app.ActiveUIDocument?.Document;
+                    if (doc == null) return;
+
+                    var mappingRules = new MappingRulesService();
+                    var diffSvc = new ModelDiffService(mappingRules);
+                    var result = diffSvc.ComputeDiff(doc, snapshots, mappingRules);
+
+                    if (result.Deleted.Count == 0 && result.Modified.Count == 0 && result.Added.Count == 0)
+                        return;
+
+                    System.Windows.Application.Current.Dispatcher.BeginInvoke(new System.Action(() =>
+                    {
+                        // Re-check that the session is still the same before showing UI
+                        if (capturedRepo != _repository) return;
+
+                        var userContext = QtoRevitPlugin.Application.QtoApplication.Instance?.UserContext
+                            ?? new WindowsUserContext();
+                        var vm = new ReconciliationViewModel(result, capturedRepo, userContext);
+                        var window = new ReconciliationWindow(vm);
+                        window.Show();
+                    }));
+                }
+                catch (Exception ex)
+                {
+                    CrashLogger.WriteException("LaunchModelDiff", ex);
+                }
             });
         }
 
