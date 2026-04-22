@@ -248,9 +248,8 @@ namespace QtoRevitPlugin.Services
                     var doc = app.ActiveUIDocument?.Document;
                     if (doc == null) return;
 
-                    var mappingRules = new MappingRulesService();
-                    var diffSvc = new ModelDiffService(mappingRules);
-                    var result = diffSvc.ComputeDiff(doc, snapshots, mappingRules);
+                    var diffSvc = new ModelDiffService(new MappingRulesService());
+                    var result = diffSvc.ComputeDiff(doc, snapshots);
 
                     if (result.Deleted.Count == 0 && result.Modified.Count == 0 && result.Added.Count == 0)
                         return;

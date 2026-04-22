@@ -18,7 +18,7 @@ namespace QtoRevitPlugin.Commands
             {
                 var app = QtoApplication.Instance;
 
-                if (app.CatalogBrowser == null)
+                if (app.CatalogBrowser == null || !app.CatalogBrowser.IsLoaded)
                 {
                     var window = new CatalogBrowserWindow();
                     window.Show();

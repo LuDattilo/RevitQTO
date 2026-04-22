@@ -16,8 +16,7 @@ namespace QtoRevitPlugin.Services
 
         public ModelDiffResult ComputeDiff(
             Document doc,
-            IReadOnlyList<ElementSnapshot> snapshots,
-            MappingRulesService rules)
+            IReadOnlyList<ElementSnapshot> snapshots)
         {
             var result = new ModelDiffResult();
 
@@ -38,7 +37,7 @@ namespace QtoRevitPlugin.Services
                 }
 
                 var catOst = TryGetCategoryOst(elem);
-                var rule = rules.GetRule(catOst);
+                var rule = _mappingRules.GetRule(catOst);
                 var paramValues = ExtractHashParams(elem, rule);
                 var currentHash = ComputeHashStatic(snap.UniqueId, paramValues);
 
