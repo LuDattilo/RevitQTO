@@ -1,8 +1,12 @@
 using Autodesk.Revit.DB;
 using QtoRevitPlugin.Data;
 using QtoRevitPlugin.Models;
+using QtoRevitPlugin.UI.ViewModels;
+using QtoRevitPlugin.UI.Views;
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Windows;
 
 namespace QtoRevitPlugin.Services
 {
@@ -101,6 +105,10 @@ namespace QtoRevitPlugin.Services
             }
 
             var session = allSessions[0];  // già ORDER BY LastSavedAt DESC
+
+            // Verifica snapshot per Model Diff Check
+            TryLaunchModelDiff(session);
+
             SetActiveSession(session, SessionChangeKind.Resumed);
             return session;
         }
@@ -202,6 +210,54 @@ namespace QtoRevitPlugin.Services
             _repository.UpdateSession(_activeSession);
             SessionChanged?.Invoke(this,
                 new SessionChangedEventArgs(_activeSession, SessionChangeKind.Renamed));
+        }
+
+        // =====================================================================
+        // Model Diff on open
+        // =====================================================================
+
+        private void TryLaunchModelDiff(WorkSession session)
+        {
+            if (_repository == null) return;
+
+            var snapshots = _repository.GetSnapshots(session.Id);
+            if (snapshots.Count == 0) return;
+
+            var answer = MessageBox.Show(
+                $"Il file contiene {snapshots.Count} elementi con snapshot salvati.\n" +
+                "Vuoi verificare le modifiche al modello Revit rispetto all'ultima sessione?",
+                "Apri CME esistente",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (answer != MessageBoxResult.Yes) return;
+
+            LaunchModelDiff(session.Id, snapshots);
+        }
+
+        private void LaunchModelDiff(int sessionId, IReadOnlyList<ElementSnapshot> snapshots)
+        {
+            _ = Revit.Async.RevitTask.RunAsync(app =>
+            {
+                var doc = app.ActiveUIDocument?.Document;
+                if (doc == null) return;
+
+                var mappingRules = new MappingRulesService();
+                var diffSvc = new ModelDiffService(mappingRules);
+                var result = diffSvc.ComputeDiff(doc, snapshots, mappingRules);
+
+                if (result.Deleted.Count == 0 && result.Modified.Count == 0 && result.Added.Count == 0)
+                    return;
+
+                System.Windows.Application.Current.Dispatcher.BeginInvoke(new System.Action(() =>
+                {
+                    var userContext = QtoRevitPlugin.Application.QtoApplication.Instance?.UserContext
+                        ?? new WindowsUserContext();
+                    var vm = new ReconciliationViewModel(result, _repository!, userContext);
+                    var window = new ReconciliationWindow(vm);
+                    window.Show();
+                }));
+            });
         }
 
         // =====================================================================
