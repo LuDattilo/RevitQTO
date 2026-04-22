@@ -3,6 +3,7 @@ using Autodesk.Revit.UI.Events;
 using QtoRevitPlugin.Services;
 using QtoRevitPlugin.UI;
 using QtoRevitPlugin.UI.Panes;
+using QtoRevitPlugin.UI.Views;
 using QtoRevitPlugin.UI.ViewModels;
 using RevitAsync = Revit.Async;
 using System;
@@ -36,6 +37,8 @@ namespace QtoRevitPlugin.Application
         /// condivisa da tutti i computi .cme aperti da questo utente.
         /// </summary>
         public UserLibraryManager UserLibrary { get; private set; } = null!;
+        public IUserContext UserContext { get; private set; } = null!;
+        public CatalogBrowserWindow? CatalogBrowser { get; internal set; }
 
         // One-shot: al primo Idling catturiamo l'UIApplication.
         // Non tentiamo Hide/Show sul pane: quella è gestita da Revit via UIState.dat.
@@ -60,6 +63,9 @@ namespace QtoRevitPlugin.Application
                 CrashLogger.Info("→ UserLibraryManager (listini globali)");
                 UserLibrary = new UserLibraryManager();
                 CrashLogger.Info($"   UserLibrary path: {UserLibrary.LibraryPath}");
+
+                CrashLogger.Info("→ IUserContext");
+                UserContext = new WindowsUserContext();
 
                 CrashLogger.Info("→ SessionManager + AutoSave + PaneVM");
                 SessionManager = new SessionManager();
@@ -212,7 +218,19 @@ namespace QtoRevitPlugin.Application
                 LargeImage = IconFactory.CreateLaunchIcon(32),
                 Image = IconFactory.CreateLaunchIcon(16)
             };
+
+            var prezzarioButton = new PushButtonData(
+                "TogglePrezzario",
+                "Prezzario",
+                assemblyPath,
+                "QtoRevitPlugin.Commands.ToggleCatalogBrowserCommand")
+            {
+                ToolTip = "Apre/chiude il pannello Prezzario con Preferiti e voci EP"
+            };
+
             panel.AddItem(launchButton);
+            panel.AddSeparator();
+            panel.AddItem(prezzarioButton);
         }
     }
 }
