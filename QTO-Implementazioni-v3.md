@@ -635,6 +635,317 @@ Utile per importare da fogli Excel preesistenti o verbali di cantiere senza reim
 
 ---
 
+## I14. Vista 3D Dedicata per QTO
+
+**Requisito**: pulsante ribbon **"🎯 Vista QTO"** che apre (o crea se non esistente) una `View3D` isometrica predefinita, con template e i 3 filtri di §I11 già applicati. È la vista "lensing" per l'analisi visiva del computo, tipicamente aperta sul **secondo monitor** in configurazione flottante per affiancarla alla vista di progettazione.
+
+### Elementi gestiti (set completo)
+
+| Elemento | Nome convenzione | Tipo | Scope |
+|---|---|---|---|
+| `View3D` | `QTO_3D_View` | 3D isometrica | Singola vista shared, idempotente |
+| `ViewPlan` × N livelli | `QTO_Plan_<LevelName>` | Pianta 2D per livello | Generate da `Level.Name` (es. `QTO_Plan_GF`, `QTO_Plan_L1`…) |
+| `ViewSchedule` × 3 | `QTO_Schedule_Assegnazioni` · `_Mancanti` · `_NuoviPrezzi` | Schedule native Revit | Aggiornamento live al variare parametri |
+| `View` template 3D | `QTO_View_Template` | Template 3D | Applicato alla `View3D` |
+| `View` template 2D | `QTO_View_Template_2D` | Template planimetrico | Applicato a tutte le `QTO_Plan_*` |
+| Filtri vista | `QTO_Taggati` · `QTO_Mancanti` · `QTO_Anomalie` (§I11) | `ParameterFilterElement` | Ereditati da entrambi i template |
+
+### Contenuti del template `QTO_View_Template`
+
+| Proprietà | Valore | Motivazione |
+|---|---|---|
+| View Scale | 1:100 | Standard piante/prospetti BIM |
+| Detail Level | `Coarse` | Performance su modelli > 20k elementi |
+| Visual Style | `Consistent Colors` | I filtri dominano sul materiale |
+| Shadows / Ambient | Off | Evita occlusione colori di stato |
+| Section Box | Attivo su `PhaseFilter.BoundingBox` | Limita al volume della fase attiva |
+| V/G overrides | Categorie QTO piene, resto halftone 50% | Focus visivo sulle categorie computate |
+| Filtri applicati | `QTO_Taggati` + `QTO_Mancanti` + `QTO_Anomalie` | Da §I11, applicati in cascata |
+| Orientamento | Isometrica SW (default) | Configurabile in SetupView |
+
+### Creazione idempotente
+
+```csharp
+public View3D EnsureQtoView(Document doc)
+{
+    // 1) Riuso vista esistente
+    var existing = new FilteredElementCollector(doc)
+        .OfClass(typeof(View3D))
+        .Cast<View3D>()
+        .FirstOrDefault(v => !v.IsTemplate && v.Name == "QTO_3D_View");
+    if (existing != null)
+    {
+        VerifyTemplateIntegrity(doc, existing);   // vedi sotto
+        return existing;
+    }
+
+    // 2) Creazione: 3D view type + CreateIsometric
+    var viewType = new FilteredElementCollector(doc)
+        .OfClass(typeof(ViewFamilyType))
+        .Cast<ViewFamilyType>()
+        .First(vft => vft.ViewFamily == ViewFamily.ThreeDimensional);
+
+    var view = View3D.CreateIsometric(doc, viewType.Id);
+    view.Name = "QTO_3D_View";
+
+    // 3) Applica template
+    var template = EnsureQtoViewTemplate(doc);   // crea se mancante
+    view.ViewTemplateId = template.Id;
+
+    return view;
+}
+```
+
+### Verifica integrità template (drift detection)
+
+Se l'utente edita manualmente il template (es. disattiva un filtro, rimuove un override), al prossimo click su "Vista QTO" il plug-in rileva il drift e propone il ripristino:
+
+```csharp
+private void VerifyTemplateIntegrity(Document doc, View3D view)
+{
+    var tpl = doc.GetElement(view.ViewTemplateId) as View;
+    var expectedFilters = new[] { "QTO_Taggati", "QTO_Mancanti", "QTO_Anomalie" };
+    var appliedFilters = tpl.GetFilters()
+        .Select(id => (doc.GetElement(id) as ParameterFilterElement)?.Name)
+        .ToHashSet();
+
+    if (!expectedFilters.All(f => appliedFilters.Contains(f)))
+    {
+        // Mostra dialog: "Il template è stato alterato. Ripristinare?"
+        // [Ripristina] [Ignora] [Apri senza correzioni]
+    }
+}
+```
+
+### Transazione atomica
+
+L'intera sequenza (ensure template + ensure filters §I11 + ensure view + apply template + activate) è wrappata in un `TransactionGroup` unico:
+
+```csharp
+using var txGroup = new TransactionGroup(doc, "Apri Vista QTO");
+txGroup.Start();
+try
+{
+    EnsureQtoFilters(doc);                   // §I11
+    var tpl = EnsureQtoViewTemplate(doc);
+    var view = EnsureQtoView(doc);
+    uidoc.ActiveView = view;                 // activate sull'UIDocument
+    uidoc.RefreshActiveView();
+    txGroup.Assimilate();
+}
+catch { txGroup.RollBack(); throw; }
+```
+
+### UI integrazione
+
+| Dove | Elemento |
+|---|---|
+| **Ribbon** tab QTO, panel "Verifiche" | Pulsante **🎯 Vista QTO** accanto a "Filtri Vista" e "Health Check" |
+| **DockablePane** status bar | Indicatore `[● Vista QTO attiva]` quando `doc.ActiveView.Name == "QTO_3D_View"` |
+| **SetupView** tab "Vista QTO" | Configurazione: orientamento isometrico (SW/SE/NW/NE), Detail Level, Section Box auto-fit |
+
+### Multi-monitor workflow (integrazione con pannelli flottanti)
+
+Scenario tipico su due schermi:
+- **Monitor primario**: vista di progettazione (piante, sezioni, 3D architettonico)
+- **Monitor secondario**: `QTO_3D_View` + DockablePane QTO in stato flottante
+
+Al click del pulsante, se `QTO_3D_View` è già attiva in una finestra di lavoro, Revit porta quella finestra in focus (comportamento nativo di `uidoc.ActiveView = view`). Se non è aperta, la apre come tab nuova nel workspace corrente. L'utente poi la trascina manualmente sul secondo monitor (Revit persiste la posizione tramite `.rvt` → `WindowManager` native).
+
+### Validazione API con RevitCortex
+
+| Codice plug-in | Tool MCP RevitCortex | Note |
+|---|---|---|
+| `View3D.CreateIsometric(doc, typeId)` | `create_view` con `viewType: ThreeDimensional` | RC accetta stringa, sotto risolve a `ViewFamilyType` |
+| `view.ViewTemplateId = id` | `apply_view_template(action=apply, templateId, viewIds)` | Equivalente diretto |
+| `uidoc.ActiveView = view` | *(non esposto in RC MCP, gestito da UI Revit)* | Comportamento standard UIDocument |
+| `view.GetFilters()` | *(parte di `create_view_filter` query)* | RC gestisce bind filtro ↔ vista in unica chiamata |
+
+### Persistenza su `.rvt`
+
+La vista e il template **vivono nel modello** (non in SQLite), quindi sopravvivono a:
+- Perdita del DB locale
+- Apertura del `.rvt` da altro PC senza plug-in installato (resta visibile ma non aggiornabile)
+- Condivisione via Cloud Worksharing
+
+**Limitazione nota**: se un collega apre il `.rvt` senza plug-in e modifica/cancella la vista, al riavvio della sessione il plug-in rileva l'assenza e propone ricreazione automatica.
+
+### Estensione – Piante 2D per livello (`QTO_Plan_*`)
+
+**Requisito**: oltre alla 3D, generare **una `ViewPlan` per ogni `Level`** del progetto, con template 2D dedicato. Le piante 2D sono cruciali per l'analisi dettagliata per piano, l'impaginazione su fogli e l'uso affiancato della 3D sul secondo monitor.
+
+**Template `QTO_View_Template_2D`** (divergente dal 3D):
+
+| Proprietà | Valore 2D | Motivazione divergenza dal 3D |
+|---|---|---|
+| View Scale | 1:50 | Standard BIM piante (1:100 troppo piccolo per visualizzare QTO_Codice) |
+| Detail Level | `Medium` | Aperture e infissi vanno visti (vs Coarse del 3D) |
+| Section Box | ❌ Off | Non applicabile a ViewPlan (ha `View Range` invece) |
+| View Range | Cut=1200 mm · Bottom=Level · Top=Level Above | Standard planimetrico |
+| Underlay | Off | Evita confusione visiva |
+| Filtri QTO | Stessi 3 di §I11 | Coerenza stato cross-view |
+
+Creazione idempotente (analoga al 3D, iterando sui livelli):
+
+```csharp
+public List<ViewPlan> EnsureQtoPlans(Document doc)
+{
+    var levels = new FilteredElementCollector(doc)
+        .OfClass(typeof(Level)).Cast<Level>()
+        .OrderBy(l => l.Elevation).ToList();
+
+    var planType = new FilteredElementCollector(doc)
+        .OfClass(typeof(ViewFamilyType)).Cast<ViewFamilyType>()
+        .First(v => v.ViewFamily == ViewFamily.FloorPlan);
+
+    var template2d = EnsureQtoViewTemplate2D(doc);
+    var result = new List<ViewPlan>();
+
+    foreach (var level in levels)
+    {
+        var viewName = $"QTO_Plan_{SanitizeName(level.Name)}";
+        var existing = new FilteredElementCollector(doc)
+            .OfClass(typeof(ViewPlan)).Cast<ViewPlan>()
+            .FirstOrDefault(v => !v.IsTemplate && v.Name == viewName);
+        if (existing != null) { result.Add(existing); continue; }
+
+        var plan = ViewPlan.Create(doc, planType.Id, level.Id);
+        plan.Name = viewName;
+        plan.ViewTemplateId = template2d.Id;
+        result.Add(plan);
+    }
+    return result;
+}
+```
+
+**SetupView — checkbox abilitante**:
+- ☑ "Genera piante 2D per livello" (default: on)
+- ☐ "Rigenera ad ogni apertura" (default: off — evita sovrascrittura di customizzazioni utente su piante esistenti)
+
+### Estensione – Schedule native Revit (`QTO_Schedule_*`)
+
+**Requisito**: generare **3 `ViewSchedule` native** che si aggiornano automaticamente al variare dei parametri QTO sugli elementi. Le schedule native sono il complemento numerico della 3D e offrono export diretto via `ViewSchedule.Export()`.
+
+**3 schedule predefinite**:
+
+| Nome | Filtro `ScheduleFilter` | Campi principali |
+|---|---|---|
+| `QTO_Schedule_Assegnazioni` | `QTO_Stato ∈ {COMPUTATO, PARZIALE}` | ElementId, Category, Family, `QTO_Codice`, `QTO_DescrizioneBreve`, Volume, Area, Length |
+| `QTO_Schedule_Mancanti` | `QTO_Stato` vuoto / `HasNoValue` | ElementId, Category, Family, Level, Phase Created |
+| `QTO_Schedule_NuoviPrezzi` | `QTO_Codice` begins-with `NP.` | ElementId, `QTO_Codice`, Quantity, `QTO_DescrizioneBreve` |
+
+Sono **Multi-Category schedules** (`BuiltInCategory.OST_MultiCategory` + filtro su categorie QTO abilitate), così elencano trasversalmente Walls + Floors + Ceilings + Roofs + Generic ecc. in un'unica tabella — impossibile da fare con schedule single-category.
+
+```csharp
+public ViewSchedule EnsureQtoSchedule(Document doc, string name,
+                                       ScheduleFilter filter,
+                                       List<string> fieldNames)
+{
+    var existing = new FilteredElementCollector(doc)
+        .OfClass(typeof(ViewSchedule)).Cast<ViewSchedule>()
+        .FirstOrDefault(s => s.Name == name);
+    if (existing != null) return existing;   // riuso
+
+    var schedule = ViewSchedule.CreateSchedule(
+        doc, new ElementId(BuiltInCategory.OST_MultiCategory));
+    schedule.Name = name;
+
+    // Aggiungi campi
+    foreach (var fname in fieldNames)
+    {
+        var field = schedule.Definition.GetSchedulableFields()
+            .FirstOrDefault(f => f.GetName(doc).Equals(fname,
+                StringComparison.OrdinalIgnoreCase));
+        if (field != null) schedule.Definition.AddField(field);
+    }
+
+    // Applica filtro
+    schedule.Definition.AddFilter(filter);
+
+    // Ordinamento default per QTO_Codice
+    var qtoCodeField = schedule.Definition.GetField(
+        schedule.Definition.GetFieldCount() - 1);
+    schedule.Definition.AddSortGroupField(
+        new SortGroupField(qtoCodeField.FieldId, ScheduleSortOrder.Ascending));
+
+    return schedule;
+}
+```
+
+**Filtri `ScheduleFilter` per lo stato**:
+```csharp
+// Filtro "Mancanti" (stato vuoto)
+var statoField = schedule.Definition.GetSchedulableFields()
+    .First(f => f.GetName(doc) == "QTO_Stato");
+var statoFieldId = schedule.Definition.AddField(statoField).FieldId;
+var filter = new ScheduleFilter(
+    statoFieldId, ScheduleFilterType.Equal, "");
+```
+
+**Perché native Revit e non export custom?**
+- ✅ **Auto-aggiornamento**: al variare di `QTO_Stato` su un elemento, la schedule si ricalcola istantaneamente (0 codice di sync)
+- ✅ **Esportabili in fogli di Revit**: l'architetto può inserirle in un A3 per stampare il report di mancanza
+- ✅ **Export txt nativo** via `ViewSchedule.Export(folder, options)` → compatibile Primus / qualsiasi tool esterno
+- ✅ **Condivise col team**: se il modello è su Cloud Worksharing, i colleghi vedono le schedule QTO anche senza plug-in
+
+### Ribbon: SplitButton "Viste QTO"
+
+Il pulsante è un `SplitButton` Revit (pattern `RibbonPanel.AddItem(SplitButtonData)`):
+
+```
+┌────────────────┐
+│     🎯         │     click principale → apre Vista 3D QTO
+│   Viste QTO  ▾ │     click arrow → dropdown:
+└────────────────┘       • Vista 3D QTO
+                         • Piante QTO ►  (submenu livelli)
+                         ─────────────
+                         • Schedule Assegnazioni
+                         • Schedule Mancanti
+                         • Schedule Nuovi Prezzi
+                         ─────────────
+                         • Rigenera tutte
+                         • Impostazioni…
+```
+
+```csharp
+var splitData = new SplitButtonData("QtoViewsSplit", "Viste QTO");
+var split = panel.AddItem(splitData) as SplitButton;
+
+// Voce "principale" (quella che gira col click diretto)
+split.AddPushButton(new PushButtonData(
+    "Open3D", "Vista 3D", asmPath, "QtoPlugin.Commands.OpenQto3DCommand"));
+
+// Voci dropdown
+split.AddPushButton(new PushButtonData(
+    "OpenPlans", "Piante QTO (tutti i livelli)", asmPath,
+    "QtoPlugin.Commands.OpenQtoPlansCommand"));
+split.AddSeparator();
+split.AddPushButton(new PushButtonData(
+    "SchedAssign", "Schedule Assegnazioni", asmPath,
+    "QtoPlugin.Commands.OpenScheduleAssegnazioniCommand"));
+// ... altre schedule
+split.AddSeparator();
+split.AddPushButton(new PushButtonData(
+    "RegenAll", "Rigenera tutte le viste QTO", asmPath,
+    "QtoPlugin.Commands.RegenerateAllQtoViewsCommand"));
+```
+
+### Validazione API con RevitCortex (estensione)
+
+| API Revit | Tool MCP RevitCortex | Note |
+|---|---|---|
+| `ViewPlan.Create(doc, planTypeId, levelId)` | `create_view` con `viewType: FloorPlan` + `levelId` | Match diretto |
+| `ViewSchedule.CreateSchedule(doc, categoryId)` | `create_schedule` / `create_preset_schedule` | RC ha entrambi: preset per pattern comuni + create custom |
+| `schedule.Definition.GetSchedulableFields()` | `list_schedulable_fields` | Utilizzabile per UI auto-discovery campi |
+| `schedule.Definition.AddField(field)` | *(parte di `create_schedule`)* | Incorporato nella create |
+| `ScheduleFilter(fieldId, type, value)` | *(parte di `create_schedule` via `filters[]`)* | RC espone filtri come array strutturato |
+| `ViewSchedule.Export(folder, opts)` | `export_schedule(scheduleName, format, path)` | Path = percorso output |
+| `ViewSchedule.Duplicate` | `duplicate_schedule` | Utile per pattern "copia e modifica" |
+
+Il tool `modify_schedule` di RC è particolarmente utile: una volta creata la schedule, l'utente può modificarla interattivamente (aggiungere/rimuovere campi, cambiare filtri) senza reimportare, via comandi JSON ben documentati.
+
+---
+
 ## Matrice di Impatto – Sprint
 
 La tabella mostra in quale sprint viene sviluppata ogni implementazione aggiuntiva.
@@ -654,3 +965,4 @@ La tabella mostra in quale sprint viene sviluppata ogni implementazione aggiunti
 | I11 – FilterManager nativo | 5 | Shared Param `QTO_Stato` + FilterManagerView |
 | I12 – Sorgente B Room+NCalc | 4–5 | NCalc + ParameterNameResolver + FormulaEditorView |
 | I13 – Sorgente C voci manuali | 5 | Schema DB `ManualItems` + tab TaggingView |
+| I14 – Viste QTO dedicate (3D + 2D + Schedules) | 5 | §I11 FilterManager + Level iteration + Multi-Category Schedules |

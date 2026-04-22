@@ -1,0 +1,111 @@
+<UserControl x:Class="QtoRevitPlugin.UI.Views.PreviewView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid Background="{StaticResource PanelBgBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Titolo view -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="16,14,16,4">
+            <TextBlock Text="Preview Live" Style="{StaticResource ViewTitleStyle}" />
+            <TextBlock Text="§ Fase 11" VerticalAlignment="Bottom"
+                       Foreground="{StaticResource InkMutedBrush}"
+                       FontFamily="{StaticResource FontMono}" FontSize="10"
+                       Margin="8,0,0,12" />
+        </StackPanel>
+
+        <!-- Tab switcher Selezione / Riepilogo -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal"
+                    Background="White"
+                    Margin="16,0,16,0"
+                    >
+            <ToggleButton x:Name="TabSelection" Style="{StaticResource SwitcherButton}"
+                          Content="Selezione Corrente" IsChecked="True" Click="OnTabClick" />
+            <ToggleButton x:Name="TabSummary" Style="{StaticResource SwitcherButton}"
+                          Content="Riepilogo" Click="OnTabClick" />
+        </StackPanel>
+
+        <!-- Contenuto tab -->
+        <Border Grid.Row="2" Style="{StaticResource CardStyle}" Margin="16,8,16,16">
+            <Grid>
+                <!-- Tab Selezione -->
+                <StackPanel x:Name="PanelSelection" Visibility="Visible">
+                    <TextBlock Text="NESSUN ELEMENTO SELEZIONATO"
+                               Style="{StaticResource SectionLabelStyle}" />
+                    <TextBlock Margin="0,4,0,0" FontSize="12"
+                               Foreground="{StaticResource InkDimBrush}"
+                               TextWrapping="Wrap"
+                               Text="Seleziona uno o più elementi nel modello Revit per vedere qui l'anteprima in tempo reale delle quantità calcolate, del prezzo unitario e del totale voce prima di confermare l'assegnazione." />
+
+                    <Border Margin="0,16,0,0" Padding="10"
+                            Background="{StaticResource PanelSubBrush}"
+                            BorderBrush="{StaticResource EdgeLightBrush}" BorderThickness="1"
+                            CornerRadius="3">
+                        <StackPanel>
+                            <TextBlock Text="DISPONIBILE DAL" Style="{StaticResource SectionLabelStyle}" Margin="0,0,0,2" />
+                            <TextBlock Text="Sprint 5 — Tagging"
+                                       FontSize="12" FontWeight="SemiBold"
+                                       Foreground="{StaticResource InkDefaultBrush}" />
+                            <TextBlock Margin="0,4,0,0" FontSize="11"
+                                       Foreground="{StaticResource InkMutedBrush}"
+                                       TextWrapping="Wrap"
+                                       Text="Le quantità live richiedono listino caricato (Sprint 2) e MeasurementRulesEngine (Sprint 6)." />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- Tab Riepilogo -->
+                <StackPanel x:Name="PanelSummary" Visibility="Collapsed">
+                    <TextBlock Text="AVANZAMENTO SESSIONE"
+                               Style="{StaticResource SectionLabelStyle}" />
+
+                    <!-- Progress bar -->
+                    <Grid Margin="0,4,0,0" Height="24">
+                        <Border Background="{StaticResource PanelSubBrush}"
+                                BorderBrush="{StaticResource EdgeLightBrush}"
+                                BorderThickness="1" CornerRadius="3" />
+                        <ProgressBar x:Name="ProgressBar"
+                                     Minimum="0" Maximum="100"
+                                     Value="{Binding TaggedPercent}"
+                                     Foreground="{StaticResource BrandAccentBrush}"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     Margin="1" />
+                        <TextBlock Text="{Binding ProgressText}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   FontFamily="{StaticResource FontMono}" FontSize="11"
+                                   Foreground="{StaticResource InkDefaultBrush}" />
+                    </Grid>
+
+                    <!-- KPI grid -->
+                    <UniformGrid Columns="2" Margin="0,12,0,0">
+                        <Border Style="{StaticResource CardStyle}" Margin="0,0,6,0">
+                            <StackPanel>
+                                <TextBlock Text="ELEMENTI TOTALI" Style="{StaticResource SectionLabelStyle}" />
+                                <TextBlock Text="{Binding TotalElements}"
+                                           Style="{StaticResource KpiValueStyle}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource CardStyle}" Margin="6,0,0,0">
+                            <StackPanel>
+                                <TextBlock Text="IMPORTO PARZIALE" Style="{StaticResource SectionLabelStyle}" />
+                                <TextBlock Text="{Binding AmountText}"
+                                           Style="{StaticResource KpiValueStyle}"
+                                           Foreground="{StaticResource BrandAccentBrush}" />
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+
+                    <TextBlock Margin="0,16,0,0" FontSize="11"
+                               Foreground="{StaticResource InkMutedBrush}"
+                               TextWrapping="Wrap"
+                               Text="La tabella aggregata per voce EP sarà disponibile dallo Sprint 3 quando le assegnazioni verranno scritte in DB." />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

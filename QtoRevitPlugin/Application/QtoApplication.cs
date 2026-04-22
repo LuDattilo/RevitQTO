@@ -1,6 +1,8 @@
 using Autodesk.Revit.UI;
 using QtoRevitPlugin.Services;
 using QtoRevitPlugin.UI;
+using QtoRevitPlugin.UI.Panes;
+using QtoRevitPlugin.UI.ViewModels;
 using RevitAsync = Revit.Async;
 using System;
 using System.Reflection;
@@ -11,11 +13,14 @@ namespace QtoRevitPlugin.Application
     {
         public static QtoApplication Instance { get; private set; } = null!;
 
-        /// <summary>Gestore sessione condiviso tra i comandi. Singleton per sessione Revit.</summary>
+        /// <summary>Gestore sessione condiviso. Singleton per sessione Revit.</summary>
         public SessionManager SessionManager { get; private set; } = null!;
 
         /// <summary>AutoSave condiviso. Avviato al primo CreateSession/ResumeSession.</summary>
         public AutoSaveService AutoSave { get; private set; } = null!;
+
+        /// <summary>ViewModel radice del DockablePane, persistente per tutta la sessione Revit.</summary>
+        public DockablePaneViewModel PaneViewModel { get; private set; } = null!;
 
         public Result OnStartup(UIControlledApplication application)
         {
@@ -23,33 +28,43 @@ namespace QtoRevitPlugin.Application
 
             try
             {
-                // Inizializza il wrapper async per ExternalEvent — richiesto una sola volta in OnStartup.
-                // Permette a ViewModel di chiamare: await RevitTask.RunAsync(app => { ... })
+                // Revit.Async: initializzato una sola volta in OnStartup (richiesto dal wrapper)
                 RevitAsync.RevitTask.Initialize(application);
 
                 SessionManager = new SessionManager();
                 AutoSave = new AutoSaveService(SessionManager);
+                PaneViewModel = new DockablePaneViewModel(SessionManager);
 
-                // Avvia AutoSave solo quando esiste una sessione attiva
                 SessionManager.SessionChanged += (_, args) =>
                 {
-                    if (args.Kind == SessionChangeKind.Created
-                     || args.Kind == SessionChangeKind.Resumed
-                     || args.Kind == SessionChangeKind.Forked)
+                    switch (args.Kind)
                     {
-                        AutoSave.Start();
-                    }
-                    else if (args.Kind == SessionChangeKind.Closed)
-                    {
-                        AutoSave.Stop();
+                        case SessionChangeKind.Created:
+                        case SessionChangeKind.Resumed:
+                        case SessionChangeKind.Forked:
+                            AutoSave.Start();
+                            break;
+                        case SessionChangeKind.Closed:
+                            AutoSave.Stop();
+                            break;
                     }
                 };
+
+                // DockablePane va registrato in OnStartup, prima dell'apertura del primo documento.
+                // Una sola istanza per lifecycle Revit.
+                var pane = new QtoDockablePane(PaneViewModel);
+                var provider = new QtoDockablePaneProvider(pane);
+                application.RegisterDockablePane(
+                    QtoDockablePaneProvider.PaneId,
+                    "QTO – GPA Ingegneria",
+                    provider);
 
                 CreateRibbon(application);
             }
             catch (Exception ex)
             {
-                TaskDialog.Show("QTO Plugin – Errore avvio", ex.Message);
+                TaskDialog.Show("QTO Plugin – Errore avvio",
+                    $"{ex.GetType().Name}: {ex.Message}\n\n{ex.StackTrace}");
                 return Result.Failed;
             }
 
@@ -78,7 +93,8 @@ namespace QtoRevitPlugin.Application
 
             var assemblyPath = Assembly.GetExecutingAssembly().Location;
 
-            // Pannello principale
+            // Ribbon minimale: solo il punto di ingresso.
+            // Tutto il resto della UI vive nel DockablePane per separazione netta con l'UI Revit.
             RibbonPanel panel = application.CreateRibbonPanel(tabName, "Computo Metrico");
 
             var launchButton = new PushButtonData(
@@ -87,28 +103,16 @@ namespace QtoRevitPlugin.Application
                 assemblyPath,
                 "QtoRevitPlugin.Commands.LaunchQtoCommand")
             {
-                ToolTip = "Apre il pannello di Quantity Take-Off per la sessione corrente",
+                ToolTip = "Apre il pannello QTO – contiene tutti i comandi (Setup, Selezione, Tagging, Export...)",
                 LongDescription =
-                    "Avvia il flusso completo QTO: caricamento listino, selezione elementi, " +
-                    "tagging, calcolo deterministico ed export.",
+                    "Il pannello QTO è flottante per default: può essere trascinato su un secondo monitor " +
+                    "affiancandolo alla vista di progettazione. Le scritture sul modello Revit " +
+                    "passano sempre da ExternalEvent con conferma anteprima.",
                 LargeImage = IconFactory.CreateLaunchIcon(32),
                 Image = IconFactory.CreateLaunchIcon(16)
             };
 
-            var healthCheckButton = new PushButtonData(
-                "HealthCheck",
-                "Health Check",
-                assemblyPath,
-                "QtoRevitPlugin.Commands.HealthCheckCommand")
-            {
-                ToolTip = "Verifica lo stato di computazione di tutti gli elementi del modello",
-                LargeImage = IconFactory.CreateHealthCheckIcon(32),
-                Image = IconFactory.CreateHealthCheckIcon(16)
-            };
-
             panel.AddItem(launchButton);
-            panel.AddSeparator();
-            panel.AddItem(healthCheckButton);
         }
     }
 }

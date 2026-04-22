@@ -1,0 +1,57 @@
+<UserControl x:Class="QtoRevitPlugin.UI.Views.PlaceholderView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid Background="{StaticResource PanelBgBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Titolo con riferimento spec -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="16,14,16,4">
+            <TextBlock x:Name="TitleText" Style="{StaticResource ViewTitleStyle}" />
+            <TextBlock x:Name="ReferenceText"
+                       VerticalAlignment="Bottom"
+                       Foreground="{StaticResource InkMutedBrush}"
+                       FontFamily="{StaticResource FontMono}" FontSize="10"
+                       Margin="8,0,0,12" />
+        </StackPanel>
+
+        <!-- Card centrale con info sprint -->
+        <Border Grid.Row="1" Style="{StaticResource CardStyle}" Margin="16,8,16,16"
+                Padding="24">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="340">
+
+                <Border Background="{StaticResource BrandAccentSoftBrush}"
+                        CornerRadius="20" Padding="10,4"
+                        HorizontalAlignment="Center">
+                    <TextBlock x:Name="SprintBadge"
+                               Text="SPRINT X"
+                               FontSize="10" FontWeight="SemiBold"
+                               Foreground="{StaticResource BrandAccentDeepBrush}"
+                               FontFamily="{StaticResource FontMono}" />
+                </Border>
+
+                <TextBlock x:Name="ViewNameLarge"
+                           FontSize="20" FontWeight="Light"
+                           Foreground="{StaticResource InkDefaultBrush}"
+                           HorizontalAlignment="Center"
+                           Margin="0,14,0,0" />
+
+                <TextBlock x:Name="DescriptionText"
+                           TextWrapping="Wrap" TextAlignment="Center"
+                           FontSize="12"
+                           Foreground="{StaticResource InkDimBrush}"
+                           Margin="0,10,0,0" />
+
+                <TextBlock Text="In attesa di implementazione operativa."
+                           FontSize="10"
+                           Foreground="{StaticResource InkMutedBrush}"
+                           HorizontalAlignment="Center"
+                           FontStyle="Italic"
+                           Margin="0,18,0,0" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

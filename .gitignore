@@ -50,3 +50,7 @@ Directory.Build.props.user
 ## Claude Code / Superpowers session state (not versioned)
 .claude/
 .superpowers/
+
+## Screenshots pasted during development (not versioned)
+image*.png
+image*.jpg

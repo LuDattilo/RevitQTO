@@ -1,0 +1,101 @@
+<UserControl x:Class="QtoRevitPlugin.UI.Panes.QtoDockablePane"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             MinWidth="420" MinHeight="520">
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/QtoRevitPlugin;component/Theme/QtoTheme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Grid Background="{StaticResource PanelBgBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Header brand + sessione -->
+        <Border Grid.Row="0" Background="{StaticResource BrandPrimaryBrush}" Padding="16,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Background="{StaticResource BrandAccentBrush}"
+                        Width="28" Height="28" CornerRadius="3"
+                        VerticalAlignment="Center">
+                    <TextBlock Text="Q" Foreground="White"
+                               FontFamily="{StaticResource FontDisplay}"
+                               FontSize="16" FontWeight="Bold"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+
+                <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding SessionTitle}"
+                               Foreground="White"
+                               FontFamily="{StaticResource FontDisplay}"
+                               FontSize="14" FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding ProjectSubtitle}"
+                               Foreground="#BDD7EE"
+                               FontSize="11"
+                               Margin="0,1,0,0"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                    <TextBlock Text="{Binding ProgressText}"
+                               Foreground="#BDD7EE"
+                               FontFamily="{StaticResource FontMono}" FontSize="11"
+                               HorizontalAlignment="Right" />
+                    <TextBlock Text="{Binding AmountText}"
+                               Foreground="White"
+                               FontFamily="{StaticResource FontMono}"
+                               FontSize="13" FontWeight="Bold"
+                               HorizontalAlignment="Right" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- View switcher -->
+        <Border Grid.Row="1" Background="White" BorderBrush="{StaticResource EdgeLightBrush}"
+                BorderThickness="0,0,0,1">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                <StackPanel x:Name="SwitcherHost" Orientation="Horizontal" />
+            </ScrollViewer>
+        </Border>
+
+        <!-- Content area: view attiva -->
+        <ContentControl Grid.Row="2" x:Name="ViewHost" />
+
+        <!-- Status bar -->
+        <Border Grid.Row="3" Background="{StaticResource PanelSubBrush}"
+                BorderBrush="{StaticResource EdgeLightBrush}" BorderThickness="0,1,0,0"
+                Padding="12,6">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0"
+                           Text="{Binding StatusMessage}"
+                           FontSize="11"
+                           Foreground="{StaticResource InkDimBrush}"
+                           VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1"
+                           Text="{Binding ActiveView.Reference}"
+                           FontFamily="{StaticResource FontMono}"
+                           FontSize="10"
+                           Foreground="{StaticResource InkMutedBrush}"
+                           VerticalAlignment="Center" />
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

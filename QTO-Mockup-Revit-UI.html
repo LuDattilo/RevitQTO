@@ -1188,6 +1188,10 @@ body {
 
       <div class="ribbon-panel">
         <div class="ribbon-panel-buttons">
+          <div class="ribbon-btn" data-view="qto-views">
+            <div class="icon">◉</div>
+            <div class="label">Viste QTO ▾</div>
+          </div>
           <div class="ribbon-btn" data-view="filter-mgr">
             <div class="icon">▣</div>
             <div class="label">Filtri Vista</div>
@@ -1293,6 +1297,7 @@ body {
         <button class="vs-btn" data-view="phase">Fasi</button>
         <button class="vs-btn" data-view="selection">Selezione</button>
         <button class="vs-btn" data-view="tagging">Tagging</button>
+        <button class="vs-btn" data-view="qto-views">◉ Viste QTO</button>
         <button class="vs-btn" data-view="filter-mgr">Filtri Vista</button>
         <button class="vs-btn" data-view="health">Health</button>
         <button class="vs-btn" data-view="np">Nuovo Prezzo</button>
@@ -1596,6 +1601,73 @@ body {
               <span style="flex:1"></span>
               <button class="btn primary">Salva</button>
             </div>
+          </div>
+        </div>
+
+        <!-- ══════ VISTE QTO (§I14) ══════ -->
+        <div class="view-panel" data-panel="qto-views">
+          <h3 class="view-title">Viste QTO Dedicate <span class="ref">§I14 · multi-monitor</span></h3>
+
+          <div class="section">
+            <div class="section-label">Viste gestite dal plug-in — click per aprire</div>
+
+            <div class="fm-filter" style="--col:var(--accent)">
+              <div class="fm-filter-head">
+                <span class="fm-filter-name">🎯 Vista 3D — QTO_3D_View</span>
+                <span class="fm-filter-count">Isometrica SW · template applicato ✓</span>
+              </div>
+              <div class="fm-rule">
+                Section Box su fase <span class="val">Progetto</span> · Detail <span class="op">Coarse</span> · V/G QTO filters + halftone 50% · <span class="val">318 elementi visibili</span>
+              </div>
+            </div>
+
+            <div class="fm-filter" style="--col:var(--accent-cool)">
+              <div class="fm-filter-head">
+                <span class="fm-filter-name">📐 Piante 2D — QTO_Plan_*</span>
+                <span class="fm-filter-count">4 livelli · 1:50 · Detail Medium</span>
+              </div>
+              <div class="fm-rule" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">
+                <span class="param-chip">QTO_Plan_GF</span>
+                <span class="param-chip">QTO_Plan_L1</span>
+                <span class="param-chip">QTO_Plan_L2</span>
+                <span class="param-chip">QTO_Plan_L3</span>
+                <span class="param-chip custom">+ Sezione AA</span>
+              </div>
+            </div>
+
+            <div class="fm-filter" style="--col:var(--st-computato)">
+              <div class="fm-filter-head">
+                <span class="fm-filter-name">📋 Schedule — QTO_Schedule_*</span>
+                <span class="fm-filter-count">3 schedule native · aggiornamento live</span>
+              </div>
+              <table class="grid-table" style="margin-top:6px">
+                <thead><tr><th>Nome</th><th>Filtro</th><th class="num">Righe</th></tr></thead>
+                <tbody>
+                  <tr><td>Assegnazioni</td><td>QTO_Stato ∈ COMPUTATO/PARZIALE</td><td class="num qty">142</td></tr>
+                  <tr><td>Mancanti</td><td>QTO_Stato vuoto</td><td class="num qty" style="color:var(--st-mancante)">164</td></tr>
+                  <tr><td>Nuovi Prezzi</td><td>QTO_Codice matches NP.*</td><td class="num qty">7</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-label">Configurazione (SetupView · tab Vista QTO)</div>
+            <div class="row">
+              <div class="field"><label>Orientamento 3D</label><select><option>Isometrica SW</option><option>Isometrica SE</option><option>Isometrica NE</option><option>Isometrica NW</option></select></div>
+              <div class="field"><label>Scala piante</label><select><option>1:50</option><option>1:100</option><option>1:200</option></select></div>
+            </div>
+            <div class="check on"><input type="checkbox" checked> Genera piante 2D per ogni livello</div>
+            <div class="check on"><input type="checkbox" checked> Genera le 3 schedule QTO native</div>
+            <div class="check"><input type="checkbox"> Aggiungi Section Box auto-fit sulla fase attiva</div>
+            <div class="check"><input type="checkbox"> Apri Vista 3D in finestra flottante (multi-monitor)</div>
+          </div>
+
+          <div class="btn-bar">
+            <button class="btn">Ripristina template alterati</button>
+            <button class="btn">Rigenera tutte</button>
+            <span style="flex:1"></span>
+            <button class="btn primary">▸ Apri Vista 3D QTO</button>
           </div>
         </div>
 
