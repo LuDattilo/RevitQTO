@@ -6,6 +6,7 @@
              mc:Ignorable="d"
              MinWidth="420" MinHeight="600"
              d:DesignWidth="520" d:DesignHeight="760"
+             Loaded="OnPaneLoaded"
              FontFamily="{DynamicResource FontBody}"
              Background="{DynamicResource PanelBgBrush}">
 

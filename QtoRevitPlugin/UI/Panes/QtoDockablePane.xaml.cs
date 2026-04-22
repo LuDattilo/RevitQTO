@@ -48,6 +48,27 @@ namespace QtoRevitPlugin.UI.Panes
             // e dal MinWidth/MinHeight dello XAML. Niente logica custom qui.
         }
 
+        /// <summary>
+        /// Safety net: se Revit restaura dimensioni stale da UIState.dat o se la reflection
+        /// su DockablePaneState.MinimumWidth/Height è fallita silenziosamente, forza
+        /// min-size sulla floating Window ospite. No-op quando il pane è docked dentro
+        /// la MainWindow di Revit (distinguibile dalle dimensioni enormi).
+        /// </summary>
+        private void OnPaneLoaded(object sender, RoutedEventArgs e)
+        {
+            var window = Window.GetWindow(this);
+            if (window == null) return;
+
+            // Se siamo docked nella MainWindow di Revit la Width sarà >> 1500.
+            // In quel caso non tocchiamo la finestra (non è nostra).
+            if (window.ActualWidth > 1500 || window.ActualHeight > 1200) return;
+
+            if (window.MinWidth < 420) window.MinWidth = 420;
+            if (window.MinHeight < 600) window.MinHeight = 600;
+            if (window.Width < 420) window.Width = 520;
+            if (window.Height < 600) window.Height = 760;
+        }
+
         private void BuildSwitcher()
         {
             foreach (var item in _vm.Views)
