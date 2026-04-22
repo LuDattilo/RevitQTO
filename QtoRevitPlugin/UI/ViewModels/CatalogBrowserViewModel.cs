@@ -4,10 +4,13 @@ using QtoRevitPlugin.Application;
 using QtoRevitPlugin.Data;
 using QtoRevitPlugin.Models;
 using QtoRevitPlugin.Services;
+using Revit.Async;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Text.Json;
+using System.Threading.Tasks;
 
 namespace QtoRevitPlugin.UI.ViewModels
 {
@@ -22,6 +25,8 @@ namespace QtoRevitPlugin.UI.ViewModels
     {
         private readonly FileFavoritesRepository _favoritesRepo;
         private readonly MappingRulesService _mappingRulesService;
+        private QtoRepository? _qtoRepository;
+        private IUserContext? _userContext;
 
         public ObservableCollection<PriceListRow> AvailableLists { get; } = new();
         public ObservableCollection<CatalogNode> Tree { get; } = new();
@@ -42,6 +47,8 @@ namespace QtoRevitPlugin.UI.ViewModels
         {
             _favoritesRepo = new FileFavoritesRepository(FileFavoritesRepository.GetDefaultGlobalDir());
             _mappingRulesService = new MappingRulesService();
+            _userContext = QtoApplication.Instance?.UserContext;
+            _qtoRepository = QtoApplication.Instance?.SessionManager?.Repository;
             LoadAvailableLists();
             LoadFavorites();
         }
@@ -203,7 +210,10 @@ namespace QtoRevitPlugin.UI.ViewModels
         }
 
         partial void OnActiveFavoriteItemChanged(FavoriteItem? value)
-            => CanAssign = value != null;
+        {
+            CanAssign = value != null;
+            AssignCommand.NotifyCanExecuteChanged();
+        }
 
         [RelayCommand]
         private void AddSelectedToFavorites()
@@ -218,10 +228,100 @@ namespace QtoRevitPlugin.UI.ViewModels
                 RemoveFromFavorites(ActiveFavoriteItem);
         }
 
-        [RelayCommand]
-        private void Assign()
+        [RelayCommand(CanExecute = nameof(CanAssign))]
+        private async Task AssignAsync()
         {
-            // stub — will be implemented in Task 11
+            if (ActiveFavoriteItem == null) return;
+
+            // Snapshot repository: reload in case session changed since ctor
+            _qtoRepository = QtoApplication.Instance?.SessionManager?.Repository;
+            _userContext = QtoApplication.Instance?.UserContext;
+
+            if (_qtoRepository == null)
+            {
+                StatusMessage = "Nessun computo aperto. Apri o crea un file .cme prima di assegnare.";
+                return;
+            }
+
+            var uiApp = QtoApplication.Instance?.CurrentUiApp;
+            if (uiApp == null)
+            {
+                StatusMessage = "UIApplication non disponibile.";
+                return;
+            }
+
+            int assigned = 0;
+            string? lastError = null;
+
+            await RevitTask.RunAsync(app =>
+            {
+                var doc = app.ActiveUIDocument?.Document;
+                var selection = app.ActiveUIDocument?.Selection;
+                if (doc == null || selection == null) return;
+
+                var selectedIds = selection.GetElementIds();
+                if (selectedIds.Count == 0) return;
+
+                var sessionId = QtoApplication.Instance?.SessionManager?.ActiveSession?.Id ?? 0;
+                var extractor = new QtoRevitPlugin.Extraction.QuantityExtractor();
+                var now = DateTime.UtcNow;
+                var userId = _userContext?.UserId ?? Environment.UserName;
+                var favorite = ActiveFavoriteItem;
+
+                foreach (var elemId in selectedIds)
+                {
+                    var elem = doc.GetElement(elemId);
+                    if (elem == null) continue;
+
+                    var qty = extractor.Extract(elem, SelectedQuantityParam, out var error);
+                    if (error != null) lastError = error;
+
+                    var assignment = new QtoAssignment
+                    {
+                        SessionId = sessionId,
+#if REVIT2024_OR_EARLIER
+                        ElementId = elemId.IntegerValue,
+#else
+                        ElementId = (int)elemId.Value,
+#endif
+                        UniqueId = elem.UniqueId,
+                        Category = elem.Category?.Name ?? "",
+                        EpCode = favorite!.Code,
+                        EpDescription = favorite.ShortDesc,
+                        Quantity = qty,
+                        Unit = favorite.Unit,
+                        UnitPrice = favorite.UnitPrice,
+                        RuleApplied = SelectedQuantityParam,
+                        Source = QtoSource.RevitElement,
+                        CreatedBy = userId,
+                        CreatedAt = now,
+                        AuditStatus = AssignmentStatus.Active,
+                        Version = 1
+                    };
+
+                    _qtoRepository.InsertAssignment(assignment);
+
+                    _qtoRepository.AppendChangeLog(new ChangeLogEntry
+                    {
+                        SessionId = sessionId,
+                        ElementUniqueId = elem.UniqueId,
+                        PriceItemCode = favorite.Code,
+                        ChangeType = "Created",
+                        NewValueJson = JsonSerializer.Serialize(new { qty, param = SelectedQuantityParam }),
+                        UserId = userId,
+                        Timestamp = now
+                    });
+
+                    assigned++;
+                }
+            });
+
+            if (assigned > 0)
+                StatusMessage = lastError == null
+                    ? $"{assigned} elemento/i assegnato/i a {ActiveFavoriteItem?.Code}."
+                    : $"{assigned} assegnato/i (avvisi: {lastError}).";
+            else
+                StatusMessage = "Nessun elemento selezionato o errore durante l'assegnazione.";
         }
     }
 
