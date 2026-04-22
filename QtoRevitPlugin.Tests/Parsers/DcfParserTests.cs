@@ -251,5 +251,86 @@ namespace QtoRevitPlugin.Tests.Parsers
             result.Metadata.Source.Should().Be("DCF");
             result.Metadata.Name.Should().Be("listino.xpwe");
         }
+
+        // -----------------------------------------------------------------
+        // Formato C — EASY Regione Toscana (child elements + livelloN CDATA)
+        // -----------------------------------------------------------------
+
+        [Fact]
+        public void Parse_EasyToscanaFormat_ExtractsFromChildElements()
+        {
+            const string xml = @"<?xml version=""1.0"" encoding=""UTF-8""?>
+<EASY:Prezzario xmlns:EASY=""https://prezzariollpp.regione.toscana.it/prezzario.xsd"">
+  <EASY:Contenuto>
+    <EASY:Articolo codice=""TOS25_01.A03.001.001"">
+      <EASY:livello1><![CDATA[NUOVE COSTRUZIONI EDILI.
+Prezzi per una nuova costruzione.]]></EASY:livello1>
+      <EASY:livello2><![CDATA[DEMOLIZIONE.
+Con qualsiasi mezzo.]]></EASY:livello2>
+      <EASY:livello3><![CDATA[TOTALE O PARZIALE DI EDIFICI]]></EASY:livello3>
+      <EASY:livello4><![CDATA[con struttura in pietrame. Mezzi meccanici.]]></EASY:livello4>
+      <EASY:um><![CDATA[m³]]></EASY:um>
+      <EASY:prezzo>13.63017</EASY:prezzo>
+    </EASY:Articolo>
+  </EASY:Contenuto>
+</EASY:Prezzario>";
+
+            using var stream = FromString(xml);
+            var result = new DcfParser().Parse(stream, "Firenze-2025");
+
+            result.Items.Should().HaveCount(1);
+            var item = result.Items[0];
+
+            item.Code.Should().Be("TOS25_01.A03.001.001");
+            item.Unit.Should().Be("m³");
+            item.UnitPrice.Should().BeApproximately(13.63017, 0.00001);
+            item.SuperChapter.Should().Be("NUOVE COSTRUZIONI EDILI.");  // prima riga di livello1
+            item.Chapter.Should().Be("DEMOLIZIONE.");                    // prima riga di livello2
+            item.SubChapter.Should().Be("TOTALE O PARZIALE DI EDIFICI"); // livello3
+            item.Description.Should().Contain("TOTALE O PARZIALE DI EDIFICI"); // livello3 + livello4
+            item.Description.Should().Contain("con struttura in pietrame");
+            item.ShortDesc.Should().Contain("con struttura in pietrame");  // prima riga di livello4
+        }
+
+        [Fact]
+        public void Parse_EasyToscanaFormat_DescriptionConcatsLivello3And4()
+        {
+            const string xml = @"<?xml version=""1.0"" encoding=""UTF-8""?>
+<EASY:Prezzario xmlns:EASY=""https://test.xsd"">
+  <EASY:Articolo codice=""AAA.001"">
+    <EASY:livello3><![CDATA[Livello 3 text]]></EASY:livello3>
+    <EASY:livello4><![CDATA[Livello 4 text]]></EASY:livello4>
+    <EASY:um>mq</EASY:um>
+    <EASY:prezzo>1.23</EASY:prezzo>
+  </EASY:Articolo>
+</EASY:Prezzario>";
+
+            using var stream = FromString(xml);
+            var result = new DcfParser().Parse(stream, "test");
+
+            result.Items.Should().ContainSingle()
+                .Which.Description.Should().Contain("Livello 3 text").And.Contain("Livello 4 text");
+        }
+
+        [Fact]
+        public void Parse_EasyToscanaFormat_OnlyLivello4_UsedAsShortDesc()
+        {
+            // Quando non c'è livello3 ma solo livello4, description = livello4, shortDesc = prima riga livello4
+            const string xml = @"<?xml version=""1.0"" encoding=""UTF-8""?>
+<EASY:Prezzario xmlns:EASY=""https://test.xsd"">
+  <EASY:Articolo codice=""BBB.002"">
+    <EASY:livello4><![CDATA[Variante tecnica unica]]></EASY:livello4>
+    <EASY:um>kg</EASY:um>
+    <EASY:prezzo>0.45</EASY:prezzo>
+  </EASY:Articolo>
+</EASY:Prezzario>";
+
+            using var stream = FromString(xml);
+            var result = new DcfParser().Parse(stream, "test");
+
+            var item = result.Items.Should().ContainSingle().Subject;
+            item.Description.Should().Be("Variante tecnica unica");
+            item.ShortDesc.Should().Be("Variante tecnica unica");
+        }
     }
 }
