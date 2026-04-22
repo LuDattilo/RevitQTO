@@ -13,57 +13,106 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Header brand + sessione -->
-        <Border Grid.Row="0" Background="{DynamicResource BrandPrimaryBrush}" Padding="16,10">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
+        <!-- Header brand scuro (stile engineering) -->
+        <Border Grid.Row="0" Background="{DynamicResource ChromeBgBrush}" Padding="14,10">
+            <StackPanel>
+                <!-- Riga superiore: logo + titolo + version + LIVE badge -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
 
-                <Border Grid.Column="0" Background="{DynamicResource BrandAccentBrush}"
-                        Width="28" Height="28" CornerRadius="3"
-                        VerticalAlignment="Center">
-                    <TextBlock Text="Q" Foreground="White"
+                    <!-- Logo Q arancione -->
+                    <Border Grid.Column="0" Background="{DynamicResource BrandAccentBrush}"
+                            Width="26" Height="26" CornerRadius="2"
+                            VerticalAlignment="Center">
+                        <TextBlock Text="Q" Foreground="White"
+                                   FontFamily="{DynamicResource FontDisplay}"
+                                   FontSize="15" FontWeight="Bold"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+
+                    <!-- Titolo uppercase -->
+                    <TextBlock Grid.Column="1" Text="QTO PLUG-IN"
+                               Foreground="{DynamicResource ChromeTextBrush}"
                                FontFamily="{DynamicResource FontDisplay}"
-                               FontSize="16" FontWeight="Bold"
-                               HorizontalAlignment="Center" VerticalAlignment="Center" />
-                </Border>
-
-                <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding SessionTitle}"
-                               Foreground="White"
-                               FontFamily="{DynamicResource FontDisplay}"
-                               FontSize="14" FontWeight="SemiBold"
-                               TextTrimming="CharacterEllipsis" />
-                    <TextBlock Text="{Binding ProjectSubtitle}"
-                               Foreground="#BDD7EE"
-                               FontSize="11"
-                               Margin="0,1,0,0"
-                               TextTrimming="CharacterEllipsis" />
-                </StackPanel>
-
-                <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
-                    <TextBlock Text="{Binding ProgressText}"
-                               Foreground="#BDD7EE"
-                               FontFamily="{DynamicResource FontMono}" FontSize="11"
-                               HorizontalAlignment="Right" />
-                    <TextBlock Text="{Binding AmountText}"
-                               Foreground="White"
-                               FontFamily="{DynamicResource FontMono}"
                                FontSize="13" FontWeight="Bold"
-                               HorizontalAlignment="Right" />
-                </StackPanel>
-            </Grid>
+                               Margin="10,0,0,0"
+                               VerticalAlignment="Center" />
+
+                    <!-- Version -->
+                    <TextBlock Grid.Column="3" Text="v1.0"
+                               Foreground="{DynamicResource ChromeTextDimBrush}"
+                               FontFamily="{DynamicResource FontMono}"
+                               FontSize="10"
+                               VerticalAlignment="Center"
+                               Margin="0,0,8,0" />
+
+                    <!-- Badge LIVE arancione -->
+                    <Border Grid.Column="4"
+                            Background="{DynamicResource BrandAccentBrush}"
+                            CornerRadius="2" Padding="5,2"
+                            VerticalAlignment="Center">
+                        <TextBlock Text="LIVE" Foreground="White"
+                                   FontFamily="{DynamicResource FontMono}"
+                                   FontSize="9" FontWeight="Bold"
+                                   LineHeight="10" />
+                    </Border>
+                </Grid>
+
+                <!-- Riga inferiore: sessione corrente -->
+                <Grid Margin="0,8,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="{Binding SessionTitle}"
+                                   Foreground="{DynamicResource ChromeTextBrush}"
+                                   FontFamily="{DynamicResource FontBody}"
+                                   FontSize="11" FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding ProjectSubtitle}"
+                                   Foreground="{DynamicResource ChromeTextDimBrush}"
+                                   FontFamily="{DynamicResource FontMono}"
+                                   FontSize="10"
+                                   Margin="0,1,0,0"
+                                   TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding ProgressText}"
+                                   Foreground="{DynamicResource ChromeTextDimBrush}"
+                                   FontFamily="{DynamicResource FontMono}" FontSize="10"
+                                   HorizontalAlignment="Right" />
+                        <TextBlock Text="{Binding AmountText}"
+                                   Foreground="{DynamicResource BrandAccentBrush}"
+                                   FontFamily="{DynamicResource FontMono}"
+                                   FontSize="13" FontWeight="Bold"
+                                   HorizontalAlignment="Right" />
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
         </Border>
 
-        <!-- View switcher -->
-        <Border Grid.Row="1" Background="White" BorderBrush="{DynamicResource EdgeLightBrush}"
-                BorderThickness="0,0,0,1">
-            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                <StackPanel x:Name="SwitcherHost" Orientation="Horizontal" />
-            </ScrollViewer>
+        <!-- View switcher su chrome scuro -->
+        <Border Grid.Row="1" Background="{DynamicResource ChromeBgBrush}"
+                BorderBrush="{DynamicResource ChromeEdgeBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="14,8,14,10">
+            <StackPanel>
+                <TextBlock Text="VISTA CORRENTE"
+                           Foreground="{DynamicResource BrandAccentBrush}"
+                           FontFamily="{DynamicResource FontMono}"
+                           FontSize="9" FontWeight="Bold"
+                           Margin="0,0,0,6" />
+                <WrapPanel x:Name="SwitcherHost" Orientation="Horizontal" />
+            </StackPanel>
         </Border>
 
         <!-- Content area: view attiva -->

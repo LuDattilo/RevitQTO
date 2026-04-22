@@ -30,6 +30,13 @@
     <Color x:Key="InkDim">#57534E</Color>
     <Color x:Key="InkMuted">#78716C</Color>
 
+    <!-- Chrome scuro (header + switcher) -->
+    <Color x:Key="ChromeBg">#0C0A09</Color>
+    <Color x:Key="ChromeBgSub">#1C1917</Color>
+    <Color x:Key="ChromeEdge">#3A3936</Color>
+    <Color x:Key="ChromeText">#E7E5E4</Color>
+    <Color x:Key="ChromeTextDim">#A8A29E</Color>
+
     <!-- Brushes -->
     <SolidColorBrush x:Key="BrandPrimaryBrush" Color="{StaticResource BrandPrimary}" />
     <SolidColorBrush x:Key="BrandAccentBrush" Color="{StaticResource BrandAccent}" />
@@ -52,6 +59,12 @@
     <SolidColorBrush x:Key="InkDefaultBrush" Color="{StaticResource InkDefault}" />
     <SolidColorBrush x:Key="InkDimBrush" Color="{StaticResource InkDim}" />
     <SolidColorBrush x:Key="InkMutedBrush" Color="{StaticResource InkMuted}" />
+
+    <SolidColorBrush x:Key="ChromeBgBrush" Color="{StaticResource ChromeBg}" />
+    <SolidColorBrush x:Key="ChromeBgSubBrush" Color="{StaticResource ChromeBgSub}" />
+    <SolidColorBrush x:Key="ChromeEdgeBrush" Color="{StaticResource ChromeEdge}" />
+    <SolidColorBrush x:Key="ChromeTextBrush" Color="{StaticResource ChromeText}" />
+    <SolidColorBrush x:Key="ChromeTextDimBrush" Color="{StaticResource ChromeTextDim}" />
 
     <!-- Tipografia -->
     <FontFamily x:Key="FontBody">Segoe UI</FontFamily>
@@ -141,23 +154,25 @@
         </Style.Triggers>
     </Style>
 
-    <!-- Toggle button — usato per il view switcher del DockablePane -->
+    <!-- Toggle button — switcher dark del DockablePane (stile "chrome engineering") -->
     <Style x:Key="SwitcherButton" TargetType="ToggleButton">
-        <Setter Property="Background" Value="Transparent" />
-        <Setter Property="Foreground" Value="{StaticResource InkDimBrush}" />
-        <Setter Property="BorderBrush" Value="Transparent" />
-        <Setter Property="BorderThickness" Value="0,0,0,2" />
-        <Setter Property="Padding" Value="10,8" />
+        <Setter Property="Background" Value="{StaticResource ChromeBgSubBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource ChromeTextBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource ChromeEdgeBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="10,6" />
+        <Setter Property="Margin" Value="0,0,4,4" />
         <Setter Property="FontFamily" Value="{StaticResource FontBody}" />
-        <Setter Property="FontSize" Value="12" />
-        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ToggleButton">
                     <Border Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}">
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="2">
                         <ContentPresenter HorizontalAlignment="Center"
                                           VerticalAlignment="Center"
                                           Margin="{TemplateBinding Padding}" />
@@ -167,12 +182,12 @@
         </Setter>
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Foreground" Value="{StaticResource InkDefaultBrush}" />
-                <Setter Property="Background" Value="{StaticResource PanelSubBrush}" />
+                <Setter Property="Background" Value="#2B2724" />
+                <Setter Property="BorderBrush" Value="#54504B" />
             </Trigger>
             <Trigger Property="IsChecked" Value="True">
-                <Setter Property="Foreground" Value="{StaticResource BrandAccentBrush}" />
-                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Background" Value="{StaticResource BrandAccentBrush}" />
+                <Setter Property="Foreground" Value="White" />
                 <Setter Property="BorderBrush" Value="{StaticResource BrandAccentBrush}" />
             </Trigger>
         </Style.Triggers>
