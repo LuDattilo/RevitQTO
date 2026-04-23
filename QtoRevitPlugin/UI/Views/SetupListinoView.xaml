@@ -137,7 +137,8 @@
                               Margin="0,6,0,0"
                               Background="{DynamicResource PanelSubBrush}"
                               BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1">
-                        <DataGrid ItemsSource="{Binding Favorites}"
+                        <DataGrid x:Name="FavoritesGrid"
+                                  ItemsSource="{Binding Favorites}"
                                   SelectedItem="{Binding SelectedFavorite, Mode=TwoWay}"
                                   AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
                                   HeadersVisibility="Column" FontSize="11"
@@ -158,10 +159,10 @@
                                             <ContextMenu>
                                                 <MenuItem Header="Usa nella ricerca"
                                                           Command="{Binding DataContext.UseFavoriteInSearchCommand,
-                                                              RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                                                              Source={x:Reference FavoritesGrid}}"/>
                                                 <MenuItem Header="Rimuovi dai preferiti"
                                                           Command="{Binding DataContext.RemoveFavoriteCommand,
-                                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                              Source={x:Reference FavoritesGrid}}"
                                                           CommandParameter="{Binding}"/>
                                             </ContextMenu>
                                         </Setter.Value>
