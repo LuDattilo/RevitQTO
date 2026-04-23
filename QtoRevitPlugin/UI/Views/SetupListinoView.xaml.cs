@@ -14,11 +14,12 @@ namespace QtoRevitPlugin.UI.Views
     /// <summary>
     /// Sezione "Listino" del Setup: gestione listini (import DCF/XPWE/XML/XLSX/CSV)
     /// + ricerca FTS5 voci EP. Estratta da SetupView come UserControl dedicata per
-    /// supportare sub-tab interni e popout multi-monitor.
+    /// supportare popout multi-monitor.
     /// </summary>
     public partial class SetupListinoView : UserControl
     {
         private SetupViewModel Vm => (SetupViewModel)DataContext;
+        private CatalogBrowserWindow? _catalogWindow;
 
         public SetupListinoView()
         {
@@ -84,8 +85,6 @@ namespace QtoRevitPlugin.UI.Views
         {
             PopoutWindow.Popout(new SetupListinoView(), "CME · Setup · Listino");
         }
-
-        private CatalogBrowserWindow? _catalogWindow;
 
         private void OnBrowseCatalogClick(object sender, RoutedEventArgs e)
         {
