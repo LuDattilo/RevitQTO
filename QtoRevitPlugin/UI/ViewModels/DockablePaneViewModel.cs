@@ -4,6 +4,7 @@ using QtoRevitPlugin.AI.Ollama;
 using QtoRevitPlugin.Models;
 using QtoRevitPlugin.Services;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
@@ -235,6 +236,57 @@ namespace QtoRevitPlugin.UI.ViewModels
             }
 
             RefreshFromSession();
+
+            // UI-9: warmup AI embedding cache in background su apertura/
+            // creazione sessione. Se AI off o unreachable → no-op. Niente
+            // blocco UI: fire-and-forget con log.
+            if (e.Kind is SessionChangeKind.Created or SessionChangeKind.Resumed or SessionChangeKind.Forked)
+                _ = TriggerAiWarmupAsync();
+        }
+
+        /// <summary>
+        /// UI-9: warmup asincrono degli embedding del listino attivo. Non blocca
+        /// l'UI, non throwa, se AI disabilitata è no-op silenzioso. Idempotente:
+        /// le voci già in cache sono skippate dall'implementazione.
+        /// </summary>
+        private async Task TriggerAiWarmupAsync()
+        {
+            try
+            {
+                var settings = SettingsService.Load();
+                if (!settings.AiEnabled) return;
+
+                var repo = _sessionManager.Repository;
+                if (repo == null) return;
+
+                // Prende solo le voci del listino attivo (se >1 listini attivi,
+                // combina). Limitare la cache al listino attivo evita il warmup
+                // di migliaia di voci non usate.
+                var activeLists = _userLibrary.Library.GetPriceLists()
+                    .Where(pl => pl.IsActive)
+                    .ToList();
+                if (activeLists.Count == 0) return;
+
+                var allItems = new List<Models.PriceItem>();
+                foreach (var pl in activeLists)
+                    allItems.AddRange(_userLibrary.Library.GetPriceItemsByList(pl.Id));
+
+                if (allItems.Count == 0) return;
+
+                Services.CrashLogger.Info(
+                    $"AI warmup avviato · {allItems.Count} voci · listino/i attivo/i: {activeLists.Count}");
+
+                var ok = await QtoRevitPlugin.AI.AiSuggestionsGateway.WarmupEmbeddingCacheAsync(
+                    settings, repo, allItems,
+                    progress: null,
+                    logger: msg => Services.CrashLogger.Warn(msg));
+
+                Services.CrashLogger.Info($"AI warmup completato · success={ok}");
+            }
+            catch (Exception ex)
+            {
+                Services.CrashLogger.WriteException("DockablePaneViewModel.TriggerAiWarmup", ex);
+            }
         }
 
         public void RefreshFromSession()
