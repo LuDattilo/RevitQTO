@@ -124,13 +124,16 @@
                            Style="{DynamicResource SectionLabelStyle}" />
 
                 <!--
-                    Layout sezione Ricerca (richiesta utente 2026-04-23):
+                    Layout sezione Ricerca (rev.5 feedback utente 2026-04-23):
                       Row 0  TextBox ricerca + badge FTS
                       Row 1  DataGrid Risultati (area primaria, flessibile)
-                      Row 2  GridSplitter
-                      Row 3  Pannello Dettaglio voce selezionata
-                      Row 4  Expander "★ I Miei Preferiti" (sotto il dettaglio, come richiesto)
-                      Row 5  Status bar
+                      Row 2  GridSplitter tra Risultati e Dettaglio
+                      Row 3  Pannello Dettaglio voce selezionata (altezza FISSA,
+                             con ScrollViewer interno se la descrizione è lunga)
+                      Row 4  GridSplitter tra Dettaglio e Preferiti (nuovo)
+                      Row 5  Expander "★ I Miei Preferiti" (ALTEZZA FLESSIBILE,
+                             può essere espanso/contratto dall'utente col splitter)
+                      Row 6  Status bar
                     I preferiti stanno sotto perché sono destinazione drag&drop dai
                     risultati, e logicamente sono un sottosistema secondario rispetto
                     alla ricerca principale.
@@ -138,11 +141,12 @@
                 <Grid Grid.Row="5" Margin="0,6,0,0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />    <!-- 0 SearchBox -->
-                        <RowDefinition Height="*" MinHeight="120" />  <!-- 1 Risultati -->
-                        <RowDefinition Height="3" />       <!-- 2 Splitter -->
-                        <RowDefinition Height="Auto" MinHeight="100" /> <!-- 3 Dettaglio -->
-                        <RowDefinition Height="Auto" />    <!-- 4 Expander Preferiti -->
-                        <RowDefinition Height="Auto" />    <!-- 5 Status -->
+                        <RowDefinition Height="*" MinHeight="120" />  <!-- 1 Risultati (flessibile) -->
+                        <RowDefinition Height="3" />       <!-- 2 Splitter Risultati/Dettaglio -->
+                        <RowDefinition Height="Auto" MinHeight="80" MaxHeight="180" /> <!-- 3 Dettaglio FISSO -->
+                        <RowDefinition Height="3" />       <!-- 4 Splitter Dettaglio/Preferiti -->
+                        <RowDefinition Height="2*" MinHeight="120" /> <!-- 5 Preferiti (flessibile) -->
+                        <RowDefinition Height="Auto" />    <!-- 6 Status -->
                     </Grid.RowDefinitions>
 
                     <Grid Grid.Row="0">
@@ -167,9 +171,13 @@
                         </Border>
                     </Grid>
 
+                    <!-- Splitter Dettaglio/Preferiti (rev.5): permette di ridimensionare l'area preferiti -->
+                    <GridSplitter Grid.Row="4" Height="3" HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                                  Background="{DynamicResource EdgeLightBrush}" ShowsPreview="False" Cursor="SizeNS" />
+
                     <Expander x:Name="FavoritesExpander"
-                              Grid.Row="4" IsExpanded="True"
-                              Margin="0,6,0,0"
+                              Grid.Row="5" IsExpanded="True"
+                              Margin="0,4,0,0"
                               Background="{DynamicResource PanelSubBrush}"
                               BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1"
                               AllowDrop="True"
@@ -294,6 +302,14 @@
                                     DataGrid stessa; il Command legge dal Tag della DataGrid che punta al VM.
                                 -->
                                 <DataGrid.ContextMenu>
+                                    <!--
+                                        UX rev.6 (feedback utente 2026-04-23): context menu sulla riga
+                                        contiene SOLO azioni per la voce cliccata ("Usa nella ricerca",
+                                        "Rimuovi dai preferiti"). Il batch "Rimuovi tutti gli inutilizzati"
+                                        non è più qui — rimane accessibile come bottone nell'header
+                                        dell'Expander. "Aggiorna stato Usato" lasciato perché è utile
+                                        ricalcolare il tracking quando l'utente assegna voci nel computo.
+                                    -->
                                     <ContextMenu>
                                         <MenuItem Header="Usa nella ricerca"
                                                   Command="{Binding PlacementTarget.Tag.UseFavoriteInSearchCommand,
@@ -304,10 +320,6 @@
                                                   CommandParameter="{Binding PlacementTarget.SelectedItem,
                                                               RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                         <Separator/>
-                                        <MenuItem Header="🗑 Rimuovi tutti gli inutilizzati"
-                                                  Command="{Binding PlacementTarget.Tag.RemoveUnusedFavoritesCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                                  ToolTip="Rimuove dai preferiti solo le voci non assegnate nel computo. Il listino resta intatto."/>
                                         <MenuItem Header="↻ Aggiorna stato 'Usato'"
                                                   Command="{Binding PlacementTarget.Tag.RefreshFavoritesUsageFromUiCommand,
                                                               RelativeSource={RelativeSource AncestorType=ContextMenu}}"
@@ -447,7 +459,7 @@
                         </ScrollViewer>
                     </Border>
 
-                    <TextBlock Grid.Row="5" Margin="0,6,0,0"
+                    <TextBlock Grid.Row="6" Margin="0,6,0,0"
                                Text="{Binding SearchStatus}"
                                FontSize="10" FontStyle="Italic"
                                Foreground="{DynamicResource InkMutedBrush}" />
