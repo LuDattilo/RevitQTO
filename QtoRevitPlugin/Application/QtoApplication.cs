@@ -220,22 +220,15 @@ namespace QtoRevitPlugin.Application
                 Image = IconFactory.CreateLaunchIcon(16)
             };
 
-            var exportButton = new PushButtonData(
-                "ExportCme",
-                "Export",
-                assemblyPath,
-                "QtoRevitPlugin.Commands.ExportCommand")
-            {
-                ToolTip = "Esporta il computo in XPWE (PriMus) / Excel / PDF / CSV",
-                LargeImage = IconFactory.CreateLaunchIcon(32),
-                Image = IconFactory.CreateLaunchIcon(16)
-            };
-
             // Il Prezzario (CatalogBrowserWindow) non ha un bottone ribbon dedicato:
             // è accessibile dalla SetupView via "Sfoglia listino…". Evita duplicazione.
+            //
+            // L'Esporta NON è più un bottone ribbon: è l'ultima scheda del pannello CME
+            // (DockablePane → voce "Esporta") perché è il passo finale del workflow,
+            // consistente col flusso Setup → Fasi → Selezione → Mapping → … → Esporta.
+            // Questo evita il double-button visivo (ribbon + pane) e allinea l'UX al
+            // resto dell'app dove ogni step è una voce del pane, non un'icona ribbon.
             panel.AddItem(launchButton);
-            panel.AddSeparator();
-            panel.AddItem(exportButton);
         }
     }
 }

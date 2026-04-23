@@ -1,0 +1,75 @@
+<UserControl x:Class="QtoRevitPlugin.UI.Views.ExportView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Step finale del workflow CME: esportazione del computo.
+        Questa view vive nel DockablePane come ultima scheda. Apre la
+        ExportWizardWindow (già implementata) su click del bottone principale.
+        Scelto in luogo di un secondo PushButton sul ribbon per evitare
+        duplicazione e allineare il flusso Setup → … → Esporta dentro il pane.
+    -->
+    <Grid Background="{DynamicResource PanelBgBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="16,14,16,4">
+            <TextBlock Text="Esporta Computo" Style="{DynamicResource ViewTitleStyle}" />
+            <TextBlock Text="§ Fase 12 · Step finale"
+                       VerticalAlignment="Bottom"
+                       Foreground="{DynamicResource InkMutedBrush}"
+                       FontFamily="{DynamicResource FontMono}" FontSize="10"
+                       Margin="8,0,0,12" />
+        </StackPanel>
+
+        <!-- Card con bottone lancia-wizard -->
+        <Border Grid.Row="1" Style="{DynamicResource CardStyle}" Margin="16,8,16,16" Padding="32">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="500">
+
+                <!-- Icona grande stilizzata -->
+                <Border Background="{DynamicResource BrandAccentSoftBrush}"
+                        Width="72" Height="72" CornerRadius="36"
+                        HorizontalAlignment="Center">
+                    <TextBlock Text="↗" FontSize="42" FontWeight="Light"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Foreground="{DynamicResource BrandAccentDeepBrush}" />
+                </Border>
+
+                <TextBlock Text="Chiusura del Computo Metrico Estimativo"
+                           FontSize="18" FontWeight="Light"
+                           Foreground="{DynamicResource InkDefaultBrush}"
+                           HorizontalAlignment="Center"
+                           Margin="0,18,0,6" />
+
+                <TextBlock TextWrapping="Wrap" TextAlignment="Center"
+                           FontSize="12" LineHeight="18"
+                           Foreground="{DynamicResource InkDimBrush}"
+                           Margin="0,6,0,20">
+                    Esporta il computo completato di intestazione, capitoli SOA, voci di listino
+                    e nuovi prezzi nei formati:
+                    <LineBreak /><Run FontWeight="SemiBold">XPWE</Run> (PriMus ACCA) ·
+                    <Run FontWeight="SemiBold">Excel</Run> ·
+                    <Run FontWeight="SemiBold">PDF</Run> ·
+                    <Run FontWeight="SemiBold">CSV</Run>
+                </TextBlock>
+
+                <Button x:Name="BtnOpenWizard"
+                        Content="↗ Apri Wizard di Esportazione"
+                        Click="OnOpenWizardClick"
+                        HorizontalAlignment="Center"
+                        Padding="22,10" FontSize="13" FontWeight="SemiBold"
+                        Background="{DynamicResource BrandAccentBrush}" Foreground="White"
+                        BorderThickness="0" Cursor="Hand" />
+
+                <TextBlock Text="Richiede una sessione .cme attiva con almeno una voce assegnata."
+                           FontSize="10" FontStyle="Italic"
+                           Foreground="{DynamicResource InkMutedBrush}"
+                           HorizontalAlignment="Center"
+                           Margin="0,16,0,0" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

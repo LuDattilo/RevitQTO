@@ -108,7 +108,10 @@ namespace QtoRevitPlugin.UI.ViewModels
             Views.Add(new QtoViewItem(QtoViewKey.Health, "Health", "§I5", 6));
             Views.Add(new QtoViewItem(QtoViewKey.FilterManager, "Filtri Vista", "§I11", 9));
             Views.Add(new QtoViewItem(QtoViewKey.QtoViews, "Viste CME", "§I14", 9));
-            Views.Add(new QtoViewItem(QtoViewKey.Export, "Export", "§Fase 12", 9));
+            // "Esporta" è il passo finale del workflow — ultimo nella lista.
+            // Rimosso dal ribbon (vedi QtoApplication.CreateRibbon) per evitare
+            // il double-button: è lo step conclusivo accessibile dal pane.
+            Views.Add(new QtoViewItem(QtoViewKey.Export, "Esporta", "§Fase 12", 9));
 
             ActiveView = Views.First(v => v.Key == QtoViewKey.Preview);   // Preview come default
         }

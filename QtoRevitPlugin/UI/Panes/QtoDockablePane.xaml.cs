@@ -238,10 +238,10 @@ namespace QtoRevitPlugin.UI.Panes
                     "CT (Manodopera + Materiali + Noli + Trasporti) × SG (13–17%) × Utile (10%). " +
                     "Workflow Bozza → Concordato → Approvato (RUP)."),
 
-                QtoViewKey.Export => new PlaceholderView("Esporta Computo", item.Reference, item.AvailableInSprint,
-                    "Formato primario XPWE con gerarchia Capitoli/Sottocapitoli preservata " +
-                    "(import diretto in PriMus). Secondari: Excel .xlsx con foglio analisi NP, " +
-                    "TSV per compatibilità SA, Delta report dall'ultimo export."),
+                // Step finale: lancia l'ExportWizardWindow (vedi ExportView.xaml.cs).
+                // Prima era un PlaceholderView + bottone Ribbon separato; ora è
+                // l'ultima scheda del pane, allineata al workflow Setup → … → Esporta.
+                QtoViewKey.Export => new ExportView(),
 
                 _ => new PlaceholderView("(sconosciuta)", "", 99, "View non ancora definita.")
             };
