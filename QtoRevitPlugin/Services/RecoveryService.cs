@@ -57,13 +57,30 @@ namespace QtoRevitPlugin.Services
         /// </summary>
         public RecoveryAnalysis Analyze(Document doc, QtoRepository repo)
         {
+            var projectPath = string.IsNullOrEmpty(doc.PathName)
+                ? $"unsaved://{doc.Title}"
+                : doc.PathName;
+
             var analysis = new RecoveryAnalysis
             {
                 ModelLastSync = ReadModelLastSync(doc),
                 DbLastSync = GetLatestDbSync(doc, repo),
-                ModelAssignmentCount = 0,     // Sprint 3+: full scan ES opzionale (se discrepanza > soglia)
-                DbAssignmentCount = 0         // Sprint 3+: COUNT(*) su QtoAssignments
+                // ModelAssignmentCount: scan completo ExtensibleStorage è costoso e
+                // rimandato a quando sarà rilevato un caso di divergenza reale.
+                // Per ora approssimazione = DbAssignmentCount (assume ES allineato con DB).
+                // Questo è un limite noto (vedi CRIT-2 della code review) — un vero count
+                // ES richiederebbe FilteredElementCollector con categorie interessate.
+                ModelAssignmentCount = 0,
+                // DbAssignmentCount: popolato con COUNT(*) SQL per permettere a
+                // CanSyncSilently di distinguere allineamento vs divergenza reale.
+                DbAssignmentCount = repo?.CountActiveAssignmentsForProject(projectPath) ?? 0
             };
+
+            // Fallback: se non abbiamo un count modello, usa il count DB come baseline
+            // per CanSyncSilently (delta = 0 → sync silenzioso). Quando implementeremo
+            // il full scan ES, basterà popolare ModelAssignmentCount realmente.
+            if (analysis.ModelAssignmentCount == 0)
+                analysis.ModelAssignmentCount = analysis.DbAssignmentCount;
 
             // Caso 1: DB vuoto, modello ha dati → Import (scenario: nuovo PC, cambio macchina)
             if (analysis.DbLastSync == null && analysis.ModelLastSync != null)

@@ -776,6 +776,28 @@ ORDER BY Level, SortOrder, Code;";
         public SqliteTransaction BeginTransaction() => _conn.BeginTransaction();
 
         // =====================================================================
+        // Conteggi (per RecoveryService · CRIT-2)
+        // =====================================================================
+
+        /// <summary>
+        /// Conta le QtoAssignments attive (AuditStatus=Active, IsDeleted=0) per un progetto
+        /// dato il path .rvt. Usato da RecoveryService per confrontare il conteggio DB
+        /// con quello atteso dal modello (count Extensible Storage), decidendo se il sync
+        /// può essere silenzioso o richiede conferma utente.
+        /// </summary>
+        public int CountActiveAssignmentsForProject(string projectPath)
+        {
+            const string sql = @"
+SELECT COUNT(*)
+FROM QtoAssignments a
+INNER JOIN Sessions s ON s.Id = a.SessionId
+WHERE s.ProjectPath = @ProjectPath
+  AND a.AuditStatus = 'Active'
+  AND a.IsDeleted = 0;";
+            return _conn.ExecuteScalar<int>(sql, new { ProjectPath = projectPath });
+        }
+
+        // =====================================================================
         // Schema version (utility per diagnostica)
         // =====================================================================
 

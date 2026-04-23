@@ -20,8 +20,14 @@ namespace QtoRevitPlugin.Services
         {
             var result = new ModelDiffResult();
 
+            // Passo 1: confronta snapshot noti → rileva Deleted + Modified.
+            var knownUniqueIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var categoriesSeen = new HashSet<BuiltInCategory>();
+
             foreach (var snap in snapshots)
             {
+                knownUniqueIds.Add(snap.UniqueId);
+
                 var elem = doc.GetElement(snap.UniqueId);
 
                 if (elem == null)
@@ -35,6 +41,11 @@ namespace QtoRevitPlugin.Services
                     });
                     continue;
                 }
+
+                // Raccolgo le categorie OST "interessanti" (quelle dove l'utente ha
+                // già assegnato voci) per limitare lo scan Added al passo 2.
+                var bic = GetBuiltInCategory(elem);
+                if (bic.HasValue) categoriesSeen.Add(bic.Value);
 
                 var catOst = TryGetCategoryOst(elem);
                 var rule = _mappingRules.GetRule(catOst);
@@ -54,7 +65,49 @@ namespace QtoRevitPlugin.Services
                 }
             }
 
+            // Passo 2: scansione categorie già usate → rileva elementi Added (non in snapshots).
+            // Si limita alle categorie realmente mappate per evitare di proporre ogni elemento
+            // del modello come "aggiunto" (sarebbero migliaia di cross-reference indesiderati).
+            foreach (var bic in categoriesSeen)
+            {
+                FilteredElementCollector collector;
+                try
+                {
+                    collector = new FilteredElementCollector(doc)
+                        .OfCategory(bic)
+                        .WhereElementIsNotElementType();
+                }
+                catch
+                {
+                    continue;  // categoria non valida/filtrabile → skip
+                }
+
+                foreach (var elem in collector)
+                {
+                    if (elem == null) continue;
+                    if (string.IsNullOrEmpty(elem.UniqueId)) continue;
+                    if (knownUniqueIds.Contains(elem.UniqueId)) continue;
+
+                    result.Added.Add(elem);
+                }
+            }
+
             return result;
+        }
+
+        private static BuiltInCategory? GetBuiltInCategory(Element elem)
+        {
+            try
+            {
+                var cat = elem.Category;
+                if (cat == null) return null;
+#if REVIT2024_OR_EARLIER
+                return (BuiltInCategory)cat.Id.IntegerValue;
+#else
+                return (BuiltInCategory)(int)cat.Id.Value;
+#endif
+            }
+            catch { return null; }
         }
 
         /// <summary>
