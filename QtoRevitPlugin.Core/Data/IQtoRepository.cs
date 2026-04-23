@@ -42,6 +42,21 @@ namespace QtoRevitPlugin.Data
         int AddFavorite(UserFavorite fav);
         void RemoveFavorite(int id);
         bool IsFavorite(string code, int? listId);
+
+        /// <summary>
+        /// Ritorna l'insieme degli EpCode usati attivamente nel computo (QtoAssignments
+        /// con AuditStatus='Active') per la sessione data. Usato per marcare i preferiti
+        /// come "Usato/Non usato" nel panel Preferiti e per il bulk "Rimuovi inutilizzati".
+        /// Ritorna un HashSet per lookup O(1) lato chiamante.
+        /// </summary>
+        System.Collections.Generic.HashSet<string> GetUsedEpCodes(int sessionId);
+
+        /// <summary>
+        /// Bulk-delete dei preferiti i cui Id sono nella lista. Esegue in una singola
+        /// transazione. NON tocca il listino (UserFavorites vive in UserLibrary.db ma
+        /// è una tabella separata da PriceItems). Ritorna il numero di righe cancellate.
+        /// </summary>
+        int RemoveFavorites(System.Collections.Generic.IEnumerable<int> favoriteIds);
     }
 
     public interface IFavoritesRepository

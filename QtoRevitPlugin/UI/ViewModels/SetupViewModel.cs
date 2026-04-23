@@ -33,6 +33,19 @@ namespace QtoRevitPlugin.UI.ViewModels
         public ObservableCollection<PriceItemRow> SearchResults { get; } = new();
         public ObservableCollection<FavoriteRowVm> Favorites { get; } = new ObservableCollection<FavoriteRowVm>();
 
+        /// <summary>Header dinamico dell'Expander preferiti: "★ I Miei Preferiti (N)" con conteggio.</summary>
+        [ObservableProperty] private string _favoritesHeader = "★ I Miei Preferiti";
+
+        /// <summary>True quando la lista preferiti è vuota — binding per mostrare placeholder.</summary>
+        [ObservableProperty] private bool _favoritesIsEmpty = true;
+
+        /// <summary>True se esiste almeno un preferito NON usato nel computo.
+        /// Abilita/disabilita il bottone "🗑 Rimuovi inutilizzati".</summary>
+        [ObservableProperty] private bool _hasUnusedFavorites;
+
+        /// <summary>Conteggio preferiti non usati — usato nel testo del bottone.</summary>
+        [ObservableProperty] private int _unusedFavoritesCount;
+
         // Nota: ProjectInfo non è più esposto qui come property — Sprint 10 rev. B ha
         // separato SetupView in 4 sub-tab UserControl indipendenti. ProjectInfoView
         // istanzia la propria ProjectInfoViewModel direttamente nel proprio XAML.
@@ -259,6 +272,8 @@ namespace QtoRevitPlugin.UI.ViewModels
                 foreach (var f in repo.GetFavorites())
                     Favorites.Add(new FavoriteRowVm(f));
 
+                RefreshFavoritesUsage();
+                RefreshFavoritesHeader();
                 RefreshIsSelectedResultFavorite();
                 SyncFavoriteFlagsOnSearchResults();
             }
@@ -266,6 +281,51 @@ namespace QtoRevitPlugin.UI.ViewModels
             {
                 CrashLogger.WriteException("SetupViewModel.LoadFavorites", ex);
             }
+        }
+
+        /// <summary>
+        /// Marca ogni preferito con IsUsedInComputo = true se il suo Code è assegnato
+        /// attivamente (QtoAssignments Active) nella sessione computo corrente.
+        /// Se non c'è una sessione .cme aperta, tutti restano "non usati" (safe fallback).
+        /// </summary>
+        public void RefreshFavoritesUsage()
+        {
+            try
+            {
+                var session = QtoApplication.Instance?.SessionManager?.ActiveSession;
+                var sessionRepo = QtoApplication.Instance?.SessionManager?.Repository;
+                if (session == null || sessionRepo == null)
+                {
+                    // No active session: mark all as unused
+                    foreach (var f in Favorites) f.IsUsedInComputo = false;
+                    RefreshHasUnusedFavorites();
+                    return;
+                }
+
+                var used = sessionRepo.GetUsedEpCodes(session.Id);
+                foreach (var f in Favorites)
+                    f.IsUsedInComputo = used.Contains(f.Code);
+                RefreshHasUnusedFavorites();
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.WriteException("SetupViewModel.RefreshFavoritesUsage", ex);
+            }
+        }
+
+        private void RefreshHasUnusedFavorites()
+        {
+            HasUnusedFavorites = Favorites.Any(f => !f.IsUsedInComputo);
+            UnusedFavoritesCount = Favorites.Count(f => !f.IsUsedInComputo);
+        }
+
+        /// <summary>Aggiorna header Expander e placeholder dopo ogni mutazione di Favorites.</summary>
+        private void RefreshFavoritesHeader()
+        {
+            FavoritesIsEmpty = Favorites.Count == 0;
+            FavoritesHeader = Favorites.Count == 0
+                ? "★ I Miei Preferiti"
+                : $"★ I Miei Preferiti ({Favorites.Count})";
         }
 
         /// <summary>Aggiorna il flag booleano IsSelectedResultFavorite dopo un cambio selezione o toggle.</summary>
@@ -329,6 +389,8 @@ namespace QtoRevitPlugin.UI.ViewModels
                 }
 
                 RefreshIsSelectedResultFavorite();
+                RefreshFavoritesHeader();
+                RefreshFavoritesUsage(); // marca il nuovo preferito se già usato nel computo
                 // Aggiorna la star icon nella riga della griglia
                 sel.IsFavoriteInLibrary = IsSelectedResultFavorite;
             }
@@ -357,6 +419,8 @@ namespace QtoRevitPlugin.UI.ViewModels
                 repo.RemoveFavorite(row.Id);
                 Favorites.Remove(row);
                 RefreshIsSelectedResultFavorite();
+                RefreshFavoritesHeader();
+                RefreshHasUnusedFavorites();
                 SyncFavoriteFlagsOnSearchResults();
             }
             catch (Exception ex)
@@ -364,6 +428,60 @@ namespace QtoRevitPlugin.UI.ViewModels
                 CrashLogger.WriteException("SetupViewModel.RemoveFavorite", ex);
             }
         }
+
+        /// <summary>
+        /// Rimuove dai preferiti tutte le voci NON usate nel computo corrente.
+        /// NON tocca il listino: le voci restano nel catalogo, solo la "bookmark" personale
+        /// sparisce. Richiede conferma utente (TaskDialog) perché è un'operazione batch.
+        /// </summary>
+        [RelayCommand]
+        private void RemoveUnusedFavorites()
+        {
+            var repo = GetActiveRepo();
+            if (repo == null) return;
+
+            var unused = Favorites.Where(f => !f.IsUsedInComputo).ToList();
+            if (unused.Count == 0) return;
+
+            var td = new Autodesk.Revit.UI.TaskDialog("Rimuovi preferiti inutilizzati")
+            {
+                MainInstruction = $"Rimuovere {unused.Count} preferit{(unused.Count == 1 ? "o" : "i")} non utilizzat{(unused.Count == 1 ? "o" : "i")} nel computo?",
+                MainContent =
+                    "Verranno rimosse SOLO le voci che non risultano assegnate a elementi Revit nel computo corrente.\n\n" +
+                    "Le voci corrispondenti nel listino NON vengono cancellate: potrai sempre ri-aggiungerle ai preferiti dalla ricerca.",
+                CommonButtons = Autodesk.Revit.UI.TaskDialogCommonButtons.Yes | Autodesk.Revit.UI.TaskDialogCommonButtons.No,
+                DefaultButton = Autodesk.Revit.UI.TaskDialogResult.No
+            };
+            if (td.Show() != Autodesk.Revit.UI.TaskDialogResult.Yes) return;
+
+            try
+            {
+                var ids = unused.Select(f => f.Id).ToList();
+                var deleted = repo.RemoveFavorites(ids);
+
+                // Rimuovi dalla collection UI mantenendo l'ordine
+                foreach (var f in unused) Favorites.Remove(f);
+
+                RefreshIsSelectedResultFavorite();
+                RefreshFavoritesHeader();
+                RefreshHasUnusedFavorites();
+                SyncFavoriteFlagsOnSearchResults();
+
+                Autodesk.Revit.UI.TaskDialog.Show("Preferiti",
+                    $"Rimoss{(deleted == 1 ? "o" : "i")} {deleted} preferit{(deleted == 1 ? "o" : "i")} inutilizzat{(deleted == 1 ? "o" : "i")}. Il listino è intatto.");
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.WriteException("SetupViewModel.RemoveUnusedFavorites", ex);
+            }
+        }
+
+        /// <summary>
+        /// Comando UI: forza il re-check dell'uso dei preferiti nel computo
+        /// (es. dopo che l'utente ha modificato la scheda Mappatura).
+        /// </summary>
+        [RelayCommand]
+        private void RefreshFavoritesUsageFromUi() => RefreshFavoritesUsage();
 
         // ---------------------------------------------------------------------
         // Helpers

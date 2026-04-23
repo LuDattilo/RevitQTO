@@ -133,46 +133,149 @@
                         </Border>
                     </Grid>
 
-                    <Expander Grid.Row="1" Header="★ I Miei Preferiti" IsExpanded="False"
+                    <Expander Grid.Row="1" IsExpanded="True"
                               Margin="0,6,0,0"
                               Background="{DynamicResource PanelSubBrush}"
                               BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1">
-                        <DataGrid x:Name="FavoritesGrid"
-                                  ItemsSource="{Binding Favorites}"
-                                  SelectedItem="{Binding SelectedFavorite, Mode=TwoWay}"
-                                  Tag="{Binding}"
-                                  AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
-                                  HeadersVisibility="Column" FontSize="11"
-                                  MaxHeight="160" GridLinesVisibility="None"
-                                  IsReadOnly="True">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="Codice"      Binding="{Binding Code}"               Width="130" FontFamily="Consolas"/>
-                                <DataGridTextColumn Header="Descrizione" Binding="{Binding Description}"        Width="*"/>
-                                <DataGridTextColumn Header="U.M."        Binding="{Binding Unit}"               Width="50"/>
-                                <DataGridTextColumn Header="Prezzo"      Binding="{Binding UnitPriceFormatted}"  Width="80"/>
-                                <DataGridTextColumn Header="Listino"     Binding="{Binding ListName}"           Width="110" FontSize="10"/>
-                                <DataGridTextColumn Header="Aggiunto"    Binding="{Binding AddedAtShort}"       Width="115" FontSize="10"/>
-                            </DataGrid.Columns>
-                            <!--
-                                Pattern ContextMenu sulla DataGrid (non sul RowStyle) per evitare la dipendenza
-                                ciclica XAML che fa crashare InitializeComponent di SetupView.
-                                La ContextMenu è attached alla DataGrid stessa; DataContextSelector="Row" fa sì che
-                                MenuItem abbiano come DataContext la riga cliccata (per il CommandParameter),
-                                mentre il Command legge dal Tag della DataGrid che punta al SetupViewModel.
-                            -->
-                            <DataGrid.ContextMenu>
-                                <ContextMenu>
-                                    <MenuItem Header="Usa nella ricerca"
-                                              Command="{Binding PlacementTarget.Tag.UseFavoriteInSearchCommand,
-                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                    <MenuItem Header="Rimuovi dai preferiti"
-                                              Command="{Binding PlacementTarget.Tag.RemoveFavoriteCommand,
-                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                              CommandParameter="{Binding PlacementTarget.SelectedItem,
-                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                </ContextMenu>
-                            </DataGrid.ContextMenu>
-                        </DataGrid>
+                        <Expander.Header>
+                            <Grid HorizontalAlignment="Stretch" Width="Auto">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{Binding FavoritesHeader}"
+                                           FontSize="11" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource BrandAccentDeepBrush}"
+                                           VerticalAlignment="Center"/>
+                                <!-- Badge conteggio inutilizzati, visibile solo se > 0 -->
+                                <TextBlock Grid.Column="2" Margin="10,0,6,0"
+                                           VerticalAlignment="Center"
+                                           FontSize="10" FontStyle="Italic"
+                                           Foreground="{DynamicResource InkMutedBrush}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasUnusedFavorites}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                    <Run Text="("/><Run Text="{Binding UnusedFavoritesCount, Mode=OneWay}"/><Run Text=" inutilizzat"/><Run Text="i)"/>
+                                </TextBlock>
+                                <Button Grid.Column="3"
+                                        Content="🗑 Rimuovi inutilizzati"
+                                        Command="{Binding RemoveUnusedFavoritesCommand}"
+                                        FontSize="10" Padding="8,2" Margin="0,0,4,0"
+                                        Cursor="Hand"
+                                        Background="Transparent"
+                                        Foreground="{DynamicResource InkDefaultBrush}"
+                                        BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1"
+                                        ToolTip="Rimuove dai preferiti le voci NON utilizzate nel computo. Il listino resta intatto.">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasUnusedFavorites}" Value="False">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                            </Grid>
+                        </Expander.Header>
+                        <Grid>
+                            <!-- Placeholder quando la lista è vuota -->
+                            <Border Background="White" BorderThickness="0" Padding="20,16"
+                                    Visibility="{Binding FavoritesIsEmpty,
+                                                 Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <TextBlock Text="☆" FontSize="32" HorizontalAlignment="Center"
+                                               Foreground="{DynamicResource InkMutedBrush}" />
+                                    <TextBlock Text="Nessun preferito ancora"
+                                               FontSize="12" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource InkDefaultBrush}"
+                                               HorizontalAlignment="Center" Margin="0,4,0,2" />
+                                    <TextBlock Text="Seleziona una voce nei risultati e clicca la stellina ★ per aggiungerla qui."
+                                               FontSize="10" FontStyle="Italic"
+                                               Foreground="{DynamicResource InkMutedBrush}"
+                                               TextWrapping="Wrap" TextAlignment="Center"
+                                               MaxWidth="360" HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- DataGrid preferiti (nascosto quando vuoto) -->
+                            <DataGrid x:Name="FavoritesGrid"
+                                      ItemsSource="{Binding Favorites}"
+                                      SelectedItem="{Binding SelectedFavorite, Mode=TwoWay}"
+                                      Tag="{Binding}"
+                                      AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
+                                      HeadersVisibility="Column" FontSize="11" FontWeight="Normal"
+                                      Foreground="{DynamicResource InkDefaultBrush}"
+                                      MaxHeight="160" GridLinesVisibility="None"
+                                      IsReadOnly="True"
+                                      Visibility="{Binding FavoritesIsEmpty,
+                                                   Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                                <DataGrid.Columns>
+                                    <!-- Colonna "Usato": mostra ✓ verde se la voce è assegnata nel computo, — grigio altrimenti -->
+                                    <DataGridTemplateColumn Header="Usato" Width="58" SortMemberPath="IsUsedInComputo">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding UsedBadge}"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           FontSize="11" FontWeight="SemiBold">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground" Value="{DynamicResource InkMutedBrush}"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsUsedInComputo}" Value="True">
+                                                                    <Setter Property="Foreground" Value="#2E7D32"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="Codice"      Binding="{Binding Code}"               Width="130" FontFamily="Consolas"/>
+                                    <DataGridTextColumn Header="Descrizione" Binding="{Binding Description}"        Width="*"/>
+                                    <DataGridTextColumn Header="U.M."        Binding="{Binding Unit}"               Width="50"/>
+                                    <DataGridTextColumn Header="Prezzo"      Binding="{Binding UnitPriceFormatted}"  Width="80"/>
+                                    <DataGridTextColumn Header="Listino"     Binding="{Binding ListName}"           Width="110" FontSize="10"/>
+                                    <DataGridTextColumn Header="Aggiunto"    Binding="{Binding AddedAtShort}"       Width="115" FontSize="10"/>
+                                </DataGrid.Columns>
+                                <!--
+                                    Pattern ContextMenu sulla DataGrid (non sul RowStyle) per evitare la dipendenza
+                                    ciclica XAML che fa crashare InitializeComponent. La ContextMenu è attached alla
+                                    DataGrid stessa; il Command legge dal Tag della DataGrid che punta al VM.
+                                -->
+                                <DataGrid.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="Usa nella ricerca"
+                                                  Command="{Binding PlacementTarget.Tag.UseFavoriteInSearchCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                        <MenuItem Header="Rimuovi dai preferiti"
+                                                  Command="{Binding PlacementTarget.Tag.RemoveFavoriteCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                  CommandParameter="{Binding PlacementTarget.SelectedItem,
+                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                        <Separator/>
+                                        <MenuItem Header="🗑 Rimuovi tutti gli inutilizzati"
+                                                  Command="{Binding PlacementTarget.Tag.RemoveUnusedFavoritesCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                  ToolTip="Rimuove dai preferiti solo le voci non assegnate nel computo. Il listino resta intatto."/>
+                                        <MenuItem Header="↻ Aggiorna stato 'Usato'"
+                                                  Command="{Binding PlacementTarget.Tag.RefreshFavoritesUsageFromUiCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                  ToolTip="Ricalcola quali preferiti sono attualmente usati nel computo"/>
+                                    </ContextMenu>
+                                </DataGrid.ContextMenu>
+                            </DataGrid>
+                        </Grid>
                     </Expander>
 
                     <DataGrid Grid.Row="2" Margin="0,8,0,0"
@@ -228,16 +331,40 @@
                                                Text="{Binding UnitPriceFormatted}"
                                                FontFamily="{DynamicResource FontMono}" FontSize="12" FontWeight="SemiBold"
                                                Foreground="{DynamicResource BrandAccentDeepBrush}" />
+                                    <!--
+                                        Bottone ★ preferito: grande, dorato, con sfondo pieno quando la voce
+                                        è nei preferiti; contorno quando non lo è. UX visiva chiara.
+                                    -->
                                     <Button Grid.Column="3"
                                             Content="{Binding DataContext.IsSelectedResultFavorite,
                                                       RelativeSource={RelativeSource AncestorType=UserControl},
                                                       Converter={x:Static vm:BoolToStarConverter.Instance}}"
-                                            FontSize="20" Foreground="Goldenrod"
-                                            Background="Transparent" BorderThickness="0"
-                                            Padding="8,2" Margin="4,0,0,0"
+                                            FontSize="18" FontWeight="Bold"
+                                            Width="36" Height="28"
+                                            Padding="0" Margin="8,0,0,0"
+                                            Cursor="Hand"
                                             ToolTip="Aggiungi/Rimuovi dai preferiti"
                                             Command="{Binding DataContext.ToggleFavoriteCommand,
-                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                                                      RelativeSource={RelativeSource AncestorType=UserControl}}">
+                                        <Button.Style>
+                                            <Style TargetType="Button">
+                                                <Setter Property="Background" Value="Transparent" />
+                                                <Setter Property="Foreground" Value="Goldenrod" />
+                                                <Setter Property="BorderBrush" Value="Goldenrod" />
+                                                <Setter Property="BorderThickness" Value="1" />
+                                                <Style.Triggers>
+                                                    <DataTrigger
+                                                        Binding="{Binding DataContext.IsSelectedResultFavorite,
+                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        Value="True">
+                                                        <Setter Property="Background" Value="#FFD700" />
+                                                        <Setter Property="Foreground" Value="White" />
+                                                        <Setter Property="BorderThickness" Value="0" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
                                 </Grid>
                                 <TextBlock Text="{Binding HierarchyPath}" Margin="0,4,0,0"
                                            FontSize="10" Foreground="{DynamicResource InkMutedBrush}"

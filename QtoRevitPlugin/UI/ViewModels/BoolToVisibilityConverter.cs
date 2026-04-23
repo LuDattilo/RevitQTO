@@ -1,0 +1,31 @@
+using System;
+using System.Globalization;
+using System.Windows;
+using System.Windows.Data;
+
+namespace QtoRevitPlugin.UI.ViewModels
+{
+    /// <summary>Converter WPF: true → Visible, false → Collapsed. Singleton accessibile via x:Static.</summary>
+    public class BoolToVisibilityConverter : IValueConverter
+    {
+        public static readonly BoolToVisibilityConverter Instance = new BoolToVisibilityConverter();
+
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+            => value is bool b && b ? Visibility.Visible : Visibility.Collapsed;
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => throw new NotSupportedException();
+    }
+
+    /// <summary>Converter WPF: true → Collapsed, false → Visible. Utile per "nascondi se X è vero" / "mostra se X è falso".</summary>
+    public class InverseBoolToVisibilityConverter : IValueConverter
+    {
+        public static readonly InverseBoolToVisibilityConverter Instance = new InverseBoolToVisibilityConverter();
+
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+            => value is bool b && b ? Visibility.Collapsed : Visibility.Visible;
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => throw new NotSupportedException();
+    }
+}

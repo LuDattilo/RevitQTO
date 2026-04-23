@@ -22,6 +22,20 @@ namespace QtoRevitPlugin.UI.ViewModels
 
         [ObservableProperty] private bool _isFavorite = true;
 
+        /// <summary>
+        /// True se questo codice è assegnato attivamente a elementi Revit nel computo
+        /// corrente (QtoAssignments con AuditStatus=Active). Usato per:
+        /// - Badge "✓ Usato" nella DataGrid preferiti
+        /// - Filtro del comando "Rimuovi inutilizzati" che elimina dai preferiti
+        ///   solo le voci NON usate (IsUsedInComputo == false).
+        /// </summary>
+        [ObservableProperty] private bool _isUsedInComputo;
+
+        /// <summary>Label human-readable per la colonna "Usato" della DataGrid.</summary>
+        public string UsedBadge => IsUsedInComputo ? "✓ usato" : "—";
+
+        partial void OnIsUsedInComputoChanged(bool value) => OnPropertyChanged(nameof(UsedBadge));
+
         public FavoriteRowVm(UserFavorite model) => Model = model;
     }
 }

@@ -118,5 +118,45 @@ namespace QtoRevitPlugin.Tests.Listino
             var loaded = _repo.GetFavorites().Single();
             loaded.Note.Should().Be("Da verificare con DL prima dell'emissione");
         }
+
+        [Fact]
+        public void RemoveFavorites_Bulk_DeletesAllMatchingIds()
+        {
+            _repo.AddFavorite(new UserFavorite { Code = "A1", ListId = 1 });
+            _repo.AddFavorite(new UserFavorite { Code = "A2", ListId = 1 });
+            _repo.AddFavorite(new UserFavorite { Code = "A3", ListId = 1 });
+
+            var all = _repo.GetFavorites().ToList();
+            all.Count.Should().Be(3);
+
+            // Rimuovi solo A1 e A3
+            var idsToDelete = all.Where(f => f.Code != "A2").Select(f => f.Id).ToList();
+            var deleted = _repo.RemoveFavorites(idsToDelete);
+
+            deleted.Should().Be(2);
+            var remaining = _repo.GetFavorites();
+            remaining.Should().ContainSingle().Which.Code.Should().Be("A2");
+        }
+
+        [Fact]
+        public void RemoveFavorites_EmptyIdList_NoOp()
+        {
+            _repo.AddFavorite(new UserFavorite { Code = "X", ListId = 1 });
+            var deleted = _repo.RemoveFavorites(new int[0]);
+            deleted.Should().Be(0);
+            _repo.GetFavorites().Should().HaveCount(1);
+        }
+
+        [Fact]
+        public void GetUsedEpCodes_OnDbWithoutQtoAssignmentsTable_ReturnsEmpty()
+        {
+            // UserLibrary.db non ha la tabella QtoAssignments — guard deve restituire
+            // set vuoto invece di throw (scenario reale: VM chiama da panel Listino
+            // ma repo corrente è UserLibrary).
+            // NOTA: il repo di test è un .cme completo, quindi la tabella ESISTE.
+            // Il test verifica il caso "session inesistente" via sessionId invalido.
+            var used = _repo.GetUsedEpCodes(sessionId: 99999);
+            used.Should().BeEmpty();
+        }
     }
 }

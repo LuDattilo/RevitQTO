@@ -974,6 +974,49 @@ SELECT COUNT(*) FROM UserFavorites WHERE Code = @Code AND ListId IS @ListId";
             return n > 0;
         }
 
+        /// <summary>
+        /// Ritorna i codici EP assegnati attivamente nel computo per una sessione.
+        /// NOTA: QtoAssignments vive nel .cme (DB di sessione), NON nell'UserLibrary.db.
+        /// Questo metodo funziona SOLO se invocato su un repository aperto sul .cme
+        /// corretto. Se la tabella QtoAssignments non esiste (es. UserLibrary.db),
+        /// ritorna un HashSet vuoto senza throw.
+        /// </summary>
+        public System.Collections.Generic.HashSet<string> GetUsedEpCodes(int sessionId)
+        {
+            // Guard: se il DB non ha QtoAssignments (es. chiamato su UserLibrary.db),
+            // ritorniamo vuoto invece di lanciare. L'UI chiama questo metodo sul
+            // SessionManager.Repository che è il .cme.
+            var tableExists = _conn.ExecuteScalar<int>(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='QtoAssignments'");
+            if (tableExists == 0) return new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+
+            const string sql = @"
+SELECT DISTINCT EpCode
+FROM QtoAssignments
+WHERE SessionId = @SessionId AND AuditStatus = 'Active' AND EpCode IS NOT NULL AND EpCode <> ''";
+
+            var codes = _conn.Query<string>(sql, new { SessionId = sessionId });
+            return new System.Collections.Generic.HashSet<string>(codes, System.StringComparer.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Bulk-delete preferiti in una transazione. Ritorna il numero di righe cancellate.
+        /// NON tocca PriceItems / PriceLists.
+        /// </summary>
+        public int RemoveFavorites(System.Collections.Generic.IEnumerable<int> favoriteIds)
+        {
+            var ids = favoriteIds?.ToList();
+            if (ids == null || ids.Count == 0) return 0;
+
+            using var tx = _conn.BeginTransaction();
+            int deleted = _conn.Execute(
+                "DELETE FROM UserFavorites WHERE Id IN @Ids",
+                new { Ids = ids },
+                transaction: tx);
+            tx.Commit();
+            return deleted;
+        }
+
         // =====================================================================
         // IDisposable
         // =====================================================================
