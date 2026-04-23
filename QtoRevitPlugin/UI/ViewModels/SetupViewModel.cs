@@ -86,7 +86,7 @@ namespace QtoRevitPlugin.UI.ViewModels
                 var lists = repo.GetPriceLists();
                 foreach (var l in lists)
                 {
-                    PriceLists.Add(new PriceListRow(l));
+                    PriceLists.Add(new PriceListRow(this, l));
                 }
 
                 StatusMessage = lists.Count == 0
@@ -99,6 +99,29 @@ namespace QtoRevitPlugin.UI.ViewModels
             catch (Exception ex)
             {
                 StatusMessage = $"Errore lettura libreria: {ex.Message}";
+            }
+        }
+
+        /// <summary>
+        /// Invocato da PriceListRow quando la checkbox IsActive viene togglata.
+        /// Persiste lo stato nel repository e invalida la cache della ricerca.
+        /// </summary>
+        public void OnPriceListActiveToggled(PriceListRow row, bool newValue)
+        {
+            try
+            {
+                var repo = GetActiveRepo();
+                if (repo == null) return;
+                repo.UpdatePriceListFlags(row.Id, newValue, row.Priority);
+
+                // Invalida la cache fuzzy L3 e rilancia la ricerca corrente se attiva
+                _searchService?.InvalidateCache();
+                if (!string.IsNullOrWhiteSpace(SearchQuery))
+                    ExecuteSearch();
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.WriteException("SetupViewModel.OnPriceListActiveToggled", ex);
             }
         }
 
@@ -227,8 +250,25 @@ namespace QtoRevitPlugin.UI.ViewModels
     // Row DTOs (projection sulle entities — tengono solo ciò che il DataGrid mostra)
     // -------------------------------------------------------------------------
 
-    public class PriceListRow
+    /// <summary>
+    /// Riga del DataGrid "Listini attivi" — osservabile per propagare il toggle
+    /// IsActive al repository (persistenza + invalidazione cache ricerca).
+    /// </summary>
+    public partial class PriceListRow : ObservableObject
     {
+        private readonly SetupViewModel? _owner;
+
+        /// <summary>
+        /// Costruttore con owner — usato da SetupViewModel per abilitare la persistenza del toggle IsActive.
+        /// </summary>
+        public PriceListRow(SetupViewModel owner, PriceList list) : this(list)
+        {
+            _owner = owner;
+        }
+
+        /// <summary>
+        /// Costruttore senza owner — usato da CatalogBrowserViewModel (IsActive è read-only in quel contesto).
+        /// </summary>
         public PriceListRow(PriceList list)
         {
             Id = list.Id;
@@ -238,8 +278,8 @@ namespace QtoRevitPlugin.UI.ViewModels
             Version = list.Version;
             RowCount = list.RowCount;
             Priority = list.Priority;
-            IsActive = list.IsActive;
             ImportedAt = list.ImportedAt;
+            _isActive = list.IsActive; // set via field to avoid triggering OnIsActiveChanged at load
         }
 
         public int Id { get; }
@@ -249,10 +289,16 @@ namespace QtoRevitPlugin.UI.ViewModels
         public string Version { get; }
         public int RowCount { get; }
         public int Priority { get; }
-        public bool IsActive { get; }
         public DateTime ImportedAt { get; }
 
+        [ObservableProperty] private bool _isActive;
+
         public string ImportedAtShort => ImportedAt == default ? "" : ImportedAt.ToLocalTime().ToString("dd/MM HH:mm");
+
+        partial void OnIsActiveChanged(bool value)
+        {
+            _owner?.OnPriceListActiveToggled(this, value);
+        }
     }
 
     public class PriceItemRow
