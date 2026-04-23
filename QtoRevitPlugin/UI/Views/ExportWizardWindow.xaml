@@ -1,0 +1,59 @@
+<Window x:Class="QtoRevitPlugin.UI.Views.ExportWizardWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:QtoRevitPlugin.UI.ViewModels"
+        Title="Export Computo"
+        Width="480" Height="520"
+        WindowStartupLocation="CenterScreen">
+    <Window.DataContext>
+        <vm:ExportWizardViewModel/>
+    </Window.DataContext>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Formato Export" FontSize="14" FontWeight="Bold" Margin="0,0,0,8"/>
+        <ListBox Grid.Row="1" ItemsSource="{Binding AvailableExporters}"
+                 SelectedItem="{Binding SelectedExporter, Mode=TwoWay}"
+                 DisplayMemberPath="FormatName" Height="100"/>
+
+        <TextBlock Grid.Row="2" Text="Intestazione" FontSize="14" FontWeight="Bold" Margin="0,12,0,6"/>
+        <StackPanel Grid.Row="3">
+            <TextBlock Text="Titolo:"/>
+            <TextBox Text="{Binding Titolo, Mode=TwoWay}" Margin="0,0,0,6"/>
+            <TextBlock Text="Committente:"/>
+            <TextBox Text="{Binding Committente, Mode=TwoWay}" Margin="0,0,0,6"/>
+            <TextBlock Text="Direttore Lavori:"/>
+            <TextBox Text="{Binding DirettoreLavori, Mode=TwoWay}" Margin="0,0,0,6"/>
+        </StackPanel>
+
+        <TextBlock Grid.Row="4" Text="Opzioni" FontSize="14" FontWeight="Bold" Margin="0,12,0,6"/>
+        <StackPanel Grid.Row="5">
+            <CheckBox Content="Includi campi audit (Version, CreatedBy, AuditStatus) — CSV" IsChecked="{Binding IncludeAuditFields, Mode=TwoWay}"/>
+            <CheckBox Content="Includi Superseded + Deleted (storico completo)" IsChecked="{Binding IncludeDeletedAndSuperseded, Mode=TwoWay}"/>
+            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                <TextBlock Text="Logo (PDF):" VerticalAlignment="Center"/>
+                <TextBox Text="{Binding CompanyLogoPath, Mode=TwoWay}" Width="220" Margin="6,0,0,0"/>
+                <Button Content="Sfoglia..." Command="{Binding BrowseLogoCommand}" Margin="6,0,0,0"/>
+            </StackPanel>
+        </StackPanel>
+
+        <TextBlock Grid.Row="7" Text="{Binding StatusMessage}" Foreground="Gray" Margin="0,8,0,4"/>
+        <StackPanel Grid.Row="8" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Esporta" Width="100" Padding="8,4" Margin="0,0,8,0"
+                    Command="{Binding ExportCommand}"
+                    Background="#1E6FD9" Foreground="White"/>
+            <Button Content="Chiudi" Width="80" Padding="8,4" Click="OnCloseClick"/>
+        </StackPanel>
+    </Grid>
+</Window>

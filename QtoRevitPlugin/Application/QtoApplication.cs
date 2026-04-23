@@ -228,9 +228,22 @@ namespace QtoRevitPlugin.Application
                 ToolTip = "Apre/chiude il pannello Prezzario con Preferiti e voci EP"
             };
 
+            var exportButton = new PushButtonData(
+                "ExportCme",
+                "Export",
+                assemblyPath,
+                "QtoRevitPlugin.Commands.ExportCommand")
+            {
+                ToolTip = "Esporta il computo in XPWE (PriMus) / Excel / PDF / CSV",
+                LargeImage = IconFactory.CreateLaunchIcon(32),
+                Image = IconFactory.CreateLaunchIcon(16)
+            };
+
             panel.AddItem(launchButton);
             panel.AddSeparator();
             panel.AddItem(prezzarioButton);
+            panel.AddSeparator();
+            panel.AddItem(exportButton);
         }
     }
 }
