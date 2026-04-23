@@ -94,5 +94,29 @@ namespace QtoRevitPlugin.Tests.Listino
             all[0].Code.Should().Be("Last");
             all[1].Code.Should().Be("First");
         }
+
+        [Fact]
+        public void IsFavorite_WithNullListId_WorksCorrectly()
+        {
+            _repo.AddFavorite(new UserFavorite { Code = "NULLED", ListId = null });
+
+            _repo.IsFavorite("NULLED", null).Should().BeTrue();
+            _repo.IsFavorite("NULLED", 1).Should().BeFalse();
+            _repo.IsFavorite("OTHER", null).Should().BeFalse();
+        }
+
+        [Fact]
+        public void AddFavorite_PersistsNoteField()
+        {
+            _repo.AddFavorite(new UserFavorite
+            {
+                Code = "NOTED",
+                ListId = 1,
+                Note = "Da verificare con DL prima dell'emissione"
+            });
+
+            var loaded = _repo.GetFavorites().Single();
+            loaded.Note.Should().Be("Da verificare con DL prima dell'emissione");
+        }
     }
 }

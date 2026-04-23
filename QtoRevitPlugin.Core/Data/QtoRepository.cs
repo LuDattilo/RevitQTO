@@ -928,6 +928,11 @@ ORDER BY AddedAt DESC, Code";
             return _conn.Query<UserFavorite>(sql).ToList();
         }
 
+        /// <summary>
+        /// NOTE: not atomic between INSERT OR IGNORE and the subsequent SELECT.
+        /// Safe for the single-user UserLibrary.db use case. For multi-writer scenarios
+        /// wrap both in a transaction and use last_insert_rowid() when changes() > 0.
+        /// </summary>
         public int AddFavorite(UserFavorite fav)
         {
             const string sql = @"
@@ -949,7 +954,7 @@ VALUES (@PriceItemId, @Code, @Description, @Unit, @UnitPrice, @ListName, @ListId
             });
 
             const string selectSql = @"
-SELECT Id FROM UserFavorites WHERE Code = @Code AND IFNULL(ListId, -1) = IFNULL(@ListId, -1) LIMIT 1";
+SELECT Id FROM UserFavorites WHERE Code = @Code AND ListId IS @ListId LIMIT 1";
 
             return _conn.ExecuteScalar<int>(selectSql, new { fav.Code, fav.ListId });
         }
@@ -963,7 +968,7 @@ SELECT Id FROM UserFavorites WHERE Code = @Code AND IFNULL(ListId, -1) = IFNULL(
         public bool IsFavorite(string code, int? listId)
         {
             const string sql = @"
-SELECT COUNT(*) FROM UserFavorites WHERE Code = @Code AND IFNULL(ListId, -1) = IFNULL(@ListId, -1)";
+SELECT COUNT(*) FROM UserFavorites WHERE Code = @Code AND ListId IS @ListId";
 
             var n = _conn.ExecuteScalar<int>(sql, new { Code = code, ListId = listId });
             return n > 0;
