@@ -58,11 +58,7 @@ namespace QtoRevitPlugin.Extraction
                 return 0;
             }
             var valueInFt2 = param.AsDouble();
-#if REVIT2025_OR_LATER
             return UnitUtils.ConvertFromInternalUnits(valueInFt2, UnitTypeId.SquareMeters);
-#else
-            return UnitUtils.ConvertFromInternalUnits(valueInFt2, DisplayUnitType.DUT_SQUARE_METERS);
-#endif
         }
 
         // ---------------------------------------------------------------------
@@ -79,11 +75,7 @@ namespace QtoRevitPlugin.Extraction
                 return 0;
             }
             var valueInFt3 = param.AsDouble();
-#if REVIT2025_OR_LATER
             return UnitUtils.ConvertFromInternalUnits(valueInFt3, UnitTypeId.CubicMeters);
-#else
-            return UnitUtils.ConvertFromInternalUnits(valueInFt3, DisplayUnitType.DUT_CUBIC_METERS);
-#endif
         }
 
         // ---------------------------------------------------------------------
@@ -105,11 +97,7 @@ namespace QtoRevitPlugin.Extraction
                 return 0;
             }
             var valueInFt = param.AsDouble();
-#if REVIT2025_OR_LATER
             return UnitUtils.ConvertFromInternalUnits(valueInFt, UnitTypeId.Meters);
-#else
-            return UnitUtils.ConvertFromInternalUnits(valueInFt, DisplayUnitType.DUT_METERS);
-#endif
         }
 
         // ---------------------------------------------------------------------
@@ -135,7 +123,6 @@ namespace QtoRevitPlugin.Extraction
                 var raw = param.AsDouble();
                 // Non sappiamo l'unità: tentiamo conversione SI standard (Length/Area/Volume)
                 // — se il parametro è di tipo diverso, restituisce il valore raw.
-#if REVIT2025_OR_LATER
                 var typeId = param.Definition?.GetDataType();
                 if (typeId != null && typeId.Equals(SpecTypeId.Length))
                     return UnitUtils.ConvertFromInternalUnits(raw, UnitTypeId.Meters);
@@ -143,16 +130,6 @@ namespace QtoRevitPlugin.Extraction
                     return UnitUtils.ConvertFromInternalUnits(raw, UnitTypeId.SquareMeters);
                 if (typeId != null && typeId.Equals(SpecTypeId.Volume))
                     return UnitUtils.ConvertFromInternalUnits(raw, UnitTypeId.CubicMeters);
-#else
-                // Revit 2024-: ParameterType enum
-                var pt = param.Definition?.ParameterType ?? ParameterType.Invalid;
-                if (pt == ParameterType.Length)
-                    return UnitUtils.ConvertFromInternalUnits(raw, DisplayUnitType.DUT_METERS);
-                if (pt == ParameterType.Area)
-                    return UnitUtils.ConvertFromInternalUnits(raw, DisplayUnitType.DUT_SQUARE_METERS);
-                if (pt == ParameterType.Volume)
-                    return UnitUtils.ConvertFromInternalUnits(raw, DisplayUnitType.DUT_CUBIC_METERS);
-#endif
                 return raw;
             }
             catch (Exception ex)
@@ -178,11 +155,14 @@ namespace QtoRevitPlugin.Extraction
                 case BuiltInCategory.OST_Ceilings:
                 case BuiltInCategory.OST_Roofs:
                 case BuiltInCategory.OST_Walls:
+                case BuiltInCategory.OST_Rooms:
+                case BuiltInCategory.OST_MEPSpaces:
+                    // Rooms/Spaces: Area è la metrica QTO primaria.
+                    // Volume in Revit Rooms spesso non è valorizzato o inaffidabile.
                     return "Area";
                 case BuiltInCategory.OST_StructuralFoundation:
                 case BuiltInCategory.OST_StructuralColumns:
                 case BuiltInCategory.OST_Columns:
-                case BuiltInCategory.OST_Rooms:
                     return "Volume";
                 case BuiltInCategory.OST_StructuralFraming:
                 case BuiltInCategory.OST_Railings:

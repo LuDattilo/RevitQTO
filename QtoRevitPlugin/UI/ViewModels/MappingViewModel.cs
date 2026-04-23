@@ -465,11 +465,16 @@ namespace QtoRevitPlugin.UI.ViewModels
         }
 
         // Ogni cambio di voce editata dovrebbe aggiornare il totale live.
-        partial void OnEditingManualItemChanged(ManualItemVm? value)
+        // Usa overload con old+new per de-registrare l'handler precedente (evita memory leak
+        // e doppie notifiche se lo stesso ManualItemVm viene riusato — Cancel + re-Edit).
+        partial void OnEditingManualItemChanging(ManualItemVm? oldValue, ManualItemVm? newValue)
         {
-            if (value != null)
-                value.PropertyChanged += (_, _) => RecalcManualTotal();
+            if (oldValue != null) oldValue.PropertyChanged -= OnEditingItemPropertyChanged;
+            if (newValue != null) newValue.PropertyChanged += OnEditingItemPropertyChanged;
         }
+
+        private void OnEditingItemPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+            => RecalcManualTotal();
 
         private static int NextLocalId(IEnumerable<int> existing)
         {
