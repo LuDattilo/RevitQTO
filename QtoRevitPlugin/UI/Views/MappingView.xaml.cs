@@ -1,3 +1,4 @@
+using QtoRevitPlugin.Services;
 using QtoRevitPlugin.UI.ViewModels;
 using System.Windows;
 using System.Windows.Controls;
@@ -38,9 +39,29 @@ namespace QtoRevitPlugin.UI.Views
 
         private void OnAssignEpClick(object sender, RoutedEventArgs e)
         {
-            TaskDialog.Show("CME — Assegnazione EP",
-                "L'assegnazione EP → Famiglia con scrittura parametri QTO_* avviene nello Sprint 5 (Tagging). " +
-                "Questa preview mostra le aggregazioni FamilyType disponibili per categoria.");
+            var row = _vm.SelectedFamilyRow;
+            if (row == null || _vm.SelectedFamilyCategory == null)
+            {
+                TaskDialog.Show("CME — Assegna EP",
+                    "Seleziona una riga dalla tabella famiglie prima di assegnare una voce EP.");
+                return;
+            }
+
+            try
+            {
+                var runner = new AssignEpCommandRunner();
+                var result = runner.Run(_vm.SelectedFamilyCategory.Bic, row.Family, row.Type);
+
+                if (!result.Cancelled)
+                {
+                    _vm.FamilyStatus = result.UserMessage;
+                    _vm.RefreshFamilyTypes(); // rinfresca la tabella (conta istanze invariate, ma ok per visual feedback)
+                }
+            }
+            catch (System.Exception ex)
+            {
+                TaskDialog.Show("CME — Errore assegnazione", ex.Message);
+            }
         }
 
         // =====================================================================

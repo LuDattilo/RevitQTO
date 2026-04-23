@@ -127,6 +127,7 @@
                             BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1">
                         <DataGrid x:Name="GridFamilies"
                                   ItemsSource="{Binding FamilyTypes}"
+                                  SelectedItem="{Binding SelectedFamilyRow, Mode=TwoWay}"
                                   AutoGenerateColumns="False"
                                   CanUserAddRows="False"
                                   CanUserDeleteRows="False"

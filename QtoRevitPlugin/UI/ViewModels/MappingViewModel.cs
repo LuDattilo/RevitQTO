@@ -46,6 +46,11 @@ namespace QtoRevitPlugin.UI.ViewModels
         /// <summary>Aggregazioni FamilyType → count per la categoria selezionata.</summary>
         public ObservableCollection<FamilyTypeRow> FamilyTypes { get; } = new();
 
+        /// <summary>
+        /// Riga correntemente selezionata nella DataGrid Famiglie (target di "Assegna EP…").
+        /// </summary>
+        [ObservableProperty] private FamilyTypeRow? _selectedFamilyRow;
+
         [ObservableProperty] private string _familyStatus = "Seleziona una categoria per vedere le famiglie.";
 
         /// <summary>
