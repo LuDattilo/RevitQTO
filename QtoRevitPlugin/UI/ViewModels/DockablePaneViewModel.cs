@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using QtoRevitPlugin.Models;
 using QtoRevitPlugin.Services;
 using System;
@@ -59,15 +60,15 @@ namespace QtoRevitPlugin.UI.ViewModels
 
         public ObservableCollection<QtoViewItem> Views { get; } = new();
         public ObservableCollection<QtoViewItem> SecondaryViews { get; } = new();
-        public ObservableCollection<string> HomeWorkflowSteps { get; } = new()
-        {
-            "1 Setup progetto",
-            "2 Listino",
-            "3 Selezione",
-            "4 Tagging",
-            "5 Verifica",
-            "6 Export"
-        };
+
+        /// <summary>
+        /// Step del workflow CME derivati dallo stato corrente (sessione +
+        /// listino attivo). Aggiornati da <see cref="RefreshWorkflowState"/>
+        /// ogni volta che la sessione o le impostazioni cambiano.
+        /// HomeView li consuma per rendere i 6 chip cliccabili con stato
+        /// Done/Current/Available/Locked.
+        /// </summary>
+        public ObservableCollection<WorkflowStepState> HomeWorkflowSteps { get; } = new();
 
         [ObservableProperty]
         private QtoViewItem? _activeView;
@@ -205,11 +206,41 @@ namespace QtoRevitPlugin.UI.ViewModels
             if (target != null) ActiveView = target;
         }
 
+        /// <summary>
+        /// Navigazione da uno step HomeView cliccato. Ignora gli step <c>Locked</c>
+        /// (la UI li rende non cliccabili, ma il command è difensivo).
+        /// </summary>
+        [RelayCommand]
+        private void NavigateToStep(WorkflowStepState? step)
+        {
+            if (step == null || step.Status == WorkflowStepStatus.Locked)
+                return;
+
+            switch (step.Key)
+            {
+                case "Setup":        NavigateTo(QtoViewKey.ProjectSetup); break;
+                case "Listino":      NavigateTo(QtoViewKey.PriceList); break;
+                case "Selection":    NavigateTo(QtoViewKey.Selection); break;
+                case "Tagging":      NavigateTo(QtoViewKey.Tagging); break;
+                case "Verification": NavigateTo(QtoViewKey.Verification); break;
+                case "Export":       NavigateTo(QtoViewKey.Export); break;
+            }
+        }
+
         private void RefreshWorkflowState()
         {
-            var workflow = _workflowStateEvaluator.Evaluate(HasActiveSession, HasActivePriceList());
+            var hasListino = HasActivePriceList();
+            var workflow = _workflowStateEvaluator.Evaluate(HasActiveSession, hasListino);
             HomePrimaryMessage = workflow.PrimaryMessage;
             HomeSecondaryMessage = workflow.SecondaryMessage;
+
+            // Step dinamici in HomeView: aggiorna la collection in-place per
+            // preservare il binding senza ricostruire la ItemsControl.
+            var session = _sessionManager.ActiveSession;
+            var newSteps = _workflowStateEvaluator.EvaluateSteps(session, hasListino);
+            HomeWorkflowSteps.Clear();
+            foreach (var s in newSteps)
+                HomeWorkflowSteps.Add(s);
 
             var lastPath = SettingsService.Load().LastSessionFilePath;
             CanResumeLastSession = !string.IsNullOrWhiteSpace(lastPath) && File.Exists(lastPath);
