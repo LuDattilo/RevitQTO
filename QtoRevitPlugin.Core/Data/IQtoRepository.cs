@@ -18,6 +18,15 @@ namespace QtoRevitPlugin.Data
 
         void UpsertSnapshot(ElementSnapshot snapshot);
         IReadOnlyList<ElementSnapshot> GetSnapshots(int sessionId);
+
+        // ComputoChapter CRUD (Sprint 9)
+        int InsertComputoChapter(ComputoChapter ch);
+        void UpdateComputoChapter(ComputoChapter ch);
+        void DeleteComputoChapter(int chapterId);
+        System.Collections.Generic.IReadOnlyList<ComputoChapter> GetComputoChapters(int sessionId);
+
+        // Reconciliation batch (Sprint 9)
+        void AcceptDiffBatch(System.Collections.Generic.IReadOnlyList<SupersedeOp> ops);
     }
 
     public interface IFavoritesRepository

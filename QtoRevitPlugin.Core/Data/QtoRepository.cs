@@ -431,12 +431,12 @@ namespace QtoRevitPlugin.Data
                     (SessionId, ElementId, UniqueId, Category, FamilyName, PhaseCreated, PhaseDemolished,
                      EpCode, EpDescription, Quantity, QuantityGross, QuantityDeducted, Unit, UnitPrice,
                      RuleApplied, Source, AssignedAt, ModifiedAt, IsDeleted, IsExcluded, ExclusionReason,
-                     CreatedBy, CreatedAt, ModifiedBy, Version, AuditStatus)
+                     CreatedBy, CreatedAt, ModifiedBy, Version, AuditStatus, ComputoChapterId)
                 VALUES
                     (@SessionId, @ElementId, @UniqueId, @Category, @FamilyName, @PhaseCreated, @PhaseDemolished,
                      @EpCode, @EpDescription, @Quantity, @QuantityGross, @QuantityDeducted, @Unit, @UnitPrice,
                      @RuleApplied, @Source, @AssignedAt, @ModifiedAt, @IsDeleted, @IsExcluded, @ExclusionReason,
-                     @CreatedBy, @CreatedAt, @ModifiedBy, @Version, @AuditStatus);
+                     @CreatedBy, @CreatedAt, @ModifiedBy, @Version, @AuditStatus, @ComputoChapterId);
                 SELECT last_insert_rowid();";
 
             var id = _conn.ExecuteScalar<long>(sql, new
@@ -466,7 +466,8 @@ namespace QtoRevitPlugin.Data
                 assignment.CreatedAt,
                 assignment.ModifiedBy,
                 assignment.Version,
-                AuditStatus = assignment.AuditStatus.ToString()
+                AuditStatus = assignment.AuditStatus.ToString(),
+                assignment.ComputoChapterId
             });
 
             assignment.Id = (int)id;
@@ -550,7 +551,8 @@ namespace QtoRevitPlugin.Data
                     CreatedAt = row.CreatedAt is string cats ? DateTime.Parse(cats) : DateTime.UtcNow,
                     ModifiedBy = row.ModifiedBy,
                     Version = (int)(row.Version ?? 1),
-                    AuditStatus = Enum.TryParse<AssignmentStatus>((string?)row.AuditStatus, out var ast) ? ast : AssignmentStatus.Active
+                    AuditStatus = Enum.TryParse<AssignmentStatus>((string?)row.AuditStatus, out var ast) ? ast : AssignmentStatus.Active,
+                    ComputoChapterId = row.ComputoChapterId == null ? (int?)null : (int)(long)row.ComputoChapterId
                 });
             }
             return result;
@@ -654,6 +656,73 @@ namespace QtoRevitPlugin.Data
                 });
             }
             return result;
+        }
+
+        // =====================================================================
+        // ComputoChapters (Sprint 9)
+        // =====================================================================
+
+        public int InsertComputoChapter(ComputoChapter ch)
+        {
+            const string sql = @"
+INSERT INTO ComputoChapters (SessionId, ParentChapterId, Code, Name, Level, SortOrder, CreatedAt)
+VALUES (@SessionId, @ParentChapterId, @Code, @Name, @Level, @SortOrder, @CreatedAt);
+SELECT last_insert_rowid();";
+            var id = _conn.ExecuteScalar<int>(sql, new
+            {
+                ch.SessionId, ch.ParentChapterId, ch.Code, ch.Name, ch.Level, ch.SortOrder,
+                CreatedAt = ch.CreatedAt.ToString("o", System.Globalization.CultureInfo.InvariantCulture)
+            });
+            ch.Id = id;
+            return id;
+        }
+
+        public void UpdateComputoChapter(ComputoChapter ch)
+        {
+            const string sql = @"
+UPDATE ComputoChapters
+SET ParentChapterId = @ParentChapterId, Code = @Code, Name = @Name,
+    Level = @Level, SortOrder = @SortOrder
+WHERE Id = @Id;";
+            _conn.Execute(sql, new { ch.Id, ch.ParentChapterId, ch.Code, ch.Name, ch.Level, ch.SortOrder });
+        }
+
+        public void DeleteComputoChapter(int chapterId)
+        {
+            // Foreign keys are OFF by default in SQLite — manually NULL out assignments first
+            _conn.Execute(
+                "UPDATE QtoAssignments SET ComputoChapterId = NULL WHERE ComputoChapterId = @Id;",
+                new { Id = chapterId });
+            _conn.Execute("DELETE FROM ComputoChapters WHERE Id = @Id;", new { Id = chapterId });
+        }
+
+        public IReadOnlyList<ComputoChapter> GetComputoChapters(int sessionId)
+        {
+            const string sql = @"
+SELECT Id, SessionId, ParentChapterId, Code, Name, Level, SortOrder, CreatedAt
+FROM ComputoChapters
+WHERE SessionId = @SessionId
+ORDER BY Level, SortOrder, Code;";
+            return _conn.Query<dynamic>(sql, new { SessionId = sessionId })
+                .Select(r => new ComputoChapter
+                {
+                    Id = (int)(long)r.Id,
+                    SessionId = (int)(long)r.SessionId,
+                    ParentChapterId = r.ParentChapterId == null ? (int?)null : (int)(long)r.ParentChapterId,
+                    Code = (string)r.Code,
+                    Name = (string)r.Name,
+                    Level = (int)(long)r.Level,
+                    SortOrder = (int)(long)r.SortOrder,
+                    CreatedAt = System.DateTime.Parse((string)r.CreatedAt, System.Globalization.CultureInfo.InvariantCulture,
+                        System.Globalization.DateTimeStyles.RoundtripKind)
+                })
+                .ToList();
+        }
+
+        public void AcceptDiffBatch(IReadOnlyList<SupersedeOp> ops)
+        {
+            // Implementato in Task 5 — stub per ora
+            throw new System.NotImplementedException("AcceptDiffBatch implementato in Task 5");
         }
 
         // =====================================================================
