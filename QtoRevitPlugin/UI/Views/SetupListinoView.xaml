@@ -104,6 +104,7 @@
                 <Grid Grid.Row="5" Margin="0,6,0,0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" MinHeight="120" />
                         <RowDefinition Height="3" />
                         <RowDefinition Height="Auto" MinHeight="100" />
@@ -132,7 +133,45 @@
                         </Border>
                     </Grid>
 
-                    <DataGrid Grid.Row="1" Margin="0,8,0,0"
+                    <Expander Grid.Row="1" Header="★ I Miei Preferiti" IsExpanded="False"
+                              Margin="0,6,0,0"
+                              Background="{DynamicResource PanelSubBrush}"
+                              BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1">
+                        <DataGrid ItemsSource="{Binding Favorites}"
+                                  SelectedItem="{Binding SelectedFavorite, Mode=TwoWay}"
+                                  AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
+                                  HeadersVisibility="Column" FontSize="11"
+                                  MaxHeight="160" GridLinesVisibility="None"
+                                  IsReadOnly="True">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Codice"      Binding="{Binding Code}"               Width="130" FontFamily="Consolas"/>
+                                <DataGridTextColumn Header="Descrizione" Binding="{Binding Description}"        Width="*"/>
+                                <DataGridTextColumn Header="U.M."        Binding="{Binding Unit}"               Width="50"/>
+                                <DataGridTextColumn Header="Prezzo"      Binding="{Binding UnitPriceFormatted}"  Width="80"/>
+                                <DataGridTextColumn Header="Listino"     Binding="{Binding ListName}"           Width="110" FontSize="10"/>
+                                <DataGridTextColumn Header="Aggiunto"    Binding="{Binding AddedAtShort}"       Width="115" FontSize="10"/>
+                            </DataGrid.Columns>
+                            <DataGrid.RowStyle>
+                                <Style TargetType="DataGridRow">
+                                    <Setter Property="ContextMenu">
+                                        <Setter.Value>
+                                            <ContextMenu>
+                                                <MenuItem Header="Usa nella ricerca"
+                                                          Command="{Binding DataContext.UseFavoriteInSearchCommand,
+                                                              RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                                                <MenuItem Header="Rimuovi dai preferiti"
+                                                          Command="{Binding DataContext.RemoveFavoriteCommand,
+                                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                          CommandParameter="{Binding}"/>
+                                            </ContextMenu>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </DataGrid.RowStyle>
+                        </DataGrid>
+                    </Expander>
+
+                    <DataGrid Grid.Row="2" Margin="0,8,0,0"
                               ItemsSource="{Binding SearchResults}"
                               SelectedItem="{Binding SelectedSearchResult, Mode=TwoWay}"
                               AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
@@ -140,6 +179,16 @@
                               FontSize="11" Background="White" BorderThickness="1"
                               BorderBrush="{DynamicResource EdgeLightBrush}" IsReadOnly="True">
                         <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="" Width="30" IsReadOnly="True">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock HorizontalAlignment="Center"
+                                                   FontSize="14" Foreground="Goldenrod"
+                                                   Text="{Binding IsFavoriteInLibrary,
+                                                          Converter={x:Static vm:BoolToStarConverter.Instance}}"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                             <DataGridTextColumn Header="Codice"      Binding="{Binding Code}"              Width="130" FontFamily="Consolas" />
                             <DataGridTextColumn Header="Descrizione" Binding="{Binding ShortDescTrimmed}"  Width="*" />
                             <DataGridTextColumn Header="U.M."        Binding="{Binding Unit}"              Width="50" />
@@ -148,10 +197,10 @@
                         </DataGrid.Columns>
                     </DataGrid>
 
-                    <GridSplitter Grid.Row="2" Height="3" HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                    <GridSplitter Grid.Row="3" Height="3" HorizontalAlignment="Stretch" VerticalAlignment="Center"
                                   Background="{DynamicResource EdgeLightBrush}" ShowsPreview="False" Cursor="SizeNS" />
 
-                    <Border Grid.Row="3"
+                    <Border Grid.Row="4"
                             Background="{DynamicResource PanelSubBrush}"
                             BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1"
                             Margin="0,4,0,0"
@@ -162,6 +211,7 @@
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="{Binding Code}"
@@ -174,6 +224,16 @@
                                                Text="{Binding UnitPriceFormatted}"
                                                FontFamily="{DynamicResource FontMono}" FontSize="12" FontWeight="SemiBold"
                                                Foreground="{DynamicResource BrandAccentDeepBrush}" />
+                                    <Button Grid.Column="3"
+                                            Content="{Binding DataContext.IsSelectedResultFavorite,
+                                                      RelativeSource={RelativeSource AncestorType=UserControl},
+                                                      Converter={x:Static vm:BoolToStarConverter.Instance}}"
+                                            FontSize="20" Foreground="Goldenrod"
+                                            Background="Transparent" BorderThickness="0"
+                                            Padding="8,2" Margin="4,0,0,0"
+                                            ToolTip="Aggiungi/Rimuovi dai preferiti"
+                                            Command="{Binding DataContext.ToggleFavoriteCommand,
+                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"/>
                                 </Grid>
                                 <TextBlock Text="{Binding HierarchyPath}" Margin="0,4,0,0"
                                            FontSize="10" Foreground="{DynamicResource InkMutedBrush}"
@@ -186,7 +246,7 @@
                         </ScrollViewer>
                     </Border>
 
-                    <TextBlock Grid.Row="4" Margin="0,6,0,0"
+                    <TextBlock Grid.Row="5" Margin="0,6,0,0"
                                Text="{Binding SearchStatus}"
                                FontSize="10" FontStyle="Italic"
                                Foreground="{DynamicResource InkMutedBrush}" />
