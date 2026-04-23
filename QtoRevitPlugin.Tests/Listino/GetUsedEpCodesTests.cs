@@ -9,7 +9,10 @@ namespace QtoRevitPlugin.Tests.Listino
 {
     /// <summary>
     /// Verifica il metodo GetUsedEpCodes usato dal panel Preferiti per marcare
-    /// "Usato/Non usato" ogni FavoriteRowVm e abilitare il bulk "Rimuovi inutilizzati".
+    /// "Usato/Non usato" ogni FavoriteItemRow e abilitare il bulk "Rimuovi inutilizzati".
+    /// (Post Fase 4: il path UI attivo è <c>SetupViewModel.FavoriteItemRow</c> file-backed
+    /// scope-aware; la API DB <c>QtoRepository.GetUsedEpCodes</c> resta come
+    /// lower-level service, mantiene i test come contract.)
     /// </summary>
     public class GetUsedEpCodesTests : IDisposable
     {

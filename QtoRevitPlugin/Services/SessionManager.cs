@@ -327,27 +327,8 @@ namespace QtoRevitPlugin.Services
         }
     }
 
-    public enum SessionChangeKind
-    {
-        Created,
-        Resumed,
-        Forked,
-        Renamed,
-        Closed,
-        Deleted,
-        /// <summary>Fase Revit attiva cambiata (contesto soft-switch phase-bound).</summary>
-        PhaseChanged
-    }
-
-    public class SessionChangedEventArgs : EventArgs
-    {
-        public WorkSession Session { get; }
-        public SessionChangeKind Kind { get; }
-
-        public SessionChangedEventArgs(WorkSession session, SessionChangeKind kind)
-        {
-            Session = session;
-            Kind = kind;
-        }
-    }
+    // NB: SessionChangeKind e SessionChangedEventArgs ora vivono in
+    // QtoRevitPlugin.Core/Services/SessionChangeEvents.cs — stesso namespace
+    // QtoRevitPlugin.Services per backward-compatibility con tutti i using
+    // esistenti. Consente test unitari Core senza dipendenze Revit.
 }
