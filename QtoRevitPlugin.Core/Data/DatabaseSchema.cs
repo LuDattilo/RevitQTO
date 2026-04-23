@@ -64,21 +64,22 @@ CREATE TABLE IF NOT EXISTS SchemaInfo (
 
         public const string Sessions = @"
 CREATE TABLE IF NOT EXISTS Sessions (
-    Id                 INTEGER PRIMARY KEY AUTOINCREMENT,
-    ProjectPath        TEXT NOT NULL,
-    ProjectName        TEXT,
-    SessionName        TEXT,
-    Status             TEXT NOT NULL DEFAULT 'InProgress',
-    ActivePhaseId      INTEGER,
-    ActivePhaseName    TEXT,
-    TotalElements      INTEGER NOT NULL DEFAULT 0,
-    TaggedElements     INTEGER NOT NULL DEFAULT 0,
-    TotalAmount        REAL NOT NULL DEFAULT 0,
-    LastEpCode         TEXT,
-    Notes              TEXT,
-    CreatedAt          DATETIME DEFAULT CURRENT_TIMESTAMP,
-    LastSavedAt        DATETIME,
-    ModelSnapshotDate  DATETIME
+    Id                          INTEGER PRIMARY KEY AUTOINCREMENT,
+    ProjectPath                 TEXT NOT NULL,
+    ProjectName                 TEXT,
+    SessionName                 TEXT,
+    Status                      TEXT NOT NULL DEFAULT 'InProgress',
+    ActivePhaseId               INTEGER,
+    ActivePhaseName             TEXT,
+    TotalElements               INTEGER NOT NULL DEFAULT 0,
+    TaggedElements              INTEGER NOT NULL DEFAULT 0,
+    TotalAmount                 REAL NOT NULL DEFAULT 0,
+    LastEpCode                  TEXT,
+    Notes                       TEXT,
+    CreatedAt                   DATETIME DEFAULT CURRENT_TIMESTAMP,
+    LastSavedAt                 DATETIME,
+    ModelSnapshotDate           DATETIME,
+    LastUsedComputoChapterId    INTEGER NULL REFERENCES ComputoChapters(Id) ON DELETE SET NULL
 );
 CREATE INDEX IF NOT EXISTS IX_Sessions_ProjectPath ON Sessions(ProjectPath);
 CREATE INDEX IF NOT EXISTS IX_Sessions_Status ON Sessions(Status);";
@@ -158,6 +159,12 @@ CREATE TABLE IF NOT EXISTS QtoAssignments (
     IsDeleted         INTEGER NOT NULL DEFAULT 0,
     IsExcluded        INTEGER NOT NULL DEFAULT 0,
     ExclusionReason   TEXT,
+    CreatedBy         TEXT NOT NULL DEFAULT '',
+    CreatedAt         TEXT NOT NULL DEFAULT '',
+    ModifiedBy        TEXT,
+    Version           INTEGER NOT NULL DEFAULT 1,
+    AuditStatus       TEXT NOT NULL DEFAULT 'Active',
+    ComputoChapterId  INTEGER NULL REFERENCES ComputoChapters(Id) ON DELETE SET NULL,
     UNIQUE(SessionId, UniqueId, EpCode)
 );
 CREATE INDEX IF NOT EXISTS IX_QtoAssignments_Session_Unique ON QtoAssignments(SessionId, UniqueId);

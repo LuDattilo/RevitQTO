@@ -70,13 +70,17 @@ namespace QtoRevitPlugin.Data
                 cmd.ExecuteNonQuery();
             }
 
+            // Sprint 9 v5: indice su QtoAssignments.ComputoChapterId — creato dopo ComputoChapters
+            // (la colonna esiste già nel DDL QtoAssignments per nuovi DB)
+            ExecuteStatement(conn, tx, DatabaseSchema.MigrateV4ToV5_AddIndexOnComputoChapterId);
+
             // Registra versione iniziale
             using (var versionCmd = conn.CreateCommand())
             {
                 versionCmd.Transaction = tx;
                 versionCmd.CommandText = "INSERT INTO SchemaInfo (Version, Notes) VALUES ($v, $n);";
                 versionCmd.Parameters.AddWithValue("$v", DatabaseSchema.CurrentVersion);
-                versionCmd.Parameters.AddWithValue("$n", "Schema iniziale Sprint 1-6");
+                versionCmd.Parameters.AddWithValue("$n", "Schema iniziale Sprint 1-9");
                 versionCmd.ExecuteNonQuery();
             }
 
@@ -113,9 +117,6 @@ namespace QtoRevitPlugin.Data
 
             if (dbVersion < 4)
             {
-                ExecuteStatement(conn, tx, DatabaseSchema.ChangeLog);
-                ExecuteStatement(conn, tx, DatabaseSchema.ElementSnapshots);
-
                 if (!ColumnExists(conn, tx, "QtoAssignments", "CreatedBy"))
                     ExecuteStatement(conn, tx, DatabaseSchema.MigrateV3ToV4_CreatedBy);
                 if (!ColumnExists(conn, tx, "QtoAssignments", "CreatedAt"))
@@ -126,6 +127,25 @@ namespace QtoRevitPlugin.Data
                     ExecuteStatement(conn, tx, DatabaseSchema.MigrateV3ToV4_Version);
                 if (!ColumnExists(conn, tx, "QtoAssignments", "AuditStatus"))
                     ExecuteStatement(conn, tx, DatabaseSchema.MigrateV3ToV4_AuditStatus);
+            }
+
+            if (dbVersion < 5)
+            {
+                // v5: ComputoChapters (già creato dal loop InitialStatements sopra via CREATE TABLE IF NOT EXISTS)
+                // ALTER QtoAssignments ADD COLUMN ComputoChapterId — guard via PRAGMA
+                if (!ColumnExists(conn, tx, "QtoAssignments", "ComputoChapterId"))
+                {
+                    ExecuteStatement(conn, tx, DatabaseSchema.MigrateV4ToV5_AddComputoChapterIdToAssignments);
+                }
+
+                // Crea l'indice su ComputoChapterId — CREATE INDEX IF NOT EXISTS è idempotente
+                ExecuteStatement(conn, tx, DatabaseSchema.MigrateV4ToV5_AddIndexOnComputoChapterId);
+
+                // ALTER Sessions ADD COLUMN LastUsedComputoChapterId — guard via PRAGMA
+                if (!ColumnExists(conn, tx, "Sessions", "LastUsedComputoChapterId"))
+                {
+                    ExecuteStatement(conn, tx, DatabaseSchema.MigrateV4ToV5_AddLastUsedChapterToSessions);
+                }
             }
 
             using (var insert = conn.CreateCommand())
