@@ -2,7 +2,7 @@
 
 **Data:** 2026-04-23  
 **Scopo:** tavola unica di verifica UI per un secondo sviluppatore  
-**Riferimento visivo:** [2026-04-23-cme-ui-redesign-board.png](./2026-04-23-cme-ui-redesign-board.png)
+**Riferimento visivo:** PNG salvato nel workspace locale
 
 ---
 
