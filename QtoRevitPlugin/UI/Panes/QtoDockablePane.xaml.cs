@@ -138,16 +138,14 @@ namespace QtoRevitPlugin.UI.Panes
 
         private void BuildSwitcher()
         {
-            // Difesa in profondità: TryFindResource ritorna null invece del
-            // NamedObject sentinel se la chiave non c'è, così il cast sicuro fallisce
-            // con messaggio utile invece di crash opaco.
-            var switcherStyle = TryFindResource("SwitcherButton") as Style;
-            if (switcherStyle == null)
+            var workflowStyle = TryFindResource("WorkflowNavButton") as Style;
+            var utilityStyle = TryFindResource("SwitcherButton") as Style;
+
+            if (workflowStyle == null || utilityStyle == null)
             {
                 Services.CrashLogger.Warn(
-                    "QtoDockablePane.BuildSwitcher: style 'SwitcherButton' non trovato. " +
-                    "Il tema QtoTheme.xaml non è stato caricato correttamente. " +
-                    "I bottoni dello switcher useranno lo stile default WPF.");
+                    "QtoDockablePane.BuildSwitcher: uno o più style di navigazione non trovati. " +
+                    "Il tema QtoTheme.xaml non è stato caricato correttamente.");
             }
 
             foreach (var item in _vm.Views)
@@ -157,9 +155,22 @@ namespace QtoRevitPlugin.UI.Panes
                     Content = item.Label,
                     Tag = item
                 };
-                if (switcherStyle != null) btn.Style = switcherStyle;
+                if (workflowStyle != null) btn.Style = workflowStyle;
                 btn.Click += (_, _) => _vm.ActiveView = item;
                 SwitcherHost.Children.Add(btn);
+                _buttonCache[item.Key] = btn;
+            }
+
+            foreach (var item in _vm.SecondaryViews)
+            {
+                var btn = new ToggleButton
+                {
+                    Content = item.Label,
+                    Tag = item
+                };
+                if (utilityStyle != null) btn.Style = utilityStyle;
+                btn.Click += (_, _) => _vm.ActiveView = item;
+                SecondarySwitcherHost.Children.Add(btn);
                 _buttonCache[item.Key] = btn;
             }
         }
@@ -169,17 +180,11 @@ namespace QtoRevitPlugin.UI.Panes
             // Nessun computo attivo: mostra empty state globale + disabilita switcher
             if (!_vm.HasActiveSession)
             {
-                _noSessionView ??= new PlaceholderView(
-                    "Nessun computo aperto",
-                    "",
-                    0,
-                    "Usa il menu «Sessione ▾» nell'header per creare un nuovo computo CME " +
-                    "o aprire un file .cme esistente. Le funzioni operative si attivano " +
-                    "automaticamente quando apri un computo.");
+                _noSessionView ??= CreateHomeView();
                 ViewHost.Content = _noSessionView;
 
-                foreach (var btn in _buttonCache.Values)
-                    btn.IsChecked = false;
+                foreach (var kv in _buttonCache)
+                    kv.Value.IsChecked = kv.Key == QtoViewKey.Home;
                 return;
             }
 
@@ -202,6 +207,10 @@ namespace QtoRevitPlugin.UI.Panes
         {
             return item.Key switch
             {
+                QtoViewKey.Home => CreateHomeView(),
+                QtoViewKey.ProjectSetup => new ProjectInfoView(),
+                QtoViewKey.PriceList => new SetupListinoView(),
+                QtoViewKey.Verification => new PreviewView { DataContext = _vm },
                 QtoViewKey.Preview => new PreviewView { DataContext = _vm },
 
                 QtoViewKey.Setup => new SetupView(),
@@ -239,12 +248,20 @@ namespace QtoRevitPlugin.UI.Panes
                     "Workflow Bozza → Concordato → Approvato (RUP)."),
 
                 // Step finale: lancia l'ExportWizardWindow (vedi ExportView.xaml.cs).
-                // Prima era un PlaceholderView + bottone Ribbon separato; ora è
-                // l'ultima scheda del pane, allineata al workflow Setup → … → Esporta.
+                // ExportView introdotta in main commit 3bb69bb — NON PlaceholderView.
                 QtoViewKey.Export => new ExportView(),
 
                 _ => new PlaceholderView("(sconosciuta)", "", 99, "View non ancora definita.")
             };
+        }
+
+        private UserControl CreateHomeView()
+        {
+            var view = new HomeView();
+            view.NewSessionRequested += (_, _) => OnNewSession(view, new RoutedEventArgs());
+            view.OpenSessionRequested += (_, _) => OnOpenSession(view, new RoutedEventArgs());
+            view.ResumeLastSessionRequested += (_, _) => OnResumeLastSession(view, new RoutedEventArgs());
+            return view;
         }
 
         // =====================================================================
@@ -273,8 +290,8 @@ namespace QtoRevitPlugin.UI.Panes
             MiDelete.IsEnabled = hasActive;
 
             // Switcher view: abilitati solo se c'è un computo aperto
-            foreach (var btn in _buttonCache.Values)
-                btn.IsEnabled = hasActive;
+            foreach (var kv in _buttonCache)
+                kv.Value.IsEnabled = hasActive || kv.Key == QtoViewKey.Home;
 
             // Aggiorna contenuto (passa a empty state se sessione chiusa)
             UpdateActiveView();
@@ -331,6 +348,33 @@ namespace QtoRevitPlugin.UI.Panes
             try
             {
                 QtoApplication.Instance.SessionManager.OpenSession(dlg.FileName);
+            }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("CME – Errore apertura", $"Impossibile aprire il file:\n{ex.Message}");
+            }
+        }
+
+        private void OnResumeLastSession(object sender, RoutedEventArgs e)
+        {
+            var doc = GetActiveDocument();
+            if (doc == null) return;
+
+            var settings = SettingsService.Load();
+            var lastPath = settings.LastSessionFilePath;
+
+            if (string.IsNullOrWhiteSpace(lastPath) || !File.Exists(lastPath))
+            {
+                settings.LastSessionFilePath = string.Empty;
+                SettingsService.Save(settings);
+                _vm.RefreshFromSession();
+                TaskDialog.Show("CME", "Nessun ultimo computo disponibile da riprendere.");
+                return;
+            }
+
+            try
+            {
+                QtoApplication.Instance.SessionManager.OpenSession(lastPath);
             }
             catch (Exception ex)
             {

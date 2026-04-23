@@ -296,4 +296,52 @@
         <Setter Property="Padding" Value="14,10" />
     </Style>
 
+    <!--
+        WorkflowNavButton — Toggle button chiaro per la nav rail del DockablePane
+        (usato dalla HomeView task-first e dai pulsanti workflow Setup → Export).
+        Differisce da SwitcherButton (tema chrome teal-slate scuro): questo è un
+        bottone a scheda bianca con corner radius 8, per nav laterale a card.
+        Aggiunto da branch feature/cme-ui-redesign (Fase 2 merge).
+    -->
+    <Style x:Key="WorkflowNavButton" TargetType="ToggleButton">
+        <Setter Property="Background" Value="White" />
+        <Setter Property="Foreground" Value="{StaticResource InkDefaultBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource EdgeMediumBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="12,8" />
+        <Setter Property="Margin" Value="0,0,8,8" />
+        <Setter Property="FontFamily" Value="{StaticResource FontBody}" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="8">
+                        <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          Margin="{TemplateBinding Padding}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource PanelSubBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource EdgeStrongBrush}" />
+            </Trigger>
+            <Trigger Property="IsChecked" Value="True">
+                <Setter Property="Background" Value="{StaticResource BrandAccentBrush}" />
+                <Setter Property="Foreground" Value="White" />
+                <Setter Property="BorderBrush" Value="{StaticResource BrandAccentBrush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.45" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
 </ResourceDictionary>
