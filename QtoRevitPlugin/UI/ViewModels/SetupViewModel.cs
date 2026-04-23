@@ -16,39 +16,47 @@ using System.Windows.Threading;
 namespace QtoRevitPlugin.UI.ViewModels
 {
     /// <summary>
-    /// VM per la SetupView: gestisce listini caricati + ricerca FTS5 live.
-    /// Accede al QtoRepository della sessione attiva via <see cref="QtoApplication.Instance.SessionManager"/>.
-    /// Il ViewModel è UI-thread-only (SQLite connection, DispatcherTimer).
+    /// VM per SetupListinoView — Fase 4 (Listino ibrido + doppio preferiti).
+    ///
+    /// Tre collezioni distinte bindate al TabControl:
+    ///   · <see cref="SearchResults"/>     — risultati della ricerca ibrida (listino attivo)
+    ///   · <see cref="ProjectFavorites"/>  — preferiti legati al .cme corrente (favorites.project.json)
+    ///   · <see cref="PersonalFavorites"/> — preferiti globali utente (favorites.personal.json in AppData)
+    ///
+    /// Lo scope dei preferiti è persistito via <see cref="FileFavoritesRepository"/>
+    /// (Core). Il DB della UserLibrary contiene solo i listini — i preferiti sono file JSON.
+    ///
+    /// Il tracking "usato nel computo" (badge ✓) viene calcolato confrontando il Code
+    /// di ciascun preferito con <c>QtoRepository.GetUsedEpCodes(sessionId)</c> del repository
+    /// della sessione .cme attiva. Se non c'è sessione, tutti risultano "non usati".
     /// </summary>
     public partial class SetupViewModel : ViewModelBase
     {
         private readonly DispatcherTimer _searchDebounce;
+        private readonly FileFavoritesRepository _favoritesRepository;
         private PriceItemSearchService? _searchService;
 
+        private FavoriteSet _projectFavoritesSet = new FavoriteSet
+        {
+            Name = "Preferiti progetto",
+            Scope = FavoriteScope.Project
+        };
+
+        private FavoriteSet _personalFavoritesSet = new FavoriteSet
+        {
+            Name = "Preferiti personali",
+            Scope = FavoriteScope.Personal
+        };
+
         // ---------------------------------------------------------------------
-        // Collections bindate al DataGrid
+        // Collections bindate al TabControl / DataGrid
         // ---------------------------------------------------------------------
 
         public ObservableCollection<PriceListRow> PriceLists { get; } = new();
+        public ObservableCollection<SearchScopeOptionRow> AvailableScopes { get; } = new();
         public ObservableCollection<PriceItemRow> SearchResults { get; } = new();
-        public ObservableCollection<FavoriteRowVm> Favorites { get; } = new ObservableCollection<FavoriteRowVm>();
-
-        /// <summary>Header dinamico dell'Expander preferiti: "★ I Miei Preferiti (N)" con conteggio.</summary>
-        [ObservableProperty] private string _favoritesHeader = "★ I Miei Preferiti";
-
-        /// <summary>True quando la lista preferiti è vuota — binding per mostrare placeholder.</summary>
-        [ObservableProperty] private bool _favoritesIsEmpty = true;
-
-        /// <summary>True se esiste almeno un preferito NON usato nel computo.
-        /// Abilita/disabilita il bottone "🗑 Rimuovi inutilizzati".</summary>
-        [ObservableProperty] private bool _hasUnusedFavorites;
-
-        /// <summary>Conteggio preferiti non usati — usato nel testo del bottone.</summary>
-        [ObservableProperty] private int _unusedFavoritesCount;
-
-        // Nota: ProjectInfo non è più esposto qui come property — Sprint 10 rev. B ha
-        // separato SetupView in 4 sub-tab UserControl indipendenti. ProjectInfoView
-        // istanzia la propria ProjectInfoViewModel direttamente nel proprio XAML.
+        public ObservableCollection<FavoriteItemRow> ProjectFavorites { get; } = new();
+        public ObservableCollection<FavoriteItemRow> PersonalFavorites { get; } = new();
 
         // ---------------------------------------------------------------------
         // Properties osservabili
@@ -61,21 +69,31 @@ namespace QtoRevitPlugin.UI.ViewModels
         [ObservableProperty] private string _lastSearchLevel = "";
         [ObservableProperty] private PriceListRow? _selectedPriceList;
         [ObservableProperty] private PriceItemRow? _selectedSearchResult;
-        [ObservableProperty] private FavoriteRowVm? _selectedFavorite;
+        [ObservableProperty] private FavoriteItemRow? _selectedProjectFavorite;
+        [ObservableProperty] private FavoriteItemRow? _selectedPersonalFavorite;
+        [ObservableProperty] private HybridSearchScope _selectedScope = HybridSearchScope.All;
+        [ObservableProperty] private SearchDetailRow? _selectedDetailItem;
 
-        /// <summary>
-        /// True se la voce selezionata nei risultati ricerca è già nei preferiti.
-        /// Aggiornata da OnSelectedSearchResultChanged + dopo ToggleFavorite.
-        /// </summary>
-        [ObservableProperty] private bool _isSelectedResultFavorite;
+        /// <summary>Header dinamico Tab "Preferiti progetto": "Preferiti progetto (N)".</summary>
+        [ObservableProperty] private string _projectFavoritesHeader = "Preferiti progetto";
+
+        /// <summary>Header dinamico Tab "Preferiti personali": "Preferiti personali (N)".</summary>
+        [ObservableProperty] private string _personalFavoritesHeader = "Preferiti personali";
+
+        [ObservableProperty] private int _projectUnusedCount;
+        [ObservableProperty] private int _personalUnusedCount;
+        [ObservableProperty] private bool _hasProjectUnused;
+        [ObservableProperty] private bool _hasPersonalUnused;
+
+        [ObservableProperty] private bool _projectFavoritesIsEmpty = true;
+        [ObservableProperty] private bool _personalFavoritesIsEmpty = true;
 
         /// <summary>
         /// True quando la UserLibrary è disponibile (sempre true se il plugin è avviato correttamente).
-        /// Rinominato in Sprint 10 da <c>HasSessionActive</c> a <c>HasUserLibrary</c> (LOW-S1):
-        /// il nome precedente era fuorviante — non indica se c'è un computo aperto, solo
-        /// se la libreria listini è caricata.
         /// </summary>
         public bool HasUserLibrary => QtoApplication.Instance?.UserLibrary?.Library != null;
+
+        public bool HasActivePriceList => PriceLists.Any(x => x.IsActive);
 
         // ---------------------------------------------------------------------
         // Ctor
@@ -85,9 +103,22 @@ namespace QtoRevitPlugin.UI.ViewModels
         {
             _searchDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
             _searchDebounce.Tick += OnSearchDebounceTick;
+            _favoritesRepository = new FileFavoritesRepository(FileFavoritesRepository.GetDefaultGlobalDir());
+
+            AvailableScopes.Add(new SearchScopeOptionRow(HybridSearchScope.All, "Tutti"));
+            AvailableScopes.Add(new SearchScopeOptionRow(HybridSearchScope.ActivePriceList, "Listino attivo"));
+            AvailableScopes.Add(new SearchScopeOptionRow(HybridSearchScope.ProjectFavorites, "Preferiti progetto"));
+            AvailableScopes.Add(new SearchScopeOptionRow(HybridSearchScope.PersonalFavorites, "Preferiti personali"));
 
             RefreshPriceLists();
             LoadFavorites();
+
+            if (QtoApplication.Instance?.SessionManager != null)
+                QtoApplication.Instance.SessionManager.SessionChanged += (_, _) =>
+                {
+                    LoadFavorites();
+                    ExecuteSearch();
+                };
         }
 
         // ---------------------------------------------------------------------
@@ -116,7 +147,6 @@ namespace QtoRevitPlugin.UI.ViewModels
                     ? "Libreria vuota — clicca «+ Importa listino…» per aggiungerne uno (persistente)"
                     : $"{lists.Count} listino(i) in libreria · {lists.Sum(l => l.RowCount)} voci totali · persistenti tra computi";
 
-                // Reset search service cache
                 _searchService = new PriceItemSearchService(repo);
             }
             catch (Exception ex)
@@ -137,7 +167,6 @@ namespace QtoRevitPlugin.UI.ViewModels
                 if (repo == null) return;
                 repo.UpdatePriceListFlags(row.Id, newValue, row.Priority);
 
-                // Invalida la cache fuzzy L3 e rilancia la ricerca corrente se attiva
                 _searchService?.InvalidateCache();
                 if (!string.IsNullOrWhiteSpace(SearchQuery))
                     ExecuteSearch();
@@ -206,14 +235,39 @@ namespace QtoRevitPlugin.UI.ViewModels
         partial void OnSearchQueryChanged(string value)
         {
             _searchDebounce.Stop();
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                SearchResults.Clear();
-                SearchStatus = "Digita per cercare…";
-                LastSearchLevel = "";
-                return;
-            }
             _searchDebounce.Start();
+        }
+
+        partial void OnSelectedScopeChanged(HybridSearchScope value) => ExecuteSearch();
+
+        partial void OnSelectedSearchResultChanged(PriceItemRow? value)
+        {
+            if (value != null)
+            {
+                SelectedProjectFavorite = null;
+                SelectedPersonalFavorite = null;
+            }
+            SelectedDetailItem = value?.ToDetail();
+        }
+
+        partial void OnSelectedProjectFavoriteChanged(FavoriteItemRow? value)
+        {
+            if (value != null)
+            {
+                SelectedSearchResult = null;
+                SelectedPersonalFavorite = null;
+                SelectedDetailItem = value.ToDetail();
+            }
+        }
+
+        partial void OnSelectedPersonalFavoriteChanged(FavoriteItemRow? value)
+        {
+            if (value != null)
+            {
+                SelectedSearchResult = null;
+                SelectedProjectFavorite = null;
+                SelectedDetailItem = value.ToDetail();
+            }
         }
 
         private void OnSearchDebounceTick(object? sender, EventArgs e)
@@ -224,28 +278,46 @@ namespace QtoRevitPlugin.UI.ViewModels
 
         private void ExecuteSearch()
         {
-            if (_searchService == null)
-            {
-                SearchStatus = "Nessun computo aperto";
-                return;
-            }
+            var resolver = new HybridSearchScopeResolver();
+            var resolved = resolver.Resolve(SelectedScope, HasActivePriceList);
 
             var sw = System.Diagnostics.Stopwatch.StartNew();
             try
             {
-                var result = _searchService.Search(SearchQuery, maxResults: 50);
-                sw.Stop();
-
                 SearchResults.Clear();
-                foreach (var item in result.Items)
-                    SearchResults.Add(new PriceItemRow(item));
+                LastSearchLevel = "";
 
-                LastSearchLevel = result.Level.ToString();
-                SearchStatus = result.Count > 0
-                    ? $"{result.Count} risultati · livello {result.Level} · {sw.ElapsedMilliseconds} ms"
-                    : $"Nessun risultato · {sw.ElapsedMilliseconds} ms";
+                var resultCount = 0;
+                if (resolved.UseActivePriceList && _searchService != null && !string.IsNullOrWhiteSpace(SearchQuery))
+                {
+                    var result = _searchService.Search(SearchQuery, maxResults: 50);
+                    foreach (var item in result.Items)
+                        SearchResults.Add(new PriceItemRow(item));
+
+                    LastSearchLevel = result.Level.ToString();
+                    resultCount += result.Count;
+                }
 
                 SyncFavoriteFlagsOnSearchResults();
+
+                sw.Stop();
+
+                if (!resolved.UseActivePriceList && !resolved.UseProjectFavorites && !resolved.UsePersonalFavorites)
+                {
+                    SearchStatus = "Nessuna sorgente disponibile per l'ambito selezionato.";
+                }
+                else if (resultCount == 0 && string.IsNullOrWhiteSpace(SearchQuery))
+                {
+                    SearchStatus = "Digita per cercare…";
+                }
+                else if (resultCount == 0)
+                {
+                    SearchStatus = $"Nessun risultato · {sw.ElapsedMilliseconds} ms";
+                }
+                else
+                {
+                    SearchStatus = $"{SearchResults.Count} risultati · livello {LastSearchLevel} · {sw.ElapsedMilliseconds} ms";
+                }
             }
             catch (Exception ex)
             {
@@ -254,27 +326,42 @@ namespace QtoRevitPlugin.UI.ViewModels
         }
 
         // ---------------------------------------------------------------------
-        // Preferiti
+        // Preferiti (FileFavoritesRepository · scope-aware)
         // ---------------------------------------------------------------------
 
         /// <summary>
-        /// Carica la lista preferiti dalla UserLibrary. Chiamato all'avvio e dopo
-        /// ogni operazione che modifica la tabella UserFavorites.
+        /// Carica i preferiti da file JSON (Project + Personal) e popola le ObservableCollections.
+        /// Aggiorna anche il tracking "usato nel computo" via GetUsedEpCodes.
         /// </summary>
         public void LoadFavorites()
         {
             try
             {
-                var repo = GetActiveRepo();
-                if (repo == null) return;
+                _personalFavoritesSet = _favoritesRepository.LoadGlobal() ?? new FavoriteSet
+                {
+                    Name = "Preferiti personali",
+                    Scope = FavoriteScope.Personal
+                };
 
-                Favorites.Clear();
-                foreach (var f in repo.GetFavorites())
-                    Favorites.Add(new FavoriteRowVm(f));
+                var cmePath = QtoApplication.Instance?.SessionManager?.ActiveFilePath;
+                _projectFavoritesSet = !string.IsNullOrWhiteSpace(cmePath)
+                    ? (_favoritesRepository.LoadForProject(cmePath!) ?? new FavoriteSet
+                    {
+                        Name = "Preferiti progetto",
+                        Scope = FavoriteScope.Project
+                    })
+                    : new FavoriteSet { Name = "Preferiti progetto", Scope = FavoriteScope.Project };
+
+                ProjectFavorites.Clear();
+                foreach (var item in _projectFavoritesSet.Items)
+                    ProjectFavorites.Add(new FavoriteItemRow(item, FavoriteScope.Project));
+
+                PersonalFavorites.Clear();
+                foreach (var item in _personalFavoritesSet.Items)
+                    PersonalFavorites.Add(new FavoriteItemRow(item, FavoriteScope.Personal));
 
                 RefreshFavoritesUsage();
-                RefreshFavoritesHeader();
-                RefreshIsSelectedResultFavorite();
+                RefreshFavoriteHeaders();
                 SyncFavoriteFlagsOnSearchResults();
             }
             catch (Exception ex)
@@ -284,9 +371,9 @@ namespace QtoRevitPlugin.UI.ViewModels
         }
 
         /// <summary>
-        /// Marca ogni preferito con IsUsedInComputo = true se il suo Code è assegnato
+        /// Marca ogni preferito con IsUsedInComputo=true se il suo Code è assegnato
         /// attivamente (QtoAssignments Active) nella sessione computo corrente.
-        /// Se non c'è una sessione .cme aperta, tutti restano "non usati" (safe fallback).
+        /// Safe fallback: senza sessione attiva tutti restano "non usati".
         /// </summary>
         public void RefreshFavoritesUsage()
         {
@@ -294,18 +381,20 @@ namespace QtoRevitPlugin.UI.ViewModels
             {
                 var session = QtoApplication.Instance?.SessionManager?.ActiveSession;
                 var sessionRepo = QtoApplication.Instance?.SessionManager?.Repository;
-                if (session == null || sessionRepo == null)
-                {
-                    // No active session: mark all as unused
-                    foreach (var f in Favorites) f.IsUsedInComputo = false;
-                    RefreshHasUnusedFavorites();
-                    return;
-                }
 
-                var used = sessionRepo.GetUsedEpCodes(session.Id);
-                foreach (var f in Favorites)
+                HashSet<string> used = (session != null && sessionRepo != null)
+                    ? sessionRepo.GetUsedEpCodes(session.Id)
+                    : new HashSet<string>();
+
+                foreach (var f in ProjectFavorites)
                     f.IsUsedInComputo = used.Contains(f.Code);
-                RefreshHasUnusedFavorites();
+                foreach (var f in PersonalFavorites)
+                    f.IsUsedInComputo = used.Contains(f.Code);
+
+                ProjectUnusedCount = ProjectFavorites.Count(f => !f.IsUsedInComputo);
+                PersonalUnusedCount = PersonalFavorites.Count(f => !f.IsUsedInComputo);
+                HasProjectUnused = ProjectUnusedCount > 0;
+                HasPersonalUnused = PersonalUnusedCount > 0;
             }
             catch (Exception ex)
             {
@@ -313,289 +402,328 @@ namespace QtoRevitPlugin.UI.ViewModels
             }
         }
 
-        private void RefreshHasUnusedFavorites()
+        private void RefreshFavoriteHeaders()
         {
-            HasUnusedFavorites = Favorites.Any(f => !f.IsUsedInComputo);
-            UnusedFavoritesCount = Favorites.Count(f => !f.IsUsedInComputo);
-        }
-
-        /// <summary>Aggiorna header Expander e placeholder dopo ogni mutazione di Favorites.</summary>
-        private void RefreshFavoritesHeader()
-        {
-            FavoritesIsEmpty = Favorites.Count == 0;
-            FavoritesHeader = Favorites.Count == 0
-                ? "★ I Miei Preferiti"
-                : $"★ I Miei Preferiti ({Favorites.Count})";
-        }
-
-        /// <summary>Aggiorna il flag booleano IsSelectedResultFavorite dopo un cambio selezione o toggle.</summary>
-        private void RefreshIsSelectedResultFavorite()
-        {
-            var sel = SelectedSearchResult;
-            IsSelectedResultFavorite = sel != null &&
-                Favorites.Any(f => f.Code == sel.Code && f.Model.ListId == (int?)sel.ListId);
-        }
-
-        /// <summary>Propaga il flag IsFavoriteInLibrary su tutti i risultati di ricerca correnti.</summary>
-        private void SyncFavoriteFlagsOnSearchResults()
-        {
-            if (SearchResults == null) return;
-            var favKeys = new HashSet<(string code, int? listId)>(
-                Favorites.Select(f => (f.Code, f.Model.ListId)));
-            foreach (var r in SearchResults)
-                r.IsFavoriteInLibrary = favKeys.Contains((r.Code, (int?)r.ListId));
-        }
-
-        partial void OnSelectedSearchResultChanged(PriceItemRow? value)
-            => RefreshIsSelectedResultFavorite();
-
-        [RelayCommand]
-        private void ToggleFavorite()
-        {
-            var sel = SelectedSearchResult;
-            if (sel == null) return;
-
-            var repo = GetActiveRepo();
-            if (repo == null) return;
-
-            try
-            {
-                if (IsSelectedResultFavorite)
-                {
-                    // Rimuovi il preferito esistente per questo (Code, ListId)
-                    var existing = Favorites.FirstOrDefault(f => f.Code == sel.Code && f.Model.ListId == (int?)sel.ListId);
-                    if (existing != null)
-                    {
-                        repo.RemoveFavorite(existing.Id);
-                        Favorites.Remove(existing);
-                    }
-                }
-                else
-                {
-                    // Aggiungi nuovo preferito
-                    var fav = new UserFavorite
-                    {
-                        PriceItemId = sel.Id,
-                        Code = sel.Code,
-                        Description = sel.Description,
-                        Unit = sel.Unit,
-                        UnitPrice = sel.UnitPrice,
-                        ListName = sel.ListName,
-                        ListId = sel.ListId,
-                        AddedAt = DateTime.UtcNow
-                    };
-                    fav.Id = repo.AddFavorite(fav);
-                    Favorites.Insert(0, new FavoriteRowVm(fav));
-                }
-
-                RefreshIsSelectedResultFavorite();
-                RefreshFavoritesHeader();
-                RefreshFavoritesUsage(); // marca il nuovo preferito se già usato nel computo
-                // Aggiorna la star icon nella riga della griglia
-                sel.IsFavoriteInLibrary = IsSelectedResultFavorite;
-            }
-            catch (Exception ex)
-            {
-                CrashLogger.WriteException("SetupViewModel.ToggleFavorite", ex);
-            }
-        }
-
-        [RelayCommand]
-        private void UseFavoriteInSearch()
-        {
-            if (SelectedFavorite == null) return;
-            // Imposta la SearchQuery al Code del preferito — la ricerca scatta via debounce
-            SearchQuery = SelectedFavorite.Code;
+            ProjectFavoritesIsEmpty = ProjectFavorites.Count == 0;
+            PersonalFavoritesIsEmpty = PersonalFavorites.Count == 0;
+            ProjectFavoritesHeader = ProjectFavorites.Count == 0
+                ? "Preferiti progetto"
+                : $"Preferiti progetto ({ProjectFavorites.Count})";
+            PersonalFavoritesHeader = PersonalFavorites.Count == 0
+                ? "Preferiti personali"
+                : $"Preferiti personali ({PersonalFavorites.Count})";
         }
 
         /// <summary>
-        /// Variante di ToggleFavorite che opera su una riga specifica passata come
-        /// parametro, invece di SelectedSearchResult. Usata da:
-        /// - Bottone "+/★" della prima colonna DataGrid risultati
-        /// - Doppio click su una riga dei risultati
-        /// Seleziona la riga prima di togliare così il pannello dettaglio e il flag
-        /// IsSelectedResultFavorite restano in sync col cambio.
+        /// Propaga il flag 3-stato FavoriteScopeInLibrary su tutti i risultati ricerca:
+        /// null = non preferita, Project = già in ProjectFavorites, Personal = in PersonalFavorites.
+        /// Se una stessa Code è in entrambi scope, Project prevale (più specifico del .cme).
+        /// </summary>
+        private void SyncFavoriteFlagsOnSearchResults()
+        {
+            if (SearchResults == null) return;
+            var projectCodes = new HashSet<string>(
+                ProjectFavorites.Select(f => f.Code),
+                StringComparer.OrdinalIgnoreCase);
+            var personalCodes = new HashSet<string>(
+                PersonalFavorites.Select(f => f.Code),
+                StringComparer.OrdinalIgnoreCase);
+
+            foreach (var r in SearchResults)
+            {
+                if (projectCodes.Contains(r.Code))
+                    r.FavoriteScopeInLibrary = FavoriteScope.Project;
+                else if (personalCodes.Contains(r.Code))
+                    r.FavoriteScopeInLibrary = FavoriteScope.Personal;
+                else
+                    r.FavoriteScopeInLibrary = null;
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // Commands preferiti
+        // ---------------------------------------------------------------------
+
+        /// <summary>
+        /// Toggle preferito: se la voce NON è in nessun scope, la aggiunge al Project
+        /// (default: più locale, si sposta con il .cme). Se è già in qualche scope, la rimuove.
+        /// L'utente può forzare lo scope via context menu (AddFavoriteToProject/Personal).
         /// </summary>
         [RelayCommand]
         private void ToggleFavoriteForRow(PriceItemRow? row)
         {
             if (row == null) return;
-            // Forza la selezione così che la UI (bottone dettaglio, badge) si aggiorni di riflesso
             SelectedSearchResult = row;
-            ToggleFavorite();
+
+            if (row.FavoriteScopeInLibrary == FavoriteScope.Project)
+            {
+                RemoveFromScope(row.Code, FavoriteScope.Project);
+            }
+            else if (row.FavoriteScopeInLibrary == FavoriteScope.Personal)
+            {
+                RemoveFromScope(row.Code, FavoriteScope.Personal);
+            }
+            else
+            {
+                AddRowToScope(row, FavoriteScope.Project);
+            }
         }
 
+        /// <summary>Aggiunge esplicitamente una riga al Project scope (context menu / drop).</summary>
         [RelayCommand]
-        private void RemoveFavorite(FavoriteRowVm row)
+        private void AddFavoriteToProject(PriceItemRow? row)
         {
             if (row == null) return;
-            var repo = GetActiveRepo();
-            if (repo == null) return;
-            try
-            {
-                repo.RemoveFavorite(row.Id);
-                Favorites.Remove(row);
-                RefreshIsSelectedResultFavorite();
-                RefreshFavoritesHeader();
-                RefreshHasUnusedFavorites();
-                SyncFavoriteFlagsOnSearchResults();
-            }
-            catch (Exception ex)
-            {
-                CrashLogger.WriteException("SetupViewModel.RemoveFavorite", ex);
-            }
+            AddRowToScope(row, FavoriteScope.Project);
         }
 
-        /// <summary>
-        /// Rimuove dai preferiti tutte le voci NON usate nel computo corrente.
-        /// NON tocca il listino: le voci restano nel catalogo, solo la "bookmark" personale
-        /// sparisce. Richiede conferma utente (TaskDialog) perché è un'operazione batch.
-        /// </summary>
+        /// <summary>Aggiunge esplicitamente una riga al Personal scope (context menu / drop).</summary>
         [RelayCommand]
-        private void RemoveUnusedFavorites()
+        private void AddFavoriteToPersonal(PriceItemRow? row)
         {
-            var repo = GetActiveRepo();
-            if (repo == null) return;
-
-            var unused = Favorites.Where(f => !f.IsUsedInComputo).ToList();
-            if (unused.Count == 0) return;
-
-            var td = new Autodesk.Revit.UI.TaskDialog("Rimuovi preferiti inutilizzati")
-            {
-                MainInstruction = $"Rimuovere {unused.Count} preferit{(unused.Count == 1 ? "o" : "i")} non utilizzat{(unused.Count == 1 ? "o" : "i")} nel computo?",
-                MainContent =
-                    "Verranno rimosse SOLO le voci che non risultano assegnate a elementi Revit nel computo corrente.\n\n" +
-                    "Le voci corrispondenti nel listino NON vengono cancellate: potrai sempre ri-aggiungerle ai preferiti dalla ricerca.",
-                CommonButtons = Autodesk.Revit.UI.TaskDialogCommonButtons.Yes | Autodesk.Revit.UI.TaskDialogCommonButtons.No,
-                DefaultButton = Autodesk.Revit.UI.TaskDialogResult.No
-            };
-            if (td.Show() != Autodesk.Revit.UI.TaskDialogResult.Yes) return;
-
-            try
-            {
-                var ids = unused.Select(f => f.Id).ToList();
-                var deleted = repo.RemoveFavorites(ids);
-
-                // Rimuovi dalla collection UI mantenendo l'ordine
-                foreach (var f in unused) Favorites.Remove(f);
-
-                RefreshIsSelectedResultFavorite();
-                RefreshFavoritesHeader();
-                RefreshHasUnusedFavorites();
-                SyncFavoriteFlagsOnSearchResults();
-
-                Autodesk.Revit.UI.TaskDialog.Show("Preferiti",
-                    $"Rimoss{(deleted == 1 ? "o" : "i")} {deleted} preferit{(deleted == 1 ? "o" : "i")} inutilizzat{(deleted == 1 ? "o" : "i")}. Il listino è intatto.");
-            }
-            catch (Exception ex)
-            {
-                CrashLogger.WriteException("SetupViewModel.RemoveUnusedFavorites", ex);
-            }
+            if (row == null) return;
+            AddRowToScope(row, FavoriteScope.Personal);
         }
 
         /// <summary>
-        /// Comando UI: forza il re-check dell'uso dei preferiti nel computo
-        /// (es. dopo che l'utente ha modificato la scheda Mappatura).
+        /// Metodo pubblico wrapper per il code-behind: usato dal Drop handler sul tab
+        /// "Preferiti progetto" (il drag&drop aggiunge, non toggla).
         /// </summary>
+        public void AddFavoriteFromDropToProject(PriceItemRow row)
+        {
+            if (row == null) return;
+            AddRowToScope(row, FavoriteScope.Project);
+        }
+
+        /// <summary>Idem per il tab "Preferiti personali".</summary>
+        public void AddFavoriteFromDropToPersonal(PriceItemRow row)
+        {
+            if (row == null) return;
+            AddRowToScope(row, FavoriteScope.Personal);
+        }
+
+        /// <summary>Sposta un preferito da Personal a Project (context menu "Sposta in Progetto").</summary>
+        [RelayCommand]
+        private void MoveFavoriteToProject(FavoriteItemRow? row)
+        {
+            if (row == null || row.Scope == FavoriteScope.Project) return;
+            var item = CloneItem(row);
+            _personalFavoritesSet.Items.RemoveAll(x =>
+                string.Equals(x.Code, row.Code, StringComparison.OrdinalIgnoreCase));
+            UpsertInScope(item, FavoriteScope.Project);
+            PersistAndRefresh();
+        }
+
+        [RelayCommand]
+        private void MoveFavoriteToPersonal(FavoriteItemRow? row)
+        {
+            if (row == null || row.Scope == FavoriteScope.Personal) return;
+            var item = CloneItem(row);
+            _projectFavoritesSet.Items.RemoveAll(x =>
+                string.Equals(x.Code, row.Code, StringComparison.OrdinalIgnoreCase));
+            UpsertInScope(item, FavoriteScope.Personal);
+            PersistAndRefresh();
+        }
+
+        /// <summary>Rimuove un singolo preferito (context menu preferiti).</summary>
+        [RelayCommand]
+        private void RemoveFavorite(FavoriteItemRow? row)
+        {
+            if (row == null) return;
+            RemoveFromScope(row.Code, row.Scope);
+        }
+
+        /// <summary>Rimuove TUTTI i preferiti progetto non usati nel computo (con conferma).</summary>
+        [RelayCommand]
+        private void RemoveUnusedProjectFavorites()
+        {
+            RemoveUnusedForScope(FavoriteScope.Project);
+        }
+
+        /// <summary>Rimuove TUTTI i preferiti personali non usati nel computo (con conferma).</summary>
+        [RelayCommand]
+        private void RemoveUnusedPersonalFavorites()
+        {
+            RemoveUnusedForScope(FavoriteScope.Personal);
+        }
+
+        /// <summary>Copia il codice EP di una riga (risultati o preferiti) negli appunti.</summary>
+        [RelayCommand]
+        private void CopyCodeToClipboard(object? parameter)
+        {
+            string? code = null;
+            if (parameter is PriceItemRow pr) code = pr.Code;
+            else if (parameter is FavoriteItemRow fr) code = fr.Code;
+            else if (parameter is string s) code = s;
+
+            if (string.IsNullOrEmpty(code)) return;
+            try
+            {
+                System.Windows.Clipboard.SetText(code);
+                SearchStatus = $"Copiato: {code}";
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.WriteException("SetupViewModel.CopyCodeToClipboard", ex);
+            }
+        }
+
+        [RelayCommand]
+        private void UseFavoriteInSearch(FavoriteItemRow? row)
+        {
+            if (row == null) return;
+            SelectedScope = HybridSearchScope.ActivePriceList;
+            SearchQuery = row.Code;
+        }
+
+        /// <summary>Comando UI: forza il re-check dell'uso dei preferiti nel computo.</summary>
         [RelayCommand]
         private void RefreshFavoritesUsageFromUi() => RefreshFavoritesUsage();
 
         // ---------------------------------------------------------------------
-        // Commands per ContextMenu (Listini + Risultati ricerca)
+        // ContextMenu Listini
         // ---------------------------------------------------------------------
 
-        /// <summary>Toggle IsActive su un listino (ContextMenu → "Attiva/Disattiva listino").</summary>
         [RelayCommand]
         private void TogglePriceListActive(PriceListRow? row)
         {
             if (row == null) return;
-            // Il setter IsActive invoca OnIsActiveChanged → OnPriceListActiveToggled
-            // che persiste nel DB e rilancia la ricerca.
             row.IsActive = !row.IsActive;
         }
 
-        /// <summary>Apre il CatalogBrowser sul listino selezionato (ContextMenu).</summary>
         [RelayCommand]
         private void BrowsePriceList()
         {
-            // La finestra CatalogBrowser è orchestrata dal codebehind della view
-            // (dipende da window owner/owner lifetime). Qui impostiamo solo una
-            // flag e deleghiamo via evento.
             BrowseRequested?.Invoke(this, System.EventArgs.Empty);
         }
 
-        /// <summary>Evento raised dal VM quando l'utente chiede di aprire CatalogBrowser.</summary>
         public event System.EventHandler? BrowseRequested;
 
-        /// <summary>Elimina il listino selezionato dalla libreria (ContextMenu → delega al view).</summary>
         [RelayCommand]
         private void DeleteSelectedPriceList()
         {
             DeleteRequested?.Invoke(this, System.EventArgs.Empty);
         }
 
-        /// <summary>Evento raised dal VM quando l'utente chiede la conferma di eliminazione.
-        /// La view mostra il TaskDialog e invoca DeleteSelected() se confermato.</summary>
         public event System.EventHandler? DeleteRequested;
 
-        /// <summary>Copia il codice EP di una riga risultati negli appunti.</summary>
-        [RelayCommand]
-        private void CopyCodeToClipboard(PriceItemRow? row)
+        // ---------------------------------------------------------------------
+        // Helpers interni — scope operations
+        // ---------------------------------------------------------------------
+
+        private void AddRowToScope(PriceItemRow row, FavoriteScope scope)
         {
-            if (row == null || string.IsNullOrEmpty(row.Code)) return;
-            try
+            var item = new FavoriteItem
             {
-                System.Windows.Clipboard.SetText(row.Code);
-                SearchStatus = $"Copiato: {row.Code}";
+                Code = row.Code,
+                ShortDesc = !string.IsNullOrWhiteSpace(row.ShortDesc) ? row.ShortDesc : row.Description,
+                Description = row.Description,
+                Unit = row.Unit,
+                UnitPrice = row.UnitPrice,
+                ListName = row.ListName,
+                ListId = (int?)row.ListId,
+                AddedAt = DateTime.UtcNow
+            };
+            UpsertInScope(item, scope);
+            PersistAndRefresh();
+        }
+
+        private void UpsertInScope(FavoriteItem item, FavoriteScope scope)
+        {
+            var set = scope == FavoriteScope.Project ? _projectFavoritesSet : _personalFavoritesSet;
+            var existing = set.Items.FirstOrDefault(x =>
+                string.Equals(x.Code, item.Code, StringComparison.OrdinalIgnoreCase));
+            if (existing == null)
+            {
+                set.Items.Add(item);
             }
-            catch (System.Exception ex)
+            else
             {
-                CrashLogger.WriteException("SetupViewModel.CopyCodeToClipboard", ex);
+                existing.ShortDesc = item.ShortDesc;
+                existing.Description = item.Description;
+                existing.Unit = item.Unit;
+                existing.UnitPrice = item.UnitPrice;
+                existing.ListName = item.ListName;
+                existing.ListId = item.ListId;
             }
         }
 
-        /// <summary>
-        /// Aggiunge un PriceItemRow ai preferiti solo se NON già presente.
-        /// Usato dal drop handler: il drag&drop "aggiunge" sempre, non toggla,
-        /// per evitare che l'utente rilasciando per sbaglio rimuova una voce.
-        /// </summary>
-        public void AddFavoriteFromDrop(PriceItemRow row)
+        private void RemoveFromScope(string code, FavoriteScope scope)
         {
-            if (row == null) return;
-            var repo = GetActiveRepo();
-            if (repo == null) return;
+            var set = scope == FavoriteScope.Project ? _projectFavoritesSet : _personalFavoritesSet;
+            var existing = set.Items.FirstOrDefault(x =>
+                string.Equals(x.Code, code, StringComparison.OrdinalIgnoreCase));
+            if (existing == null) return;
+            set.Items.Remove(existing);
+            PersistAndRefresh();
+        }
 
-            // Se già preferita, no-op (il drag&drop non deve mai rimuovere)
-            var alreadyFav = Favorites.Any(f => f.Code == row.Code && f.Model.ListId == (int?)row.ListId);
-            if (alreadyFav) return;
+        private void RemoveUnusedForScope(FavoriteScope scope)
+        {
+            var rows = scope == FavoriteScope.Project ? ProjectFavorites : PersonalFavorites;
+            var unused = rows.Where(f => !f.IsUsedInComputo).Select(f => f.Code).ToList();
+            if (unused.Count == 0) return;
 
+            var label = scope == FavoriteScope.Project ? "progetto" : "personali";
+            var td = new Autodesk.Revit.UI.TaskDialog($"Rimuovi preferiti {label} inutilizzati")
+            {
+                MainInstruction = $"Rimuovere {unused.Count} preferit{(unused.Count == 1 ? "o" : "i")} {label} non utilizzat{(unused.Count == 1 ? "o" : "i")} nel computo?",
+                MainContent =
+                    $"Verranno rimosse SOLO le voci dallo scope «{label}» che non risultano assegnate " +
+                    "a elementi Revit nel computo corrente.\n\n" +
+                    "Le voci corrispondenti nel listino NON vengono cancellate: potrai sempre ri-aggiungerle ai preferiti dalla ricerca.",
+                CommonButtons = Autodesk.Revit.UI.TaskDialogCommonButtons.Yes | Autodesk.Revit.UI.TaskDialogCommonButtons.No,
+                DefaultButton = Autodesk.Revit.UI.TaskDialogResult.No
+            };
+            if (td.Show() != Autodesk.Revit.UI.TaskDialogResult.Yes) return;
+
+            var set = scope == FavoriteScope.Project ? _projectFavoritesSet : _personalFavoritesSet;
+            set.Items.RemoveAll(x => unused.Contains(x.Code, StringComparer.OrdinalIgnoreCase));
+            PersistAndRefresh();
+
+            Autodesk.Revit.UI.TaskDialog.Show("Preferiti",
+                $"Rimoss{(unused.Count == 1 ? "o" : "i")} {unused.Count} preferit{(unused.Count == 1 ? "o" : "i")} {label} inutilizzat{(unused.Count == 1 ? "o" : "i")}. Il listino è intatto.");
+        }
+
+        private void PersistAndRefresh()
+        {
             try
             {
-                var fav = new UserFavorite
-                {
-                    PriceItemId = row.Id,
-                    Code = row.Code,
-                    Description = row.Description,
-                    Unit = row.Unit,
-                    UnitPrice = row.UnitPrice,
-                    ListName = row.ListName,
-                    ListId = row.ListId,
-                    AddedAt = DateTime.UtcNow
-                };
-                fav.Id = repo.AddFavorite(fav);
-                Favorites.Insert(0, new FavoriteRowVm(fav));
-                row.IsFavoriteInLibrary = true;
+                _favoritesRepository.SaveGlobal(_personalFavoritesSet);
 
-                RefreshIsSelectedResultFavorite();
-                RefreshFavoritesHeader();
+                var cmePath = QtoApplication.Instance?.SessionManager?.ActiveFilePath;
+                if (!string.IsNullOrWhiteSpace(cmePath))
+                    _favoritesRepository.SaveForProject(cmePath!, _projectFavoritesSet);
+
+                ProjectFavorites.Clear();
+                foreach (var item in _projectFavoritesSet.Items)
+                    ProjectFavorites.Add(new FavoriteItemRow(item, FavoriteScope.Project));
+
+                PersonalFavorites.Clear();
+                foreach (var item in _personalFavoritesSet.Items)
+                    PersonalFavorites.Add(new FavoriteItemRow(item, FavoriteScope.Personal));
+
                 RefreshFavoritesUsage();
+                RefreshFavoriteHeaders();
                 SyncFavoriteFlagsOnSearchResults();
             }
             catch (Exception ex)
             {
-                CrashLogger.WriteException("SetupViewModel.AddFavoriteFromDrop", ex);
+                CrashLogger.WriteException("SetupViewModel.PersistAndRefresh", ex);
             }
         }
+
+        private static FavoriteItem CloneItem(FavoriteItemRow row) => new FavoriteItem
+        {
+            Code = row.Code,
+            ShortDesc = row.ShortDesc,
+            Description = row.Description,
+            Unit = row.Unit,
+            UnitPrice = row.UnitPrice,
+            ListName = row.ListName,
+            ListId = row.ListId,
+            AddedAt = row.AddedAt
+        };
 
         // ---------------------------------------------------------------------
         // Helpers
@@ -603,8 +731,6 @@ namespace QtoRevitPlugin.UI.ViewModels
 
         private static QtoRepository? GetActiveRepo()
         {
-            // Listini sono nella UserLibrary globale (persistenti), NON nel .cme.
-            // Così l'import del listino è one-time: disponibile per ogni computo futuro.
             return QtoApplication.Instance?.UserLibrary?.Library;
         }
 
@@ -616,7 +742,7 @@ namespace QtoRevitPlugin.UI.ViewModels
     }
 
     // -------------------------------------------------------------------------
-    // Row DTOs (projection sulle entities — tengono solo ciò che il DataGrid mostra)
+    // Row DTOs
     // -------------------------------------------------------------------------
 
     /// <summary>
@@ -627,17 +753,11 @@ namespace QtoRevitPlugin.UI.ViewModels
     {
         private readonly SetupViewModel? _owner;
 
-        /// <summary>
-        /// Costruttore con owner — usato da SetupViewModel per abilitare la persistenza del toggle IsActive.
-        /// </summary>
         public PriceListRow(SetupViewModel owner, PriceList list) : this(list)
         {
             _owner = owner;
         }
 
-        /// <summary>
-        /// Costruttore senza owner — usato da CatalogBrowserViewModel (IsActive è read-only in quel contesto).
-        /// </summary>
         public PriceListRow(PriceList list)
         {
             Id = list.Id;
@@ -648,7 +768,7 @@ namespace QtoRevitPlugin.UI.ViewModels
             RowCount = list.RowCount;
             Priority = list.Priority;
             ImportedAt = list.ImportedAt;
-            _isActive = list.IsActive; // set via field to avoid triggering OnIsActiveChanged at load
+            _isActive = list.IsActive;
         }
 
         public int Id { get; }
@@ -670,6 +790,10 @@ namespace QtoRevitPlugin.UI.ViewModels
         }
     }
 
+    /// <summary>
+    /// Riga del DataGrid risultati ricerca. Il flag <see cref="FavoriteScopeInLibrary"/>
+    /// è 3-stato: null (non preferita), Project, Personal — guida icone/tooltip/menu.
+    /// </summary>
     public partial class PriceItemRow : ObservableObject
     {
         public PriceItemRow(PriceItem item)
@@ -694,21 +818,34 @@ namespace QtoRevitPlugin.UI.ViewModels
         public string Chapter { get; }
         public string SubChapter { get; }
         public string ShortDesc { get; }
-        /// <summary>Description completa multi-line (es. livello3 + livello4 concatenati in EASY Toscana).</summary>
         public string Description { get; }
         public string Unit { get; }
         public double UnitPrice { get; }
         public string ListName { get; }
 
-        [ObservableProperty] private bool _isFavoriteInLibrary;
+        /// <summary>
+        /// Scope del preferito se la voce è nei preferiti; null altrimenti.
+        /// Aggiornato da SetupViewModel.SyncFavoriteFlagsOnSearchResults.
+        /// </summary>
+        [ObservableProperty] private FavoriteScope? _favoriteScopeInLibrary;
 
-        /// <summary>Label del MenuItem "toggle preferiti" nel context menu dei risultati ricerca.
-        /// Cambia dinamicamente: "★ Aggiungi ai preferiti" o "★ Rimuovi dai preferiti".</summary>
+        partial void OnFavoriteScopeInLibraryChanged(FavoriteScope? value)
+        {
+            OnPropertyChanged(nameof(IsFavoriteInLibrary));
+            OnPropertyChanged(nameof(FavoriteMenuLabel));
+            OnPropertyChanged(nameof(FavoriteBadge));
+        }
+
+        /// <summary>True se la voce è preferita in QUALSIASI scope.</summary>
+        public bool IsFavoriteInLibrary => FavoriteScopeInLibrary.HasValue;
+
+        /// <summary>Label dinamica context menu — cambia tra "Aggiungi" e "Rimuovi".</summary>
         public string FavoriteMenuLabel => IsFavoriteInLibrary
             ? "★ Rimuovi dai preferiti"
             : "★ Aggiungi ai preferiti";
 
-        partial void OnIsFavoriteInLibraryChanged(bool value) => OnPropertyChanged(nameof(FavoriteMenuLabel));
+        /// <summary>Icona mostrata nella cell button: ★ se fav, + se non fav.</summary>
+        public string FavoriteBadge => IsFavoriteInLibrary ? "★" : "+";
 
         public string ShortDescTrimmed =>
             string.IsNullOrEmpty(ShortDesc) ? "" :
@@ -717,7 +854,6 @@ namespace QtoRevitPlugin.UI.ViewModels
 
         public string UnitPriceFormatted => UnitPrice > 0 ? $"€ {UnitPrice:N2}" : "—";
 
-        /// <summary>Path gerarchico visualizzabile nel detail panel (Super &gt; Chapter &gt; Sub).</summary>
         public string HierarchyPath
         {
             get
@@ -729,5 +865,81 @@ namespace QtoRevitPlugin.UI.ViewModels
                 return string.Join("  ›  ", parts);
             }
         }
+
+        public SearchDetailRow ToDetail() => new SearchDetailRow
+        {
+            Code = Code,
+            SourceLabel = ListName,
+            HierarchyPath = HierarchyPath,
+            Description = Description,
+            Unit = Unit,
+            UnitPriceFormatted = UnitPriceFormatted
+        };
+    }
+
+    /// <summary>
+    /// Riga UI di un preferito (Project o Personal). Espone IsUsedInComputo
+    /// per il badge "✓ usato" e tutti i campi mostrati nel DataGrid preferiti.
+    /// </summary>
+    public partial class FavoriteItemRow : ObservableObject
+    {
+        public FavoriteItem Model { get; }
+        public FavoriteScope Scope { get; }
+
+        public FavoriteItemRow(FavoriteItem item, FavoriteScope scope)
+        {
+            Model = item;
+            Scope = scope;
+        }
+
+        public string Code => Model.Code;
+        public string ShortDesc => Model.ShortDesc;
+        public string Description => !string.IsNullOrEmpty(Model.Description) ? Model.Description : Model.ShortDesc;
+        public string Unit => Model.Unit;
+        public double UnitPrice => Model.UnitPrice;
+        public string ListName => Model.ListName;
+        public int? ListId => Model.ListId;
+        public DateTime AddedAt => Model.AddedAt;
+        public string AddedAtShort => AddedAt == default ? "" : AddedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
+        public string UnitPriceFormatted => UnitPrice > 0 ? $"€ {UnitPrice:N2}" : "—";
+        public string ScopeBadge => Scope == FavoriteScope.Project ? "Proj" : "Pers";
+
+        [ObservableProperty] private bool _isUsedInComputo;
+
+        public string UsedBadge => IsUsedInComputo ? "✓ usato" : "—";
+
+        partial void OnIsUsedInComputoChanged(bool value) => OnPropertyChanged(nameof(UsedBadge));
+
+        public SearchDetailRow ToDetail() => new SearchDetailRow
+        {
+            Code = Code,
+            SourceLabel = Scope == FavoriteScope.Project ? "Preferiti progetto" : "Preferiti personali",
+            HierarchyPath = ListName,
+            Description = Description,
+            Unit = Unit,
+            UnitPriceFormatted = UnitPriceFormatted
+        };
+    }
+
+    public class SearchScopeOptionRow
+    {
+        public SearchScopeOptionRow(HybridSearchScope scope, string label)
+        {
+            Scope = scope;
+            Label = label;
+        }
+
+        public HybridSearchScope Scope { get; }
+        public string Label { get; }
+    }
+
+    public class SearchDetailRow
+    {
+        public string Code { get; set; } = "";
+        public string SourceLabel { get; set; } = "";
+        public string HierarchyPath { get; set; } = "";
+        public string Description { get; set; } = "";
+        public string Unit { get; set; } = "";
+        public string UnitPriceFormatted { get; set; } = "";
     }
 }

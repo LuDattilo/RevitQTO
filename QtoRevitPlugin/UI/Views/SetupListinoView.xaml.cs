@@ -13,9 +13,10 @@ using TaskDialogResult = Autodesk.Revit.UI.TaskDialogResult;
 namespace QtoRevitPlugin.UI.Views
 {
     /// <summary>
-    /// Sezione "Listino" del Setup: gestione listini (import DCF/XPWE/XML/XLSX/CSV)
-    /// + ricerca FTS5 voci EP. Estratta da SetupView come UserControl dedicata per
-    /// supportare sub-tab interni e popout multi-monitor.
+    /// Sezione "Listino" del Setup (Fase 4): gestione listini (import DCF/XPWE/XML/XLSX/CSV),
+    /// ricerca FTS5, preferiti progetto e personali in TabControl a 3 schede.
+    /// Supporta drag&drop dei risultati → tab preferiti (scope = tab target) e
+    /// context menu con toggle favorite / cambio scope / rimozione.
     /// </summary>
     public partial class SetupListinoView : UserControl
     {
@@ -32,27 +33,24 @@ namespace QtoRevitPlugin.UI.Views
             InitializeComponent();
             BtnPopout.Visibility = showPopoutButton ? Visibility.Visible : Visibility.Collapsed;
 
-            // Connetti eventi VM → handlers view (per ContextMenu B1: Browse + Delete
-            // richiedono interazione con dialog WPF/Revit che vivono nella view).
+            // Connetti eventi VM → handlers view (dialog WPF/Revit vivono nella view).
             Vm.BrowseRequested += (_, _) => OnBrowseCatalogClick(this, new RoutedEventArgs());
             Vm.DeleteRequested += (_, _) => OnDeleteClick(this, new RoutedEventArgs());
         }
 
         // =====================================================================
-        // Drag & drop: trascina una voce dai risultati ricerca all'Expander
-        // "I Miei Preferiti" per aggiungerla ai preferiti.
+        // Drag & drop: trascina una voce dai risultati ricerca al tab
+        // "Preferiti progetto" o "Preferiti personali" (scope = tab target).
         // =====================================================================
 
         /// <summary>Formato dati usato per serializzare l'oggetto trascinato.</summary>
         private const string DragFormatPriceItemRow = "QtoRevitPlugin.PriceItemRow";
 
-        /// <summary>Posizione del mouse al click — per calcolare soglia drag (SystemParameters).</summary>
+        /// <summary>Posizione del mouse al click — per calcolare soglia drag.</summary>
         private System.Windows.Point? _dragStartPoint;
 
         private void OnSearchResultMouseDown(object sender, MouseButtonEventArgs e)
         {
-            // Registra la posizione, ma NON iniziare il drag qui — altrimenti blocchiamo
-            // il click singolo (selezione riga) e il doppio click (toggle).
             _dragStartPoint = e.GetPosition(null);
         }
 
@@ -67,7 +65,7 @@ namespace QtoRevitPlugin.UI.Views
             if (dx < SystemParameters.MinimumHorizontalDragDistance &&
                 dy < SystemParameters.MinimumVerticalDragDistance) return;
 
-            if (grid.SelectedItem is not ViewModels.PriceItemRow row) return;
+            if (!(grid.SelectedItem is PriceItemRow row)) return;
 
             // Guardia: non avviare drag su header
             var source = e.OriginalSource as DependencyObject;
@@ -92,53 +90,93 @@ namespace QtoRevitPlugin.UI.Views
             }
         }
 
-        private void OnFavoritesDragEnter(object sender, DragEventArgs e)
+        // --- Project favorites tab drop target -------------------------------
+
+        private void OnFavoritesProjectDragEnter(object sender, DragEventArgs e)
         {
             e.Effects = e.Data.GetDataPresent(DragFormatPriceItemRow)
                 ? DragDropEffects.Copy
                 : DragDropEffects.None;
-            // Feedback visivo: bordo dorato + sfondo leggermente giallo mentre il drag sorvola
-            if (sender is Expander exp && e.Effects == DragDropEffects.Copy)
-            {
-                exp.BorderBrush = System.Windows.Media.Brushes.Goldenrod;
-                exp.BorderThickness = new Thickness(2);
-            }
+            HighlightTab(sender, e.Effects == DragDropEffects.Copy);
             e.Handled = true;
         }
 
-        private void OnFavoritesDragOver(object sender, DragEventArgs e)
+        private void OnFavoritesProjectDragOver(object sender, DragEventArgs e)
         {
             e.Effects = e.Data.GetDataPresent(DragFormatPriceItemRow)
                 ? DragDropEffects.Copy
                 : DragDropEffects.None;
             e.Handled = true;
         }
+
+        private void OnFavoritesProjectDrop(object sender, DragEventArgs e)
+        {
+            ClearTabHighlight(sender);
+            if (!e.Data.GetDataPresent(DragFormatPriceItemRow)) return;
+            if (!(e.Data.GetData(DragFormatPriceItemRow) is PriceItemRow row)) return;
+
+            Vm.AddFavoriteFromDropToProject(row);
+            e.Handled = true;
+        }
+
+        // --- Personal favorites tab drop target ------------------------------
+
+        private void OnFavoritesPersonalDragEnter(object sender, DragEventArgs e)
+        {
+            e.Effects = e.Data.GetDataPresent(DragFormatPriceItemRow)
+                ? DragDropEffects.Copy
+                : DragDropEffects.None;
+            HighlightTab(sender, e.Effects == DragDropEffects.Copy);
+            e.Handled = true;
+        }
+
+        private void OnFavoritesPersonalDragOver(object sender, DragEventArgs e)
+        {
+            e.Effects = e.Data.GetDataPresent(DragFormatPriceItemRow)
+                ? DragDropEffects.Copy
+                : DragDropEffects.None;
+            e.Handled = true;
+        }
+
+        private void OnFavoritesPersonalDrop(object sender, DragEventArgs e)
+        {
+            ClearTabHighlight(sender);
+            if (!e.Data.GetDataPresent(DragFormatPriceItemRow)) return;
+            if (!(e.Data.GetData(DragFormatPriceItemRow) is PriceItemRow row)) return;
+
+            Vm.AddFavoriteFromDropToPersonal(row);
+            e.Handled = true;
+        }
+
+        // --- Shared drag leave handler ---------------------------------------
 
         private void OnFavoritesDragLeave(object sender, DragEventArgs e)
         {
-            if (sender is Expander exp)
-            {
-                // Ripristina stile originale dell'Expander
-                exp.ClearValue(Expander.BorderBrushProperty);
-                exp.ClearValue(Expander.BorderThicknessProperty);
-            }
+            ClearTabHighlight(sender);
             e.Handled = true;
         }
 
-        private void OnFavoritesDrop(object sender, DragEventArgs e)
+        private static void HighlightTab(object sender, bool isActive)
         {
-            if (sender is Expander exp)
+            if (sender is TabItem tab && isActive)
             {
-                exp.ClearValue(Expander.BorderBrushProperty);
-                exp.ClearValue(Expander.BorderThicknessProperty);
+                tab.BorderBrush = System.Windows.Media.Brushes.Goldenrod;
+                tab.BorderThickness = new Thickness(2);
             }
-
-            if (!e.Data.GetDataPresent(DragFormatPriceItemRow)) return;
-            if (e.Data.GetData(DragFormatPriceItemRow) is not ViewModels.PriceItemRow row) return;
-
-            Vm.AddFavoriteFromDrop(row);
-            e.Handled = true;
         }
+
+        private static void ClearTabHighlight(object sender)
+        {
+            if (sender is TabItem tab)
+            {
+                tab.ClearValue(TabItem.BorderBrushProperty);
+                tab.ClearValue(TabItem.BorderThicknessProperty);
+            }
+        }
+
+        // =====================================================================
+        // Import / Browse / Delete listini
+        // =====================================================================
 
         private void OnImportClick(object sender, RoutedEventArgs e)
         {
@@ -280,17 +318,14 @@ namespace QtoRevitPlugin.UI.Views
         }
 
         /// <summary>
-        /// Doppio click su una riga della DataGrid risultati ricerca → toggle preferito.
-        /// UX shortcut richiesto dall'utente per evitare il click sul bottone ★ piccolo.
-        /// Guardia: ignoriamo click sull'header (OriginalSource risale a DataGridColumnHeader)
-        /// e click su celle vuote dopo l'ultimo risultato.
+        /// Doppio click su una riga risultati → toggle preferito (shortcut UX).
+        /// Guardia: ignoriamo click su header e celle vuote.
         /// </summary>
         private void OnSearchResultDoubleClick(object sender, MouseButtonEventArgs e)
         {
             if (!(sender is DataGrid grid)) return;
-            if (grid.SelectedItem is not PriceItemRow row) return;
+            if (!(grid.SelectedItem is PriceItemRow row)) return;
 
-            // Click sull'header non deve fare toggle
             var source = e.OriginalSource as DependencyObject;
             while (source != null && source != grid)
             {

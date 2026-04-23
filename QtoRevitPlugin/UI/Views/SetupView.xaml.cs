@@ -13,5 +13,15 @@ namespace QtoRevitPlugin.UI.Views
         {
             InitializeComponent();
         }
+
+        /// <summary>
+        /// Ctor con selezione iniziale tab (usato da navigazione Home → Setup · Listino).
+        /// </summary>
+        public SetupView(int initialTabIndex)
+        {
+            InitializeComponent();
+            if (initialTabIndex >= 0 && initialTabIndex < SetupTabs.Items.Count)
+                SetupTabs.SelectedIndex = initialTabIndex;
+        }
     }
 }

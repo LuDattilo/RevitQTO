@@ -25,7 +25,11 @@
         </Grid>
 
         <!-- Sub-tab interni: Informazioni / Listino / Struttura Computo / Nuovi Prezzi -->
-        <TabControl Grid.Row="1" Margin="12,0,12,0" Background="Transparent" BorderThickness="0">
+        <TabControl x:Name="SetupTabs"
+                    Grid.Row="1"
+                    Margin="12,0,12,0"
+                    Background="Transparent"
+                    BorderThickness="0">
             <TabItem Header="Informazioni">
                 <views:ProjectInfoView />
             </TabItem>
