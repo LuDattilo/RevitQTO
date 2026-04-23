@@ -915,6 +915,61 @@ WHERE s.ProjectPath = @ProjectPath
         }
 
         // =====================================================================
+        // UserFavorites (v10)
+        // =====================================================================
+
+        public IReadOnlyList<UserFavorite> GetFavorites()
+        {
+            const string sql = @"
+SELECT Id, PriceItemId, Code, Description, Unit, UnitPrice,
+       ListName, ListId, AddedAt, Note
+FROM UserFavorites
+ORDER BY AddedAt DESC, Code";
+            return _conn.Query<UserFavorite>(sql).ToList();
+        }
+
+        public int AddFavorite(UserFavorite fav)
+        {
+            const string sql = @"
+INSERT OR IGNORE INTO UserFavorites
+(PriceItemId, Code, Description, Unit, UnitPrice, ListName, ListId, AddedAt, Note)
+VALUES (@PriceItemId, @Code, @Description, @Unit, @UnitPrice, @ListName, @ListId, @AddedAt, @Note);";
+
+            _conn.Execute(sql, new
+            {
+                fav.PriceItemId,
+                fav.Code,
+                fav.Description,
+                fav.Unit,
+                fav.UnitPrice,
+                fav.ListName,
+                fav.ListId,
+                AddedAt = fav.AddedAt.ToString("o"),
+                fav.Note
+            });
+
+            const string selectSql = @"
+SELECT Id FROM UserFavorites WHERE Code = @Code AND IFNULL(ListId, -1) = IFNULL(@ListId, -1) LIMIT 1";
+
+            return _conn.ExecuteScalar<int>(selectSql, new { fav.Code, fav.ListId });
+        }
+
+        public void RemoveFavorite(int id)
+        {
+            const string sql = "DELETE FROM UserFavorites WHERE Id = @Id";
+            _conn.Execute(sql, new { Id = id });
+        }
+
+        public bool IsFavorite(string code, int? listId)
+        {
+            const string sql = @"
+SELECT COUNT(*) FROM UserFavorites WHERE Code = @Code AND IFNULL(ListId, -1) = IFNULL(@ListId, -1)";
+
+            var n = _conn.ExecuteScalar<int>(sql, new { Code = code, ListId = listId });
+            return n > 0;
+        }
+
+        // =====================================================================
         // IDisposable
         // =====================================================================
 

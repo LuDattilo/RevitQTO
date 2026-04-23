@@ -36,6 +36,12 @@ namespace QtoRevitPlugin.Data
         // Seedati al primo avvio da SoaCategorySeed. Utilizzati nel ComboBox della
         // Struttura Computo per assegnare OG/OS ai nodi.
         System.Collections.Generic.IReadOnlyList<SoaCategory> GetSoaCategories();
+
+        // UserFavorites (v10 · UserLibrary.db). Lista preferiti utente globale.
+        System.Collections.Generic.IReadOnlyList<UserFavorite> GetFavorites();
+        int AddFavorite(UserFavorite fav);
+        void RemoveFavorite(int id);
+        bool IsFavorite(string code, int? listId);
     }
 
     public interface IFavoritesRepository
