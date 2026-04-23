@@ -1,11 +1,13 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using QtoRevitPlugin.AI.Ollama;
 using QtoRevitPlugin.Models;
 using QtoRevitPlugin.Services;
 using System;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace QtoRevitPlugin.UI.ViewModels
 {
@@ -109,6 +111,26 @@ namespace QtoRevitPlugin.UI.ViewModels
         [ObservableProperty]
         private string _previewPhaseContext = "Nessuna fase attiva.";
 
+        // ==================================================================
+        // AI status (D5) — badge HomeView
+        // ==================================================================
+
+        /// <summary>
+        /// Stato del modulo AI mostrato in HomeView. Viene impostato a
+        /// <see cref="AiStatusKind.Checking"/> all'avvio e aggiornato da
+        /// <see cref="ProbeAiStatusAsync"/> con il risultato del probe Ollama.
+        /// </summary>
+        [ObservableProperty]
+        private AiStatusKind _aiStatus = AiStatusKind.Checking;
+
+        /// <summary>Label user-facing del badge AI (es. "AI Ollama · pronta").</summary>
+        [ObservableProperty]
+        private string _aiStatusLabel = "AI · verifica in corso";
+
+        /// <summary>Hint/tooltip del badge (modelli caricati, o suggerimento se unavailable).</summary>
+        [ObservableProperty]
+        private string _aiStatusHint = "";
+
         public double TaggedPercent => TotalElements > 0
             ? (double)TaggedElements / TotalElements * 100.0
             : 0.0;
@@ -125,8 +147,66 @@ namespace QtoRevitPlugin.UI.ViewModels
             _userLibrary = userLibrary ?? throw new ArgumentNullException(nameof(userLibrary));
             BuildViewList();
             _sessionManager.SessionChanged += OnSessionChanged;
-            SettingsService.SettingsChanged += (_, _) => RefreshWorkflowState();
+            SettingsService.SettingsChanged += OnSettingsChanged;
             RefreshFromSession();
+
+            // Probe AI async: non blocca UI. Se AiEnabled=false, ritorna immediato.
+            _ = ProbeAiStatusAsync();
+        }
+
+        private void OnSettingsChanged(object? sender, EventArgs e)
+        {
+            RefreshWorkflowState();
+            // Settings potrebbero aver cambiato AiEnabled o OllamaBaseUrl: re-probe.
+            _ = ProbeAiStatusAsync();
+        }
+
+        /// <summary>
+        /// Probe async dello stato AI: verifica se Ollama risponde sul baseUrl
+        /// configurato. Aggiorna <see cref="AiStatus"/>, <see cref="AiStatusLabel"/>
+        /// e <see cref="AiStatusHint"/>. Non blocca l'UI — timeout 2s.
+        /// </summary>
+        public async Task ProbeAiStatusAsync()
+        {
+            var settings = SettingsService.Load();
+
+            if (!settings.AiEnabled)
+            {
+                AiStatus = AiStatusKind.Disabled;
+                AiStatusLabel = "AI · disattivata";
+                AiStatusHint = "Abilita in Impostazioni per suggerimenti intelligenti";
+                return;
+            }
+
+            AiStatus = AiStatusKind.Checking;
+            AiStatusLabel = "AI · verifica in corso";
+            AiStatusHint = settings.OllamaBaseUrl;
+
+            bool ok = false;
+            try
+            {
+                using var probe = new OllamaEmbeddingProvider(
+                    settings.OllamaBaseUrl,
+                    settings.EmbeddingModel);
+                ok = await probe.IsAvailableAsync().ConfigureAwait(true);
+            }
+            catch
+            {
+                ok = false;
+            }
+
+            if (ok)
+            {
+                AiStatus = AiStatusKind.Ready;
+                AiStatusLabel = "AI Ollama · pronta";
+                AiStatusHint = $"{settings.EmbeddingModel} / {settings.TextModel}";
+            }
+            else
+            {
+                AiStatus = AiStatusKind.Unavailable;
+                AiStatusLabel = "AI · non raggiungibile";
+                AiStatusHint = $"Ollama non risponde su {settings.OllamaBaseUrl}";
+            }
         }
 
         private void BuildViewList()

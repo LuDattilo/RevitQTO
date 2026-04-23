@@ -9,6 +9,8 @@
         <vm:StepStatusToBackgroundConverter x:Key="StepBg" />
         <vm:StepStatusToEnabledConverter x:Key="StepEnabled" />
         <vm:StepStatusToOpacityConverter x:Key="StepOpacity" />
+        <vm:AiStatusToGlyphConverter x:Key="AiGlyph" />
+        <vm:AiStatusToBrushConverter x:Key="AiBrush" />
     </UserControl.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -150,6 +152,41 @@
                                            Text="Il Listino precede la Selezione. La fase Revit viene gestita dentro Selezione e aggiorna le viste phase-bound con soft switch."
                                            TextWrapping="Wrap"
                                            Foreground="{DynamicResource ChromeTextBrush}" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- AI status badge (D5) -->
+                        <Border Margin="0,12,0,0"
+                                Background="#221C1917"
+                                BorderBrush="{DynamicResource ChromeEdgeBrush}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="12"
+                                ToolTip="{Binding AiStatusHint}">
+                            <StackPanel>
+                                <TextBlock Text="Stato AI"
+                                           Foreground="{DynamicResource ChromeTextDimBrush}"
+                                           FontFamily="{DynamicResource FontMono}"
+                                           FontSize="9" />
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <TextBlock Text="{Binding AiStatus, Converter={StaticResource AiGlyph}}"
+                                               Foreground="{Binding AiStatus, Converter={StaticResource AiBrush}}"
+                                               FontFamily="{DynamicResource FontMono}"
+                                               FontSize="14"
+                                               FontWeight="Bold"
+                                               Margin="0,0,8,0"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding AiStatusLabel}"
+                                               Foreground="{DynamicResource ChromeTextBrush}"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding AiStatusHint}"
+                                           Margin="0,4,0,0"
+                                           Foreground="{DynamicResource ChromeTextDimBrush}"
+                                           FontSize="10"
+                                           TextTrimming="CharacterEllipsis"
+                                           TextWrapping="Wrap" />
                             </StackPanel>
                         </Border>
                     </StackPanel>

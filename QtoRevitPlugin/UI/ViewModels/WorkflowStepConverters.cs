@@ -103,4 +103,69 @@ namespace QtoRevitPlugin.UI.ViewModels
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
             => throw new NotSupportedException();
     }
+
+    // ======================================================================
+    // AI status badge (D5)
+    // ======================================================================
+
+    /// <summary>
+    /// <see cref="AiStatusKind"/> → glyph Unicode per il badge AI in HomeView.
+    ///   Disabled    → "∅" (insieme vuoto)
+    ///   Unavailable → "⚠"
+    ///   Checking    → "…"
+    ///   Ready       → "●" (pallino pieno, come led)
+    /// </summary>
+    public class AiStatusToGlyphConverter : IValueConverter
+    {
+        public static readonly AiStatusToGlyphConverter Instance = new AiStatusToGlyphConverter();
+
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+            => value is AiStatusKind s ? s switch
+            {
+                AiStatusKind.Ready => "●",
+                AiStatusKind.Checking => "…",
+                AiStatusKind.Unavailable => "⚠",
+                _ => "∅",
+            } : "∅";
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => throw new NotSupportedException();
+    }
+
+    /// <summary>
+    /// <see cref="AiStatusKind"/> → Brush per colorare il glyph del badge AI.
+    /// Ready = verde teal brand, Checking = dim, Unavailable = goldenrod,
+    /// Disabled = chrome text dim.
+    /// </summary>
+    public class AiStatusToBrushConverter : IValueConverter
+    {
+        public static readonly AiStatusToBrushConverter Instance = new AiStatusToBrushConverter();
+
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is not AiStatusKind s) return Brushes.Gray;
+
+            string resKey = s switch
+            {
+                AiStatusKind.Ready => "BrandAccentBrush",
+                AiStatusKind.Checking => "ChromeTextDimBrush",
+                AiStatusKind.Unavailable => "ChromeTextBrush",
+                _ => "ChromeTextDimBrush",
+            };
+            if (System.Windows.Application.Current?.TryFindResource(resKey) is Brush b)
+                return s == AiStatusKind.Unavailable
+                    ? new SolidColorBrush(Color.FromRgb(0xDA, 0xA5, 0x20)) // Goldenrod esplicito
+                    : b;
+
+            return s switch
+            {
+                AiStatusKind.Ready => new SolidColorBrush(Color.FromRgb(0x16, 0x75, 0x6D)),
+                AiStatusKind.Unavailable => new SolidColorBrush(Color.FromRgb(0xDA, 0xA5, 0x20)),
+                _ => Brushes.Gray,
+            };
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => throw new NotSupportedException();
+    }
 }

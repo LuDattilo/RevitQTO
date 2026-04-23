@@ -66,6 +66,7 @@ namespace QtoRevitPlugin.AI.Ollama
         /// <summary>
         /// True se Ollama risponde sul /api/tags entro 2s. Check leggero per probe
         /// all'avvio del plugin. Non verifica che il modello sia disponibile.
+        /// Non chiamare dal UI thread — usa <see cref="IsAvailableAsync"/>.
         /// </summary>
         public bool IsAvailable
         {
@@ -83,6 +84,25 @@ namespace QtoRevitPlugin.AI.Ollama
                 {
                     return false;
                 }
+            }
+        }
+
+        /// <summary>
+        /// Variante async di <see cref="IsAvailable"/>: non blocca il thread chiamante,
+        /// adatta ad avvio UI e a probe periodici. Timeout 2s.
+        /// </summary>
+        public async Task<bool> IsAvailableAsync(CancellationToken ct = default)
+        {
+            try
+            {
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                cts.CancelAfter(TimeSpan.FromSeconds(2));
+                var resp = await _client.GetAsync("/api/tags", cts.Token).ConfigureAwait(false);
+                return resp.IsSuccessStatusCode;
+            }
+            catch
+            {
+                return false;
             }
         }
 
