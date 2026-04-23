@@ -148,6 +148,29 @@ namespace QtoRevitPlugin.Data
                 }
             }
 
+            if (dbVersion < 6)
+            {
+                // v6: aggiorna UNIQUE constraint su QtoAssignments da (SessionId, UniqueId, EpCode)
+                //     a (SessionId, UniqueId, EpCode, Version) per supportare il pattern Supersede.
+                // SQLite non supporta DROP CONSTRAINT → ricreazione tabella.
+                // Guard: solo se la tabella esiste ed è la versione completa (ha ElementId).
+                // DB minimali (test v3) non hanno ElementId → skip; la v4 migration avrà già creato
+                // le colonne mancanti tramite ALTER TABLE prima di arrivare qui.
+                if (TableExists(conn, tx, "QtoAssignments") && ColumnExists(conn, tx, "QtoAssignments", "ElementId"))
+                {
+                    ExecuteStatement(conn, tx, "PRAGMA foreign_keys = OFF;");
+                    ExecuteStatement(conn, tx, DatabaseSchema.MigrateV5ToV6_RenameQtoAssignments);
+                    ExecuteStatement(conn, tx, DatabaseSchema.MigrateV5ToV6_CreateQtoAssignments);
+                    ExecuteStatement(conn, tx, DatabaseSchema.MigrateV5ToV6_CopyData);
+                    ExecuteStatement(conn, tx, DatabaseSchema.MigrateV5ToV6_DropBackup);
+                    ExecuteStatement(conn, tx, DatabaseSchema.MigrateV5ToV6_RecreateIndexes);
+                    ExecuteStatement(conn, tx, "PRAGMA foreign_keys = ON;");
+                }
+                // Se QtoAssignments non esiste o è minimale (test), non serve ricrearla:
+                // il vincolo corretto sarà applicato quando la tabella verrà creata tramite
+                // InitialStatements (già eseguito nel loop v<5 sopra).
+            }
+
             using (var insert = conn.CreateCommand())
             {
                 insert.Transaction = tx;
@@ -166,6 +189,15 @@ namespace QtoRevitPlugin.Data
             cmd.Transaction = tx;
             cmd.CommandText = sql;
             cmd.ExecuteNonQuery();
+        }
+
+        private static bool TableExists(SqliteConnection conn, SqliteTransaction tx, string table)
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=$t;";
+            cmd.Parameters.AddWithValue("$t", table);
+            return Convert.ToInt64(cmd.ExecuteScalar()!) > 0;
         }
 
         /// <summary>

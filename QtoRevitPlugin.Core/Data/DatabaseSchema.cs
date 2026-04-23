@@ -14,13 +14,15 @@ namespace QtoRevitPlugin.Data
     /// </summary>
     internal static class DatabaseSchema
     {
+        // v6 (Sprint 9 Task 5): QtoAssignments UNIQUE constraint aggiornato a (SessionId, UniqueId, EpCode, Version)
+        //                per supportare il pattern Supersede che inserisce nuove versioni della stessa riga.
         // v5 (Sprint 9): ComputoChapters + QtoAssignments.ComputoChapterId + Sessions.LastUsedComputoChapterId
         // v4 (Sprint 6): ChangeLog + ElementSnapshots + colonne audit su QtoAssignments
         //                (CreatedBy, CreatedAt, ModifiedBy, Version, AuditStatus).
         // v3 (Sprint 4): aggiunta colonna PriceLists.PublicId GUID per riferimenti portabili
         //                nel DataStorage ES del .rvt (ProjectPriceListSnapshot futuro — Sprint 5).
         // v2 (Sprint 2): aggiunta virtual table PriceItems_FTS per ricerca full-text.
-        public const int CurrentVersion = 5;
+        public const int CurrentVersion = 6;
 
         /// <summary>Ordine di esecuzione degli statement per setup iniziale.</summary>
         public static readonly string[] InitialStatements =
@@ -165,7 +167,7 @@ CREATE TABLE IF NOT EXISTS QtoAssignments (
     Version           INTEGER NOT NULL DEFAULT 1,
     AuditStatus       TEXT NOT NULL DEFAULT 'Active',
     ComputoChapterId  INTEGER NULL REFERENCES ComputoChapters(Id) ON DELETE SET NULL,
-    UNIQUE(SessionId, UniqueId, EpCode)
+    UNIQUE(SessionId, UniqueId, EpCode, Version)
 );
 CREATE INDEX IF NOT EXISTS IX_QtoAssignments_Session_Unique ON QtoAssignments(SessionId, UniqueId);
 CREATE INDEX IF NOT EXISTS IX_QtoAssignments_EpCode ON QtoAssignments(EpCode);";
@@ -352,5 +354,67 @@ CREATE INDEX IF NOT EXISTS IX_ComputoChapters_Parent ON ComputoChapters(ParentCh
 
         public const string MigrateV4ToV5_AddLastUsedChapterToSessions =
             "ALTER TABLE Sessions ADD COLUMN LastUsedComputoChapterId INTEGER NULL REFERENCES ComputoChapters(Id) ON DELETE SET NULL;";
+
+        // --- Migration v5 → v6 (Sprint 9 Task 5): fix UNIQUE constraint su QtoAssignments ----------
+        // SQLite non supporta DROP CONSTRAINT → bisogna ricreare la tabella con il nuovo schema.
+        // Passi: rename → create new → copy → drop old → recreate indexes.
+
+        public const string MigrateV5ToV6_RenameQtoAssignments =
+            "ALTER TABLE QtoAssignments RENAME TO QtoAssignments_v5_bak;";
+
+        public const string MigrateV5ToV6_CreateQtoAssignments = @"
+CREATE TABLE QtoAssignments (
+    Id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    SessionId         INTEGER NOT NULL REFERENCES Sessions(Id) ON DELETE CASCADE,
+    ElementId         INTEGER NOT NULL,
+    UniqueId          TEXT NOT NULL,
+    Category          TEXT,
+    FamilyName        TEXT,
+    PhaseCreated      TEXT,
+    PhaseDemolished   TEXT,
+    EpCode            TEXT NOT NULL,
+    EpDescription     TEXT,
+    Quantity          REAL NOT NULL DEFAULT 0,
+    QuantityGross     REAL NOT NULL DEFAULT 0,
+    QuantityDeducted  REAL NOT NULL DEFAULT 0,
+    Unit              TEXT,
+    UnitPrice         REAL NOT NULL DEFAULT 0,
+    Total             REAL NOT NULL DEFAULT 0,
+    RuleApplied       TEXT,
+    Source            TEXT NOT NULL DEFAULT 'RevitElement',
+    AssignedAt        DATETIME DEFAULT CURRENT_TIMESTAMP,
+    ModifiedAt        DATETIME,
+    IsDeleted         INTEGER NOT NULL DEFAULT 0,
+    IsExcluded        INTEGER NOT NULL DEFAULT 0,
+    ExclusionReason   TEXT,
+    CreatedBy         TEXT NOT NULL DEFAULT '',
+    CreatedAt         TEXT NOT NULL DEFAULT '',
+    ModifiedBy        TEXT,
+    Version           INTEGER NOT NULL DEFAULT 1,
+    AuditStatus       TEXT NOT NULL DEFAULT 'Active',
+    ComputoChapterId  INTEGER NULL REFERENCES ComputoChapters(Id) ON DELETE SET NULL,
+    UNIQUE(SessionId, UniqueId, EpCode, Version)
+);";
+
+        public const string MigrateV5ToV6_CopyData = @"
+INSERT INTO QtoAssignments
+    (Id, SessionId, ElementId, UniqueId, Category, FamilyName, PhaseCreated, PhaseDemolished,
+     EpCode, EpDescription, Quantity, QuantityGross, QuantityDeducted, Unit, UnitPrice, Total,
+     RuleApplied, Source, AssignedAt, ModifiedAt, IsDeleted, IsExcluded, ExclusionReason,
+     CreatedBy, CreatedAt, ModifiedBy, Version, AuditStatus, ComputoChapterId)
+SELECT
+    Id, SessionId, ElementId, UniqueId, Category, FamilyName, PhaseCreated, PhaseDemolished,
+    EpCode, EpDescription, Quantity, QuantityGross, QuantityDeducted, Unit, UnitPrice, Total,
+    RuleApplied, Source, AssignedAt, ModifiedAt, IsDeleted, IsExcluded, ExclusionReason,
+    CreatedBy, CreatedAt, ModifiedBy, Version, AuditStatus, ComputoChapterId
+FROM QtoAssignments_v5_bak;";
+
+        public const string MigrateV5ToV6_DropBackup =
+            "DROP TABLE QtoAssignments_v5_bak;";
+
+        public const string MigrateV5ToV6_RecreateIndexes = @"
+CREATE INDEX IF NOT EXISTS IX_QtoAssignments_Session_Unique ON QtoAssignments(SessionId, UniqueId);
+CREATE INDEX IF NOT EXISTS IX_QtoAssignments_EpCode ON QtoAssignments(EpCode);
+CREATE INDEX IF NOT EXISTS IX_QtoAssignments_Chapter ON QtoAssignments(ComputoChapterId);";
     }
 }

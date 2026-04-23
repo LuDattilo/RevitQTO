@@ -3,6 +3,7 @@ using Microsoft.Data.Sqlite;
 using QtoRevitPlugin.Models;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
@@ -424,7 +425,9 @@ namespace QtoRevitPlugin.Data
         // QtoAssignments
         // =====================================================================
 
-        public int InsertAssignment(QtoAssignment assignment)
+        public int InsertAssignment(QtoAssignment assignment) => InsertAssignment(assignment, null);
+
+        public int InsertAssignment(QtoAssignment assignment, IDbTransaction? tx)
         {
             const string sql = @"
                 INSERT INTO QtoAssignments
@@ -468,7 +471,7 @@ namespace QtoRevitPlugin.Data
                 assignment.Version,
                 AuditStatus = assignment.AuditStatus.ToString(),
                 assignment.ComputoChapterId
-            });
+            }, tx);
 
             assignment.Id = (int)id;
             return assignment.Id;
@@ -562,7 +565,9 @@ namespace QtoRevitPlugin.Data
         // ChangeLog
         // =====================================================================
 
-        public void AppendChangeLog(ChangeLogEntry entry)
+        public void AppendChangeLog(ChangeLogEntry entry) => AppendChangeLog(entry, null);
+
+        public void AppendChangeLog(ChangeLogEntry entry, IDbTransaction? tx)
         {
             const string sql = @"
                 INSERT INTO ChangeLog
@@ -580,7 +585,7 @@ namespace QtoRevitPlugin.Data
                 entry.NewValueJson,
                 entry.UserId,
                 Timestamp = entry.Timestamp.ToString("o")
-            });
+            }, tx);
         }
 
         public IReadOnlyList<ChangeLogEntry> GetChangeLog(int sessionId)
@@ -610,7 +615,9 @@ namespace QtoRevitPlugin.Data
         // ElementSnapshots
         // =====================================================================
 
-        public void UpsertSnapshot(ElementSnapshot snapshot)
+        public void UpsertSnapshot(ElementSnapshot snapshot) => UpsertSnapshot(snapshot, null);
+
+        public void UpsertSnapshot(ElementSnapshot snapshot, IDbTransaction? tx)
         {
             const string sql = @"
                 INSERT INTO ElementSnapshots
@@ -632,7 +639,7 @@ namespace QtoRevitPlugin.Data
                 snapshot.SnapshotQty,
                 AssignedEPJson = JsonSerializer.Serialize(snapshot.AssignedEP),
                 LastUpdated = snapshot.LastUpdated.ToString("o")
-            });
+            }, tx);
         }
 
         public IReadOnlyList<ElementSnapshot> GetSnapshots(int sessionId)
@@ -721,8 +728,40 @@ ORDER BY Level, SortOrder, Code;";
 
         public void AcceptDiffBatch(IReadOnlyList<SupersedeOp> ops)
         {
-            // Implementato in Task 5 — stub per ora
-            throw new System.NotImplementedException("AcceptDiffBatch implementato in Task 5");
+            if (ops == null || ops.Count == 0) return;
+
+            using var tx = _conn.BeginTransaction();
+            try
+            {
+                foreach (var op in ops)
+                {
+                    if (op.Kind == SupersedeKind.Modified)
+                    {
+                        _conn.Execute(
+                            "UPDATE QtoAssignments SET AuditStatus = 'Superseded', ModifiedAt = @Now WHERE Id = @Id;",
+                            new { Id = op.OldAssignmentId, Now = DateTime.UtcNow }, tx);
+
+                        InsertAssignment(op.NewVersion, tx);
+
+                        UpsertSnapshot(op.NewSnapshot, tx);
+                    }
+                    else if (op.Kind == SupersedeKind.Deleted)
+                    {
+                        _conn.Execute(
+                            "UPDATE QtoAssignments SET AuditStatus = 'Deleted', ModifiedAt = @Now WHERE Id = @Id;",
+                            new { Id = op.OldAssignmentId, Now = DateTime.UtcNow }, tx);
+                    }
+
+                    AppendChangeLog(op.Log, tx);
+                }
+
+                tx.Commit();
+            }
+            catch
+            {
+                tx.Rollback();
+                throw;
+            }
         }
 
         // =====================================================================
