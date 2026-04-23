@@ -135,5 +135,20 @@ namespace QtoRevitPlugin.UI.Views
                 TaskDialog.Show("CME – Errore eliminazione", ex.Message);
             }
         }
+
+        private void OnAddProjectFavoriteClick(object sender, RoutedEventArgs e)
+        {
+            Vm.AddSelectedToProjectFavorites();
+        }
+
+        private void OnAddPersonalFavoriteClick(object sender, RoutedEventArgs e)
+        {
+            Vm.AddSelectedToPersonalFavorites();
+        }
+
+        private void OnRemoveFavoriteClick(object sender, RoutedEventArgs e)
+        {
+            Vm.RemoveSelectedFavorite();
+        }
     }
 }

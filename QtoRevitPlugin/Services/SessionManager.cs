@@ -200,6 +200,13 @@ namespace QtoRevitPlugin.Services
             _repository.UpdateSession(_activeSession);
         }
 
+        /// <summary>Notifica ai subscriber che il contesto della sessione attiva è cambiato senza cambiare file.</summary>
+        public void NotifySessionUpdated()
+        {
+            if (_activeSession == null) return;
+            SessionChanged?.Invoke(this, new SessionChangedEventArgs(_activeSession, SessionChangeKind.ContextUpdated));
+        }
+
         /// <summary>Rinomina la sessione (non il file). Cambia solo il SessionName nel DB.</summary>
         public void RenameActiveSession(string newName)
         {
@@ -317,6 +324,7 @@ namespace QtoRevitPlugin.Services
         Created,
         Resumed,
         Forked,
+        ContextUpdated,
         Renamed,
         Closed,
         Deleted

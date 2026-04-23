@@ -71,7 +71,7 @@ namespace QtoRevitPlugin.Application
                 CrashLogger.Info("→ SessionManager + AutoSave + PaneVM");
                 SessionManager = new SessionManager();
                 AutoSave = new AutoSaveService(SessionManager);
-                PaneViewModel = new DockablePaneViewModel(SessionManager);
+                PaneViewModel = new DockablePaneViewModel(SessionManager, UserLibrary);
 
                 SessionManager.SessionChanged += (_, args) =>
                 {
@@ -80,9 +80,11 @@ namespace QtoRevitPlugin.Application
                         case SessionChangeKind.Created:
                         case SessionChangeKind.Resumed:
                         case SessionChangeKind.Forked:
+                            PersistLastSessionPath(SessionManager.ActiveFilePath);
                             AutoSave.Start();
                             break;
                         case SessionChangeKind.Closed:
+                        case SessionChangeKind.Deleted:
                             AutoSave.Stop();
                             break;
                     }
@@ -236,6 +238,19 @@ namespace QtoRevitPlugin.Application
             panel.AddItem(launchButton);
             panel.AddSeparator();
             panel.AddItem(exportButton);
+        }
+
+        private static void PersistLastSessionPath(string? activeFilePath)
+        {
+            if (string.IsNullOrWhiteSpace(activeFilePath))
+                return;
+
+            var settings = SettingsService.Load();
+            if (string.Equals(settings.LastSessionFilePath, activeFilePath, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            settings.LastSessionFilePath = activeFilePath;
+            SettingsService.Save(settings);
         }
     }
 }

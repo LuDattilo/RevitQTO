@@ -8,6 +8,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -20,8 +21,18 @@
                        Margin="8,0,0,12" />
         </StackPanel>
 
+        <Border Grid.Row="1" Margin="16,0,16,0" Padding="10,8"
+                Background="{DynamicResource PanelSubBrush}"
+                BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1"
+                CornerRadius="3">
+            <TextBlock Text="{Binding PreviewPhaseContext}"
+                       FontSize="11"
+                       FontStyle="Italic"
+                       Foreground="{DynamicResource InkMutedBrush}" />
+        </Border>
+
         <!-- Tab switcher Selezione / Riepilogo -->
-        <StackPanel Grid.Row="1" Orientation="Horizontal"
+        <StackPanel Grid.Row="2" Orientation="Horizontal"
                     Background="White"
                     Margin="16,0,16,0"
                     >
@@ -32,7 +43,7 @@
         </StackPanel>
 
         <!-- Contenuto tab -->
-        <Border Grid.Row="2" Style="{DynamicResource CardStyle}" Margin="16,8,16,16">
+        <Border Grid.Row="3" Style="{DynamicResource CardStyle}" Margin="16,8,16,16">
             <Grid>
                 <!-- Tab Selezione -->
                 <StackPanel x:Name="PanelSelection" Visibility="Visible">

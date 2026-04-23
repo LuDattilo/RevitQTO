@@ -20,16 +20,20 @@ namespace QtoRevitPlugin.UI.ViewModels
     {
         private readonly SelectionService _service = new SelectionService();
         private readonly DispatcherTimer _searchDebounce;
+        private bool _isRefreshingPhaseSelection;
 
         public ObservableCollection<CategoryItemVm> Categories { get; } = new();
+        public ObservableCollection<PhaseItemVm> AvailablePhases { get; } = new();
+        public ObservableCollection<ComputationModeOptionVm> ComputationModes { get; } = new();
         public ObservableCollection<ElementRowVm> Elements { get; } = new();
 
         [ObservableProperty] private CategoryItemVm? _selectedCategory;
+        [ObservableProperty] private PhaseItemVm? _selectedPhase;
         [ObservableProperty] private string _nameQuery = string.Empty;
-        [ObservableProperty] private string _statusMessage = "Seleziona una categoria";
-        [ObservableProperty] private bool _filterByActivePhase = true;
+        [ObservableProperty] private string _statusMessage = "Seleziona una fase Revit e una categoria";
         [ObservableProperty] private int _activePhaseId;
         [ObservableProperty] private string _activePhaseName = "";
+        [ObservableProperty] private SelectionComputationMode _computationMode = SelectionComputationMode.NewAndExisting;
 
         public SelectionViewModel()
         {
@@ -38,6 +42,8 @@ namespace QtoRevitPlugin.UI.ViewModels
 
             foreach (var (bic, label) in SelectionService.PopularCategories)
                 Categories.Add(new CategoryItemVm(bic, label));
+            ComputationModes.Add(new ComputationModeOptionVm(SelectionComputationMode.NewAndExisting, "Nuovo + Esistente"));
+            ComputationModes.Add(new ComputationModeOptionVm(SelectionComputationMode.Demolitions, "Demolizioni"));
 
             if (QtoApplication.Instance?.SessionManager != null)
             {
@@ -49,16 +55,7 @@ namespace QtoRevitPlugin.UI.ViewModels
         public void RefreshFromSession()
         {
             var session = QtoApplication.Instance?.SessionManager?.ActiveSession;
-            if (session != null && session.ActivePhaseId > 0)
-            {
-                ActivePhaseId = session.ActivePhaseId;
-                ActivePhaseName = session.ActivePhaseName;
-            }
-            else
-            {
-                ActivePhaseId = 0;
-                ActivePhaseName = "";
-            }
+            RefreshPhaseOptions(session);
         }
 
         partial void OnSelectedCategoryChanged(CategoryItemVm? value)
@@ -72,7 +69,22 @@ namespace QtoRevitPlugin.UI.ViewModels
             _searchDebounce.Start();
         }
 
-        partial void OnFilterByActivePhaseChanged(bool value) => Search();
+        partial void OnSelectedPhaseChanged(PhaseItemVm? value)
+        {
+            if (_isRefreshingPhaseSelection || value == null)
+                return;
+
+            ActivePhaseId = value.PhaseId;
+            ActivePhaseName = value.Name;
+            PersistSelectedPhase(value);
+            Search();
+        }
+
+        partial void OnComputationModeChanged(SelectionComputationMode value)
+        {
+            OnPropertyChanged(nameof(ComputationModeLabel));
+            Search();
+        }
 
         private void OnSearchDebounceTick(object? sender, EventArgs e)
         {
@@ -84,6 +96,12 @@ namespace QtoRevitPlugin.UI.ViewModels
         public void Search()
         {
             Elements.Clear();
+            if (SelectedPhase == null)
+            {
+                StatusMessage = "Seleziona una fase Revit per cominciare.";
+                return;
+            }
+
             if (SelectedCategory == null)
             {
                 StatusMessage = "Seleziona una categoria per cominciare.";
@@ -100,20 +118,20 @@ namespace QtoRevitPlugin.UI.ViewModels
             var sw = System.Diagnostics.Stopwatch.StartNew();
             try
             {
-                int? phaseFilter = (FilterByActivePhase && ActivePhaseId > 0) ? ActivePhaseId : (int?)null;
-
                 var results = _service.FindElements(
                     doc,
                     SelectedCategory.Bic,
                     NameQuery,
-                    phaseFilter);
+                    SelectedPhase.PhaseId,
+                    ComputationMode);
                 sw.Stop();
 
                 foreach (var info in results)
                     Elements.Add(new ElementRowVm(info));
 
                 StatusMessage = $"{results.Count} elementi · categoria «{SelectedCategory.Label}»" +
-                                (phaseFilter.HasValue ? $" · fase «{ActivePhaseName}»" : " · tutte le fasi") +
+                                $" · fase «{ActivePhaseName}»" +
+                                $" · modalità «{ComputationModeLabel}»" +
                                 $" · {sw.ElapsedMilliseconds} ms";
             }
             catch (Exception ex)
@@ -165,6 +183,65 @@ namespace QtoRevitPlugin.UI.ViewModels
             if (uidoc == null) return;
             _service.SelectInRevit(uidoc, new[] { elementId });
         }
+
+        public string ComputationModeLabel =>
+            ComputationMode == SelectionComputationMode.Demolitions
+                ? "Demolizioni"
+                : "Nuovo + Esistente";
+
+        private void RefreshPhaseOptions(WorkSession? session)
+        {
+            AvailablePhases.Clear();
+
+            var doc = QtoApplication.Instance?.CurrentUiApp?.ActiveUIDocument?.Document;
+            if (doc == null)
+            {
+                ActivePhaseId = 0;
+                ActivePhaseName = "";
+                _isRefreshingPhaseSelection = true;
+                SelectedPhase = null;
+                _isRefreshingPhaseSelection = false;
+                return;
+            }
+
+            var phases = new PhaseService(doc).GetAvailablePhases();
+            foreach (var phase in phases)
+                AvailablePhases.Add(new PhaseItemVm(phase));
+
+            var selected = session != null && session.ActivePhaseId > 0
+                ? AvailablePhases.FirstOrDefault(x => x.PhaseId == session.ActivePhaseId)
+                : AvailablePhases.FirstOrDefault();
+
+            _isRefreshingPhaseSelection = true;
+            SelectedPhase = selected;
+            _isRefreshingPhaseSelection = false;
+
+            if (selected != null)
+            {
+                ActivePhaseId = selected.PhaseId;
+                ActivePhaseName = selected.Name;
+
+                if (session != null && session.ActivePhaseId != selected.PhaseId)
+                    PersistSelectedPhase(selected);
+            }
+            else
+            {
+                ActivePhaseId = 0;
+                ActivePhaseName = "";
+            }
+        }
+
+        private static void PersistSelectedPhase(PhaseItemVm selectedPhase)
+        {
+            var session = QtoApplication.Instance?.SessionManager?.ActiveSession;
+            if (session == null)
+                return;
+
+            session.ActivePhaseId = selectedPhase.PhaseId;
+            session.ActivePhaseName = selectedPhase.Name;
+            QtoApplication.Instance!.SessionManager.Flush();
+            QtoApplication.Instance.SessionManager.NotifySessionUpdated();
+        }
     }
 
     public class CategoryItemVm
@@ -201,5 +278,17 @@ namespace QtoRevitPlugin.UI.ViewModels
         public string LevelName { get; }
         public string PhaseCreatedName { get; }
         public string PhaseDemolishedName { get; }
+    }
+
+    public class ComputationModeOptionVm
+    {
+        public ComputationModeOptionVm(SelectionComputationMode mode, string label)
+        {
+            Mode = mode;
+            Label = label;
+        }
+
+        public SelectionComputationMode Mode { get; }
+        public string Label { get; }
     }
 }

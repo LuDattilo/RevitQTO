@@ -47,6 +47,7 @@ namespace QtoRevitPlugin.UI.ViewModels
         public ObservableCollection<FamilyTypeRow> FamilyTypes { get; } = new();
 
         [ObservableProperty] private string _familyStatus = "Seleziona una categoria per vedere le famiglie.";
+        [ObservableProperty] private string _currentPhaseName = "";
 
         // =====================================================================
         // Tab 2 — Locali (Sorgente B)
@@ -93,6 +94,11 @@ namespace QtoRevitPlugin.UI.ViewModels
 
             // Reagisci ad aggiunte/rimozioni manuali per aggiornare il totale
             ManualItems.CollectionChanged += (_, _) => RecalcManualTotal();
+
+            if (QtoApplication.Instance?.SessionManager != null)
+                QtoApplication.Instance.SessionManager.SessionChanged += (_, _) => RefreshFromSession();
+
+            RefreshFromSession();
         }
 
         // =====================================================================
@@ -486,6 +492,16 @@ namespace QtoRevitPlugin.UI.ViewModels
         {
             var max = existing.DefaultIfEmpty(0).Max();
             return max + 1;
+        }
+
+        public string PhaseContextMessage => string.IsNullOrWhiteSpace(CurrentPhaseName)
+            ? "Nessuna fase attiva."
+            : $"Contesto fase: «{CurrentPhaseName}».";
+
+        public void RefreshFromSession()
+        {
+            CurrentPhaseName = QtoApplication.Instance?.SessionManager?.ActiveSession?.ActivePhaseName ?? "";
+            OnPropertyChanged(nameof(PhaseContextMessage));
         }
     }
 

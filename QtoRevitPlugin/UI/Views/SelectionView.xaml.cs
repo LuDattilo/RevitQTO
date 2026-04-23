@@ -21,7 +21,7 @@ namespace QtoRevitPlugin.UI.Views
         }
 
         private void OnPopoutClick(object sender, RoutedEventArgs e)
-            => PopoutWindow.Popout(new SelectionView(), "CME · Selezione Elementi");
+            => PopoutWindow.Popout(new SelectionView(), "CME · Selezione");
 
         private void OnIsolateClick(object sender, RoutedEventArgs e) => _vm.IsolateCurrent();
         private void OnHideClick(object sender, RoutedEventArgs e)    => _vm.HideCurrent();

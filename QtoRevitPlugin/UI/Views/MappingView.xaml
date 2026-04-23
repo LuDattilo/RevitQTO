@@ -629,10 +629,17 @@
         <Border Grid.Row="2" Background="{DynamicResource PanelSubBrush}"
                 BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="0,1,0,0"
                 Padding="16,8">
-            <TextBlock FontSize="10"
-                       Foreground="{DynamicResource InkMutedBrush}"
-                       TextWrapping="Wrap"
-                       Text="• Persistenza DB di formule Room e voci manuali → Sprint 5 (insieme al flow tagging completo)  •  Assegnazione EP reale alle famiglie (multi-EP, scrittura parametri QTO) → Sprint 5" />
+            <StackPanel>
+                <TextBlock Text="{Binding PhaseContextMessage}"
+                           FontSize="11"
+                           FontStyle="Italic"
+                           Foreground="{DynamicResource InkMutedBrush}" />
+                <TextBlock FontSize="10"
+                           Margin="0,4,0,0"
+                           Foreground="{DynamicResource InkMutedBrush}"
+                           TextWrapping="Wrap"
+                           Text="• Persistenza DB di formule Room e voci manuali → Sprint 5 (insieme al flow tagging completo)  •  Assegnazione EP reale alle famiglie (multi-EP, scrittura parametri QTO) → Sprint 5" />
+            </StackPanel>
         </Border>
     </Grid>
 </UserControl>

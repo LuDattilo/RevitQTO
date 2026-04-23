@@ -27,7 +27,18 @@ namespace QtoRevitPlugin.UI.ViewModels
 
         public ComputoStructureViewModel()
         {
+            if (QtoApplication.Instance?.SessionManager != null)
+                QtoApplication.Instance.SessionManager.SessionChanged += (_, _) => RefreshFromSession();
+
             Reload();
+        }
+
+        public void RefreshFromSession()
+        {
+            Reload();
+            var phaseName = QtoApplication.Instance?.SessionManager?.ActiveSession?.ActivePhaseName;
+            if (!string.IsNullOrWhiteSpace(phaseName) && !string.IsNullOrWhiteSpace(StatusMessage))
+                StatusMessage += $" · fase «{phaseName}».";
         }
 
         public void Reload()

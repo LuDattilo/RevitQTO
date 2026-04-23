@@ -3,12 +3,14 @@ using QtoRevitPlugin.Models;
 using QtoRevitPlugin.Services;
 using System;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 
 namespace QtoRevitPlugin.UI.ViewModels
 {
     public enum QtoViewKey
     {
+        Home,
         Preview,
         Setup,
         Phase,
@@ -49,8 +51,19 @@ namespace QtoRevitPlugin.UI.ViewModels
     public partial class DockablePaneViewModel : ViewModelBase
     {
         private readonly SessionManager _sessionManager;
+        private readonly UserLibraryManager _userLibrary;
+        private readonly WorkflowStateEvaluator _workflowStateEvaluator = new WorkflowStateEvaluator();
 
         public ObservableCollection<QtoViewItem> Views { get; } = new();
+        public ObservableCollection<string> HomeWorkflowSteps { get; } = new()
+        {
+            "1 Setup progetto",
+            "2 Listino",
+            "3 Selezione",
+            "4 Tagging",
+            "5 Verifica",
+            "6 Export"
+        };
 
         [ObservableProperty]
         private QtoViewItem? _activeView;
@@ -76,6 +89,21 @@ namespace QtoRevitPlugin.UI.ViewModels
         [ObservableProperty]
         private bool _hasActiveSession;
 
+        [ObservableProperty]
+        private string _homePrimaryMessage = "Per iniziare serve un computo attivo";
+
+        [ObservableProperty]
+        private string _homeSecondaryMessage = "Crea o apri un file .cme per attivare il workflow CME";
+
+        [ObservableProperty]
+        private bool _canResumeLastSession;
+
+        [ObservableProperty]
+        private string _lastSessionHint = "Nessun ultimo computo disponibile";
+
+        [ObservableProperty]
+        private string _previewPhaseContext = "Nessuna fase attiva.";
+
         public double TaggedPercent => TotalElements > 0
             ? (double)TaggedElements / TotalElements * 100.0
             : 0.0;
@@ -86,11 +114,13 @@ namespace QtoRevitPlugin.UI.ViewModels
 
         public string AmountText => $"€ {TotalAmount:N2}";
 
-        public DockablePaneViewModel(SessionManager sessionManager)
+        public DockablePaneViewModel(SessionManager sessionManager, UserLibraryManager userLibrary)
         {
             _sessionManager = sessionManager ?? throw new ArgumentNullException(nameof(sessionManager));
+            _userLibrary = userLibrary ?? throw new ArgumentNullException(nameof(userLibrary));
             BuildViewList();
             _sessionManager.SessionChanged += OnSessionChanged;
+            SettingsService.SettingsChanged += (_, _) => RefreshWorkflowState();
             RefreshFromSession();
         }
 
@@ -98,8 +128,8 @@ namespace QtoRevitPlugin.UI.ViewModels
         {
             // Ordine logico di workflow: prima configuri, poi selezioni e vedi preview,
             // poi tagghi, poi verifichi (health/filtri/viste), poi NP, poi export.
+            Views.Add(new QtoViewItem(QtoViewKey.Home, "Home", "Avvio", 1));
             Views.Add(new QtoViewItem(QtoViewKey.Setup, "Setup", "§Fase 1", 2));
-            Views.Add(new QtoViewItem(QtoViewKey.Phase, "Fasi", "§I9", 4));
             Views.Add(new QtoViewItem(QtoViewKey.Selection, "Selezione", "§I3", 4));
             Views.Add(new QtoViewItem(QtoViewKey.Preview, "Preview", "§Fase 11", 1));
             Views.Add(new QtoViewItem(QtoViewKey.Tagging, "Tagging", "§I1·I2·I12·I13", 5));
@@ -110,7 +140,7 @@ namespace QtoRevitPlugin.UI.ViewModels
             Views.Add(new QtoViewItem(QtoViewKey.QtoViews, "Viste CME", "§I14", 9));
             Views.Add(new QtoViewItem(QtoViewKey.Export, "Export", "§Fase 12", 9));
 
-            ActiveView = Views.First(v => v.Key == QtoViewKey.Preview);   // Preview come default
+            ActiveView = Views.First(v => v.Key == QtoViewKey.Home);
         }
 
         private void OnSessionChanged(object? sender, SessionChangedEventArgs e)
@@ -142,8 +172,15 @@ namespace QtoRevitPlugin.UI.ViewModels
                 StatusMessage = session.LastSavedAt.HasValue
                     ? $"Salvato {session.LastSavedAt.Value.ToLocalTime():HH:mm}"
                     : "Sessione creata";
+                PreviewPhaseContext = string.IsNullOrWhiteSpace(session.ActivePhaseName)
+                    ? "Nessuna fase attiva."
+                    : $"Contesto fase corrente: «{session.ActivePhaseName}».";
             }
 
+            if (session == null)
+                PreviewPhaseContext = "Nessuna fase attiva.";
+
+            RefreshWorkflowState();
             OnPropertyChanged(nameof(ProgressText));
             OnPropertyChanged(nameof(AmountText));
             OnPropertyChanged(nameof(TaggedPercent));
@@ -158,6 +195,31 @@ namespace QtoRevitPlugin.UI.ViewModels
         {
             var target = Views.FirstOrDefault(v => v.Key == key);
             if (target != null) ActiveView = target;
+        }
+
+        private void RefreshWorkflowState()
+        {
+            var workflow = _workflowStateEvaluator.Evaluate(HasActiveSession, HasActivePriceList());
+            HomePrimaryMessage = workflow.PrimaryMessage;
+            HomeSecondaryMessage = workflow.SecondaryMessage;
+
+            var lastPath = SettingsService.Load().LastSessionFilePath;
+            CanResumeLastSession = !string.IsNullOrWhiteSpace(lastPath) && File.Exists(lastPath);
+            LastSessionHint = CanResumeLastSession
+                ? Path.GetFileNameWithoutExtension(lastPath)
+                : "Nessun ultimo computo disponibile";
+        }
+
+        private bool HasActivePriceList()
+        {
+            try
+            {
+                return _userLibrary.Library.GetPriceLists().Any(x => x.IsActive);
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 }

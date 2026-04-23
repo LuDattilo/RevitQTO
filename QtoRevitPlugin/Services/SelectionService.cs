@@ -49,7 +49,8 @@ namespace QtoRevitPlugin.Services
             Document doc,
             BuiltInCategory category,
             string? nameQuery,
-            int? phaseFilterId)
+            int? phaseFilterId,
+            SelectionComputationMode computationMode)
         {
             var collector = new FilteredElementCollector(doc)
                 .OfCategory(category)
@@ -64,11 +65,13 @@ namespace QtoRevitPlugin.Services
 #endif
                 var phaseFilter = new ElementPhaseStatusFilter(
                     phaseId,
-                    new List<ElementOnPhaseStatus>
-                    {
-                        ElementOnPhaseStatus.New,
-                        ElementOnPhaseStatus.Existing
-                    });
+                    computationMode == SelectionComputationMode.Demolitions
+                        ? new List<ElementOnPhaseStatus> { ElementOnPhaseStatus.Demolished }
+                        : new List<ElementOnPhaseStatus>
+                        {
+                            ElementOnPhaseStatus.New,
+                            ElementOnPhaseStatus.Existing
+                        });
                 collector = collector.WherePasses(phaseFilter);
             }
 
