@@ -27,22 +27,10 @@ namespace QtoRevitPlugin.UI.ViewModels
         private FavoriteSet _projectFavorites = new FavoriteSet { Name = "Preferiti progetto", Scope = FavoriteScope.Project };
         private FavoriteSet _personalFavorites = new FavoriteSet { Name = "Preferiti personali", Scope = FavoriteScope.Personal };
 
-        // ---------------------------------------------------------------------
-        // Collections bindate al DataGrid
-        // ---------------------------------------------------------------------
-
         public ObservableCollection<PriceListRow> PriceLists { get; } = new();
         public ObservableCollection<SearchScopeOptionRow> AvailableScopes { get; } = new();
         public ObservableCollection<PriceItemRow> SearchResults { get; } = new();
         public ObservableCollection<FavoriteItemRow> FavoriteResults { get; } = new();
-
-        // Nota: ProjectInfo non è più esposto qui come property — Sprint 10 rev. B ha
-        // separato SetupView in 4 sub-tab UserControl indipendenti. ProjectInfoView
-        // istanzia la propria ProjectInfoViewModel direttamente nel proprio XAML.
-
-        // ---------------------------------------------------------------------
-        // Properties osservabili
-        // ---------------------------------------------------------------------
 
         [ObservableProperty] private string _searchQuery = string.Empty;
         [ObservableProperty] private string _statusMessage = "Nessun listino caricato";
@@ -58,17 +46,7 @@ namespace QtoRevitPlugin.UI.ViewModels
         [ObservableProperty] private bool _canAddPersonalFavorite;
         [ObservableProperty] private bool _canRemoveFavorite;
 
-        /// <summary>
-        /// True quando la UserLibrary è disponibile (sempre true se il plugin è avviato correttamente).
-        /// Rinominato in Sprint 10 da <c>HasSessionActive</c> a <c>HasUserLibrary</c> (LOW-S1):
-        /// il nome precedente era fuorviante — non indica se c'è un computo aperto, solo
-        /// se la libreria listini è caricata.
-        /// </summary>
         public bool HasUserLibrary => QtoApplication.Instance?.UserLibrary?.Library != null;
-
-        // ---------------------------------------------------------------------
-        // Ctor
-        // ---------------------------------------------------------------------
 
         public SetupViewModel()
         {
@@ -92,10 +70,6 @@ namespace QtoRevitPlugin.UI.ViewModels
                 };
         }
 
-        // ---------------------------------------------------------------------
-        // Listini (da UserLibrary globale — persistenti tra sessioni)
-        // ---------------------------------------------------------------------
-
         public void RefreshPriceLists()
         {
             PriceLists.Clear();
@@ -111,14 +85,13 @@ namespace QtoRevitPlugin.UI.ViewModels
                 var lists = repo.GetPriceLists();
                 foreach (var l in lists)
                 {
-                    PriceLists.Add(new PriceListRow(l));
+                    PriceLists.Add(new PriceListRow(this, l));
                 }
 
                 StatusMessage = lists.Count == 0
                     ? "Libreria vuota — clicca «+ Importa listino…» per aggiungerne uno (persistente)"
                     : $"{lists.Count} listino(i) in libreria · {lists.Sum(l => l.RowCount)} voci totali · persistenti tra computi";
 
-                // Reset search service cache
                 _searchService = new PriceItemSearchService(repo);
             }
             catch (Exception ex)
@@ -177,10 +150,6 @@ namespace QtoRevitPlugin.UI.ViewModels
             SearchResults.Clear();
             SearchStatus = "Digita per cercare…";
         }
-
-        // ---------------------------------------------------------------------
-        // Ricerca (debounced)
-        // ---------------------------------------------------------------------
 
         partial void OnSearchQueryChanged(string value)
         {
@@ -265,14 +234,8 @@ namespace QtoRevitPlugin.UI.ViewModels
             }
         }
 
-        // ---------------------------------------------------------------------
-        // Helpers
-        // ---------------------------------------------------------------------
-
         private static QtoRepository? GetActiveRepo()
         {
-            // Listini sono nella UserLibrary globale (persistenti), NON nel .cme.
-            // Così l'import del listino è one-time: disponibile per ogni computo futuro.
             return QtoApplication.Instance?.UserLibrary?.Library;
         }
 
@@ -409,12 +372,27 @@ namespace QtoRevitPlugin.UI.ViewModels
         }
     }
 
-    // -------------------------------------------------------------------------
-    // Row DTOs (projection sulle entities — tengono solo ciò che il DataGrid mostra)
-    // -------------------------------------------------------------------------
-
-    public class PriceListRow
+    public class SearchScopeOptionRow
     {
+        public SearchScopeOptionRow(HybridSearchScope scope, string label)
+        {
+            Scope = scope;
+            Label = label;
+        }
+
+        public HybridSearchScope Scope { get; }
+        public string Label { get; }
+    }
+
+    public partial class PriceListRow : ObservableObject
+    {
+        private readonly SetupViewModel? _owner;
+
+        public PriceListRow(SetupViewModel owner, PriceList list) : this(list)
+        {
+            _owner = owner;
+        }
+
         public PriceListRow(PriceList list)
         {
             Id = list.Id;
@@ -424,8 +402,8 @@ namespace QtoRevitPlugin.UI.ViewModels
             Version = list.Version;
             RowCount = list.RowCount;
             Priority = list.Priority;
-            IsActive = list.IsActive;
             ImportedAt = list.ImportedAt;
+            _isActive = list.IsActive;
         }
 
         public int Id { get; }
@@ -435,16 +413,24 @@ namespace QtoRevitPlugin.UI.ViewModels
         public string Version { get; }
         public int RowCount { get; }
         public int Priority { get; }
-        public bool IsActive { get; }
         public DateTime ImportedAt { get; }
 
+        [ObservableProperty] private bool _isActive;
+
         public string ImportedAtShort => ImportedAt == default ? "" : ImportedAt.ToLocalTime().ToString("dd/MM HH:mm");
+
+        partial void OnIsActiveChanged(bool value)
+        {
+            _owner?.OnPriceListActiveToggled(this, value);
+        }
     }
 
-    public class PriceItemRow
+    public partial class PriceItemRow : ObservableObject
     {
         public PriceItemRow(PriceItem item)
         {
+            Id = item.Id;
+            ListId = item.PriceListId;
             Code = item.Code;
             SuperChapter = item.SuperChapter;
             Chapter = item.Chapter;
@@ -456,16 +442,25 @@ namespace QtoRevitPlugin.UI.ViewModels
             ListName = item.ListName;
         }
 
+        public int Id { get; }
+        public int ListId { get; }
         public string Code { get; }
         public string SuperChapter { get; }
         public string Chapter { get; }
         public string SubChapter { get; }
         public string ShortDesc { get; }
-        /// <summary>Description completa multi-line (es. livello3 + livello4 concatenati in EASY Toscana).</summary>
         public string Description { get; }
         public string Unit { get; }
         public double UnitPrice { get; }
         public string ListName { get; }
+
+        [ObservableProperty] private bool _isFavoriteInLibrary;
+
+        public string FavoriteMenuLabel => IsFavoriteInLibrary
+            ? "★ Rimuovi dai preferiti"
+            : "★ Aggiungi ai preferiti";
+
+        partial void OnIsFavoriteInLibraryChanged(bool value) => OnPropertyChanged(nameof(FavoriteMenuLabel));
 
         public string ShortDescTrimmed =>
             string.IsNullOrEmpty(ShortDesc) ? "" :
@@ -474,7 +469,6 @@ namespace QtoRevitPlugin.UI.ViewModels
 
         public string UnitPriceFormatted => UnitPrice > 0 ? $"€ {UnitPrice:N2}" : "—";
 
-        /// <summary>Path gerarchico visualizzabile nel detail panel (Super &gt; Chapter &gt; Sub).</summary>
         public string HierarchyPath
         {
             get
@@ -533,18 +527,6 @@ namespace QtoRevitPlugin.UI.ViewModels
             Unit = Unit,
             UnitPriceFormatted = UnitPriceFormatted
         };
-    }
-
-    public class SearchScopeOptionRow
-    {
-        public SearchScopeOptionRow(HybridSearchScope scope, string label)
-        {
-            Scope = scope;
-            Label = label;
-        }
-
-        public HybridSearchScope Scope { get; }
-        public string Label { get; }
     }
 
     public class SearchDetailRow
