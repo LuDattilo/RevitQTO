@@ -1,5 +1,6 @@
 using Autodesk.Revit.DB;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using QtoRevitPlugin.Application;
 using QtoRevitPlugin.Models;
 using QtoRevitPlugin.Services;
@@ -23,6 +24,7 @@ namespace QtoRevitPlugin.UI.ViewModels
 
         public ObservableCollection<CategoryItemVm> Categories { get; } = new();
         public ObservableCollection<ElementRowVm> Elements { get; } = new();
+        public ObservableCollection<ParamFilterRuleVm> ParamRules { get; } = new ObservableCollection<ParamFilterRuleVm>();
 
         [ObservableProperty] private CategoryItemVm? _selectedCategory;
         [ObservableProperty] private string _nameQuery = string.Empty;
@@ -30,6 +32,7 @@ namespace QtoRevitPlugin.UI.ViewModels
         [ObservableProperty] private bool _filterByActivePhase = true;
         [ObservableProperty] private int _activePhaseId;
         [ObservableProperty] private string _activePhaseName = "";
+        [ObservableProperty] private bool _hasParamRules;
 
         public SelectionViewModel()
         {
@@ -44,6 +47,7 @@ namespace QtoRevitPlugin.UI.ViewModels
                 QtoApplication.Instance.SessionManager.SessionChanged += (_, _) => RefreshFromSession();
             }
             RefreshFromSession();
+            ParamRules.CollectionChanged += (_, _) => UpdateHasParamRules();
         }
 
         public void RefreshFromSession()
@@ -102,18 +106,26 @@ namespace QtoRevitPlugin.UI.ViewModels
             {
                 int? phaseFilter = (FilterByActivePhase && ActivePhaseId > 0) ? ActivePhaseId : (int?)null;
 
+                var rules = ParamRules
+                    .Where(r => !string.IsNullOrWhiteSpace(r.ParameterName) && !string.IsNullOrWhiteSpace(r.Value))
+                    .Select(r => r.ToModel())
+                    .ToList();
+
                 var results = _service.FindElements(
                     doc,
                     SelectedCategory.Bic,
                     NameQuery,
-                    phaseFilter);
+                    phaseFilter,
+                    rules);
                 sw.Stop();
 
                 foreach (var info in results)
                     Elements.Add(new ElementRowVm(info));
 
+                var rulesLabel = rules.Count > 0 ? $" · {rules.Count} filtro/i param." : "";
                 StatusMessage = $"{results.Count} elementi · categoria «{SelectedCategory.Label}»" +
                                 (phaseFilter.HasValue ? $" · fase «{ActivePhaseName}»" : " · tutte le fasi") +
+                                rulesLabel +
                                 $" · {sw.ElapsedMilliseconds} ms";
             }
             catch (Exception ex)
@@ -165,6 +177,34 @@ namespace QtoRevitPlugin.UI.ViewModels
             if (uidoc == null) return;
             _service.SelectInRevit(uidoc, new[] { elementId });
         }
+
+        [RelayCommand]
+        private void AddParamRule()
+        {
+            var rule = new ParamFilterRuleVm();
+            // Debounce ricerca quando l'utente edita un campo della regola
+            rule.PropertyChanged += (_, _) =>
+            {
+                _searchDebounce.Stop();
+                _searchDebounce.Start();
+            };
+            ParamRules.Add(rule);
+            UpdateHasParamRules();
+        }
+
+        [RelayCommand]
+        private void RemoveParamRule(ParamFilterRuleVm? rule)
+        {
+            if (rule == null) return;
+            ParamRules.Remove(rule);
+            UpdateHasParamRules();
+            Search();
+        }
+
+        private void UpdateHasParamRules() =>
+            HasParamRules = ParamRules.Any(r =>
+                !string.IsNullOrWhiteSpace(r.ParameterName) &&
+                !string.IsNullOrWhiteSpace(r.Value));
     }
 
     public class CategoryItemVm
