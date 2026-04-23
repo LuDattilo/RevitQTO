@@ -115,7 +115,12 @@ namespace QtoRevitPlugin.Data
                 alterCmd.ExecuteNonQuery();
             }
 
-            if (dbVersion < 4)
+            // Le colonne audit Sprint 6 (v4) vengono verificate e applicate in modo
+            // DIFENSIVO (indipendentemente da dbVersion) — alcuni DB hanno SchemaInfo
+            // incongruente con la struttura reale (es. v4 dichiarato ma tabella
+            // ancora pre-v4). Senza questo guard, la migration v5→v6 fallisce perché
+            // il SELECT/INSERT riferisce CreatedBy che non esiste nel backup.
+            if (TableExists(conn, tx, "QtoAssignments"))
             {
                 if (!ColumnExists(conn, tx, "QtoAssignments", "CreatedBy"))
                     ExecuteStatement(conn, tx, DatabaseSchema.MigrateV3ToV4_CreatedBy);
@@ -129,23 +134,20 @@ namespace QtoRevitPlugin.Data
                     ExecuteStatement(conn, tx, DatabaseSchema.MigrateV3ToV4_AuditStatus);
             }
 
-            if (dbVersion < 5)
+            // Colonne v5 (Sprint 9): guard difensivo indipendente da dbVersion —
+            // stesso motivo del blocco v4 sopra (SchemaInfo può essere incongruente).
+            if (TableExists(conn, tx, "QtoAssignments") && !ColumnExists(conn, tx, "QtoAssignments", "ComputoChapterId"))
             {
-                // v5: ComputoChapters (già creato dal loop InitialStatements sopra via CREATE TABLE IF NOT EXISTS)
-                // ALTER QtoAssignments ADD COLUMN ComputoChapterId — guard via PRAGMA
-                if (!ColumnExists(conn, tx, "QtoAssignments", "ComputoChapterId"))
-                {
-                    ExecuteStatement(conn, tx, DatabaseSchema.MigrateV4ToV5_AddComputoChapterIdToAssignments);
-                }
-
-                // Crea l'indice su ComputoChapterId — CREATE INDEX IF NOT EXISTS è idempotente
+                ExecuteStatement(conn, tx, DatabaseSchema.MigrateV4ToV5_AddComputoChapterIdToAssignments);
+            }
+            // Indice idempotente via IF NOT EXISTS — safe to run always
+            if (TableExists(conn, tx, "QtoAssignments"))
+            {
                 ExecuteStatement(conn, tx, DatabaseSchema.MigrateV4ToV5_AddIndexOnComputoChapterId);
-
-                // ALTER Sessions ADD COLUMN LastUsedComputoChapterId — guard via PRAGMA
-                if (!ColumnExists(conn, tx, "Sessions", "LastUsedComputoChapterId"))
-                {
-                    ExecuteStatement(conn, tx, DatabaseSchema.MigrateV4ToV5_AddLastUsedChapterToSessions);
-                }
+            }
+            if (TableExists(conn, tx, "Sessions") && !ColumnExists(conn, tx, "Sessions", "LastUsedComputoChapterId"))
+            {
+                ExecuteStatement(conn, tx, DatabaseSchema.MigrateV4ToV5_AddLastUsedChapterToSessions);
             }
 
             if (dbVersion < 6)
