@@ -80,12 +80,12 @@
                           FontSize="11" Background="White" BorderThickness="1"
                           BorderBrush="{DynamicResource EdgeLightBrush}">
                     <DataGrid.Columns>
+                        <DataGridCheckBoxColumn Header="Attivo" Binding="{Binding IsActive, UpdateSourceTrigger=PropertyChanged}" Width="55" />
                         <DataGridTextColumn Header="Nome"     Binding="{Binding Name}"           Width="*" />
                         <DataGridTextColumn Header="Sorgente" Binding="{Binding Source}"         Width="70" />
                         <DataGridTextColumn Header="Regione"  Binding="{Binding Region}"         Width="80" />
                         <DataGridTextColumn Header="Voci"     Binding="{Binding RowCount}"       Width="60" />
                         <DataGridTextColumn Header="Prio"     Binding="{Binding Priority}"       Width="40" />
-                        <DataGridCheckBoxColumn Header="Attivo" Binding="{Binding IsActive}"     Width="50" />
                         <DataGridTextColumn Header="Importato" Binding="{Binding ImportedAtShort}" Width="90" />
                     </DataGrid.Columns>
                 </DataGrid>
