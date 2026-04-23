@@ -79,10 +79,8 @@ namespace QtoRevitPlugin.UI.ViewModels
         [RelayCommand]
         private void AcceptAll()
         {
-            foreach (var item in DeletedItems.ToList())
-                item.AcceptCommand.Execute(null);
-            foreach (var item in ModifiedItems.ToList())
-                item.AcceptCommand.Execute(null);
+            foreach (var item in DeletedItems) item.Accepted = true;
+            foreach (var item in ModifiedItems) item.Accepted = true;
         }
 
         [RelayCommand]
