@@ -41,6 +41,11 @@ namespace QtoRevitPlugin.AI.Ollama
         /// <summary>Cache in-memory degli embedding del listino attivo: PriceItemId → vettore.</summary>
         private Dictionary<int, float[]> _cache = new Dictionary<int, float[]>();
 
+        /// <summary>Mapping Code → PriceItemId per <see cref="FindSemanticMismatchesAsync"/>
+        /// che risolve via EpCode di <see cref="QtoAssignment"/>. Popolato da
+        /// <see cref="LoadEmbeddingCache"/>. Case-insensitive (codici prezzario mescolati).</summary>
+        private Dictionary<string, int> _codeToId = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
         public OllamaAiProvider(
             IEmbeddingProvider embedding,
             ITextModelProvider text,
@@ -87,12 +92,14 @@ namespace QtoRevitPlugin.AI.Ollama
         /// <summary>
         /// Carica in memoria gli embedding già in cache per i PriceItemId specificati,
         /// per abilitare ricerca in-memory veloce (no round-trip DB per ogni query).
+        /// Costruisce anche <see cref="_codeToId"/> per lookup da EpCode → PriceItemId.
         /// </summary>
         public void LoadEmbeddingCache(IReadOnlyList<int> priceItemIds)
         {
             if (priceItemIds == null || priceItemIds.Count == 0)
             {
                 _cache = new Dictionary<int, float[]>();
+                _codeToId = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                 return;
             }
 
@@ -100,6 +107,15 @@ namespace QtoRevitPlugin.AI.Ollama
             _cache = entries.ToDictionary(
                 e => e.PriceItemId,
                 e => EmbeddingSerializer.Deserialize(e.VectorBlob));
+
+            // Popola Code→Id via batch GetPriceItems (aggiunto per supporto mismatch)
+            var items = _repo.GetPriceItems(priceItemIds);
+            _codeToId = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (var it in items)
+            {
+                if (!string.IsNullOrEmpty(it.Code) && !_codeToId.ContainsKey(it.Code))
+                    _codeToId[it.Code] = it.Id;
+            }
         }
 
         // --------------------------------------------------------------------
@@ -117,14 +133,24 @@ namespace QtoRevitPlugin.AI.Ollama
             var queryVec = await _embedding.EmbedAsync(queryText, ct).ConfigureAwait(false);
             if (queryVec.Length == 0) return new List<MappingSuggestion>();
 
-            return _cache
+            // 1. Trova top-N (PriceItemId, Score)
+            var scored = _cache
                 .Select(kv => new { Id = kv.Key, Score = CosineSimilarity.Compute(queryVec, kv.Value) })
                 .Where(x => x.Score > SuggestThreshold)
                 .OrderByDescending(x => x.Score)
                 .Take(topN)
+                .ToList();
+
+            if (scored.Count == 0) return new List<MappingSuggestion>();
+
+            // 2. Batch-load PriceItem completi per popolare il DTO
+            var items = _repo.GetPriceItems(scored.Select(x => x.Id).ToList());
+            var byId = items.ToDictionary(i => i.Id, i => i);
+
+            return scored
                 .Select(x => new MappingSuggestion
                 {
-                    PriceItem = null, // il chiamante può risolvere via _repo se serve
+                    PriceItem = byId.TryGetValue(x.Id, out var pi) ? pi : null,
                     Score = x.Score,
                     Label = $"{x.Score:P0} match"
                 })
@@ -139,49 +165,41 @@ namespace QtoRevitPlugin.AI.Ollama
 
             var mismatches = new List<SemanticMismatch>();
 
-            // Cache locale degli embedding di categoria per evitare di ricalcolarli
-            // per assignments con stessa category+family (tipico in Revit).
-            var categoryVecCache = new Dictionary<string, float[]>();
+            // Cache locale degli embedding di categoria per evitare di ricalcolarli per
+            // assignments con stessa category+family (Revit tipicamente ha molti elementi
+            // della stessa famiglia → risparmio consistente sulle chiamate Ollama).
+            var categoryVecCache = new Dictionary<string, float[]>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var a in assignments)
             {
                 ct.ThrowIfCancellationRequested();
                 if (string.IsNullOrEmpty(a.EpCode)) continue;
 
-                // Non abbiamo il PriceItemId diretto su assignment, lo risolviamo via Code
-                // solo se è presente nel cache (scenario typical: abbiamo indicizzato
-                // il listino attivo). Alternativa: iterare _cache per match Code — O(n).
-                // Per ora skip se non abbiamo l'embedding corrispondente.
+                // 1. Risolvi PriceItemId dal Code dell'assegnazione
+                if (!_codeToId.TryGetValue(a.EpCode, out var priceItemId)) continue;
+
+                // 2. Embedding dell'EP deve essere in cache (precaricato)
+                if (!_cache.TryGetValue(priceItemId, out var epVec)) continue;
+
+                // 3. Embedding della categoria+famiglia Revit (cache per ridurre call)
                 var catKey = $"{a.Category}|{a.FamilyName}";
                 if (!categoryVecCache.TryGetValue(catKey, out var catVec))
                 {
-                    catVec = await _embedding.EmbedAsync($"{a.Category} {a.FamilyName}", ct).ConfigureAwait(false);
+                    catVec = await _embedding
+                        .EmbedAsync($"{a.Category} {a.FamilyName}".Trim(), ct)
+                        .ConfigureAwait(false);
                     categoryVecCache[catKey] = catVec;
                 }
                 if (catVec.Length == 0) continue;
 
-                // Per trovare l'embedding dell'EP, facciamo lookup con una scorciatoia:
-                // cerchiamo l'item il cui Code matcha (assumendo PriceItems caricati in _cache).
-                // Nota: questa implementazione è O(n) per assignment; se serve performance
-                // migliore costruire un dizionario Code→PriceItemId esterno.
-                // Per ora lasciamo semplice: se non troviamo, skip.
-                // TODO: esporre una mappa Code→Id al momento di LoadEmbeddingCache.
-                float[]? epVec = null;
-                foreach (var kv in _cache)
-                {
-                    // Questa è una SOLUZIONE SEMPLIFICATA. In produzione si fornirà una
-                    // dictionary Code→Id accanto a _cache. Per ora ritorniamo solo i
-                    // mismatch che possiamo calcolare — accettabile per MVP.
-                    // (bisognerebbe avere accesso a _repo.GetPriceItem(kv.Key) per confrontare
-                    // il Code, ma è costoso farlo in loop. Skip per adesso.)
-                    break;
-                }
-                if (epVec == null) continue;
-
+                // 4. Similarity check
                 float similarity = CosineSimilarity.Compute(catVec, epVec);
                 if (similarity >= MismatchThreshold) continue;
 
-                var suggestions = await SuggestEpAsync(a.FamilyName, a.Category, topN: 3, ct).ConfigureAwait(false);
+                // 5. Mismatch: suggerisci alternative migliori per quello family+category
+                var suggestions = await SuggestEpAsync(a.FamilyName, a.Category, topN: 3, ct)
+                    .ConfigureAwait(false);
+
                 mismatches.Add(new SemanticMismatch
                 {
                     UniqueId = a.UniqueId,
@@ -214,14 +232,44 @@ namespace QtoRevitPlugin.AI.Ollama
             return SanitizeShortDesc(result);
         }
 
-        public Task<IReadOnlyList<PriceItem>> SemanticSearchAsync(
+        public async Task<IReadOnlyList<PriceItem>> SemanticSearchAsync(
             string query, IReadOnlyList<int> activeListIds, int topN = 10, CancellationToken ct = default)
         {
-            // MVP: implementazione completa richiede mapping PriceItemId → PriceItem
-            // (attualmente _repo non espone un Get-by-ids batch). Lascio placeholder
-            // non-crashing: il chiamante usa NullAiProvider se questa funzione serve.
-            // TODO: aggiungere IQtoRepository.GetPriceItems(ids) e completare qui.
-            return Task.FromResult<IReadOnlyList<PriceItem>>(new List<PriceItem>(0));
+            if (!IsAvailable || _cache.Count == 0 || string.IsNullOrWhiteSpace(query))
+                return new List<PriceItem>();
+
+            // 1. Embed query
+            var queryVec = await _embedding.EmbedAsync(query, ct).ConfigureAwait(false);
+            if (queryVec.Length == 0) return new List<PriceItem>();
+
+            // 2. Top-N dei PriceItemId della cache per cosine, filtrato per soglia
+            var topIds = _cache
+                .Select(kv => new { Id = kv.Key, Score = CosineSimilarity.Compute(queryVec, kv.Value) })
+                .Where(x => x.Score > SemanticSearchThreshold)
+                .OrderByDescending(x => x.Score)
+                .Take(topN)
+                .Select(x => x.Id)
+                .ToList();
+
+            if (topIds.Count == 0) return new List<PriceItem>();
+
+            // 3. Batch-load PriceItem completi
+            var items = _repo.GetPriceItems(topIds);
+
+            // 4. Filtra per listini attivi (se specificato); mantiene l'ordine di topIds per score
+            var activeSet = activeListIds != null && activeListIds.Count > 0
+                ? new HashSet<int>(activeListIds)
+                : null;
+
+            var byId = items.ToDictionary(i => i.Id, i => i);
+            var result = new List<PriceItem>(topIds.Count);
+            foreach (var id in topIds)
+            {
+                if (!byId.TryGetValue(id, out var item)) continue;
+                if (activeSet != null && !activeSet.Contains(item.PriceListId)) continue;
+                result.Add(item);
+            }
+            return result;
         }
 
         // --------------------------------------------------------------------

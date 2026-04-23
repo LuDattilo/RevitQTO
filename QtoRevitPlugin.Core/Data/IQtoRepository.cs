@@ -64,6 +64,14 @@ namespace QtoRevitPlugin.Data
         void UpsertRevitParamMapping(RevitParamMapping mapping);
         void DeleteRevitParamMapping(int sessionId, string fieldKey);
 
+        /// <summary>
+        /// Batch read di PriceItem per Id. Usato dalla ricerca semantica AI
+        /// (SemanticSearch) per risolvere gli Id top-N in oggetti completi.
+        /// Ignora silenziosamente gli Id orfani (nessun throw).
+        /// </summary>
+        System.Collections.Generic.IReadOnlyList<PriceItem> GetPriceItems(
+            System.Collections.Generic.IReadOnlyList<int> ids);
+
         // EmbeddingCache (AI — modulo opzionale). Cache vettori per voci di listino,
         // pre-calcolati al primo load e invalidati al cambio modello o listino.
         /// <summary>True se esiste un embedding per (priceItemId, modelName).</summary>
@@ -80,6 +88,32 @@ namespace QtoRevitPlugin.Data
         int DeleteEmbeddingsForModel(string modelName);
         /// <summary>Bulk-delete embedding per un listino (es. re-import dopo versione cambiata).</summary>
         int DeleteEmbeddingsForPriceList(int priceListId);
+
+        // NuoviPrezzi (I8 D.Lgs. 36/2023 All. II.14). Voci per lavorazioni non
+        // presenti nell'EP contrattuale, con analisi prezzi + workflow approvazione.
+        System.Collections.Generic.IReadOnlyList<NuovoPrezzo> GetNuoviPrezzi(int sessionId);
+        int InsertNuovoPrezzo(NuovoPrezzo np);
+        void UpdateNuovoPrezzo(NuovoPrezzo np);
+        void DeleteNuovoPrezzo(int id);
+
+        // ManualItems (I13). Voci EP manuali svincolate dagli elementi Revit:
+        // oneri di sicurezza, trasporti, noli, voci a corpo, ecc.
+        System.Collections.Generic.IReadOnlyList<ManualQuantityEntry> GetManualItems(int sessionId);
+        int InsertManualItem(ManualQuantityEntry item);
+        void UpdateManualItem(ManualQuantityEntry item);
+        /// <summary>Soft delete (IsDeleted=1) per audit trail.</summary>
+        void DeleteManualItem(int id);
+
+        // SelectionRules (I6). Preset regole di selezione salvati come JSON blob.
+        // Alternative al file JSON (persistenza globale user); qui persistiamo nel .cme
+        // specifico della sessione per condivisione col team via file .cme workshared.
+        /// <summary>Ritorna (Id, Name) delle regole salvate — JSON non deserializzato.</summary>
+        System.Collections.Generic.IReadOnlyList<(int Id, string Name)> GetSelectionRulePresetNames();
+        /// <summary>Carica il preset deserializzato per Id.</summary>
+        SelectionRulePreset? GetSelectionRulePreset(int id);
+        /// <summary>Salva o aggiorna per Name (UNIQUE implicito logico). Ritorna l'Id.</summary>
+        int UpsertSelectionRulePreset(SelectionRulePreset preset);
+        void DeleteSelectionRulePreset(int id);
     }
 
     public interface IFavoritesRepository

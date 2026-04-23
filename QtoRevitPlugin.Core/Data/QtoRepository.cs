@@ -387,6 +387,22 @@ namespace QtoRevitPlugin.Data
                         .ToList();
         }
 
+        public IReadOnlyList<PriceItem> GetPriceItems(IReadOnlyList<int> ids)
+        {
+            if (ids == null || ids.Count == 0) return new List<PriceItem>();
+
+            // Dapper espande IN @Ids in parametri posizionali
+            const string sql = @"
+SELECT p.*, pl.Name AS ListName
+FROM PriceItems p
+JOIN PriceLists pl ON pl.Id = p.PriceListId
+WHERE p.Id IN @Ids;";
+
+            return _conn.Query<PriceItemRow>(sql, new { Ids = ids })
+                        .Select(r => r.ToPriceItem())
+                        .ToList();
+        }
+
         /// <summary>
         /// Sanitizza la query utente e la converte in sintassi FTS5 prefix-match per ogni token.
         /// Rimuove caratteri problematici ("*()^-) e produce 'word1* word2*' (AND implicito).
@@ -1166,6 +1182,302 @@ WHERE ModelName = @ModelName AND PriceItemId IN @Ids;";
 DELETE FROM EmbeddingCache
 WHERE PriceItemId IN (SELECT Id FROM PriceItems WHERE PriceListId = @PriceListId);";
             return _conn.Execute(sql, new { PriceListId = priceListId });
+        }
+
+        // =====================================================================
+        // NuoviPrezzi (I8)
+        // =====================================================================
+
+        public IReadOnlyList<NuovoPrezzo> GetNuoviPrezzi(int sessionId)
+        {
+            const string sql = @"
+SELECT Id, SessionId, Code, Description, ShortDesc, Unit,
+       Manodopera, Materiali, Noli, Trasporti,
+       SpGenerali, UtileImpresa, RibassoAsta,
+       Status, NoteAnalisi, CreatedAt
+FROM NuoviPrezzi
+WHERE SessionId = @SessionId
+ORDER BY Code;";
+            return _conn.Query<NpRow>(sql, new { SessionId = sessionId })
+                        .Select(r => r.ToNuovoPrezzo())
+                        .ToList();
+        }
+
+        public int InsertNuovoPrezzo(NuovoPrezzo np)
+        {
+            if (np == null) throw new ArgumentNullException(nameof(np));
+            const string sql = @"
+INSERT INTO NuoviPrezzi
+(SessionId, Code, Description, ShortDesc, Unit,
+ Manodopera, Materiali, Noli, Trasporti,
+ SpGenerali, UtileImpresa, RibassoAsta,
+ UnitPrice, Status, NoteAnalisi, CreatedAt)
+VALUES
+(@SessionId, @Code, @Description, @ShortDesc, @Unit,
+ @Manodopera, @Materiali, @Noli, @Trasporti,
+ @SpGenerali, @UtileImpresa, @RibassoAsta,
+ @UnitPrice, @Status, @NoteAnalisi, @CreatedAt);
+SELECT last_insert_rowid();";
+
+            return _conn.ExecuteScalar<int>(sql, new
+            {
+                np.SessionId, np.Code, np.Description, np.ShortDesc, np.Unit,
+                np.Manodopera, np.Materiali, np.Noli, np.Trasporti,
+                np.SpGenerali, np.UtileImpresa, np.RibassoAsta,
+                UnitPrice = np.UnitPrice, // computed via getter del model
+                Status = np.Status.ToString(),
+                np.NoteAnalisi,
+                CreatedAt = np.CreatedAt.ToString("o")
+            });
+        }
+
+        public void UpdateNuovoPrezzo(NuovoPrezzo np)
+        {
+            if (np == null) throw new ArgumentNullException(nameof(np));
+            const string sql = @"
+UPDATE NuoviPrezzi SET
+    Code = @Code, Description = @Description, ShortDesc = @ShortDesc, Unit = @Unit,
+    Manodopera = @Manodopera, Materiali = @Materiali, Noli = @Noli, Trasporti = @Trasporti,
+    SpGenerali = @SpGenerali, UtileImpresa = @UtileImpresa, RibassoAsta = @RibassoAsta,
+    UnitPrice = @UnitPrice, Status = @Status, NoteAnalisi = @NoteAnalisi
+WHERE Id = @Id;";
+            _conn.Execute(sql, new
+            {
+                np.Id, np.Code, np.Description, np.ShortDesc, np.Unit,
+                np.Manodopera, np.Materiali, np.Noli, np.Trasporti,
+                np.SpGenerali, np.UtileImpresa, np.RibassoAsta,
+                UnitPrice = np.UnitPrice,
+                Status = np.Status.ToString(),
+                np.NoteAnalisi
+            });
+        }
+
+        public void DeleteNuovoPrezzo(int id)
+        {
+            _conn.Execute("DELETE FROM NuoviPrezzi WHERE Id = @Id;", new { Id = id });
+        }
+
+        /// <summary>Row interno per mapping Dapper Status string → enum.</summary>
+        private class NpRow
+        {
+            public int Id { get; set; }
+            public int SessionId { get; set; }
+            public string Code { get; set; } = "";
+            public string Description { get; set; } = "";
+            public string? ShortDesc { get; set; }
+            public string? Unit { get; set; }
+            public double Manodopera { get; set; }
+            public double Materiali { get; set; }
+            public double Noli { get; set; }
+            public double Trasporti { get; set; }
+            public double SpGenerali { get; set; }
+            public double UtileImpresa { get; set; }
+            public double RibassoAsta { get; set; }
+            public string Status { get; set; } = "Bozza";
+            public string? NoteAnalisi { get; set; }
+            public DateTime CreatedAt { get; set; }
+
+            public NuovoPrezzo ToNuovoPrezzo() => new NuovoPrezzo
+            {
+                Id = Id, SessionId = SessionId, Code = Code, Description = Description,
+                ShortDesc = ShortDesc ?? "", Unit = Unit ?? "",
+                Manodopera = Manodopera, Materiali = Materiali, Noli = Noli, Trasporti = Trasporti,
+                SpGenerali = SpGenerali, UtileImpresa = UtileImpresa, RibassoAsta = RibassoAsta,
+                Status = Enum.TryParse<NpStatus>(Status, out var s) ? s : NpStatus.Bozza,
+                NoteAnalisi = NoteAnalisi ?? "",
+                CreatedAt = CreatedAt
+            };
+        }
+
+        // =====================================================================
+        // ManualItems (I13)
+        // =====================================================================
+
+        public IReadOnlyList<ManualQuantityEntry> GetManualItems(int sessionId)
+        {
+            const string sql = @"
+SELECT Id, SessionId, EpCode, EpDescription, Unit, Quantity, UnitPrice, Total,
+       Notes, AttachmentPath, CreatedBy, CreatedAt, ModifiedAt, IsDeleted
+FROM ManualItems
+WHERE SessionId = @SessionId AND IsDeleted = 0
+ORDER BY EpCode, Id;";
+            return _conn.Query<ManualItemRow>(sql, new { SessionId = sessionId })
+                        .Select(r => r.ToEntry())
+                        .ToList();
+        }
+
+        public int InsertManualItem(ManualQuantityEntry item)
+        {
+            if (item == null) throw new ArgumentNullException(nameof(item));
+            const string sql = @"
+INSERT INTO ManualItems
+(SessionId, EpCode, EpDescription, Quantity, Unit, UnitPrice, Total,
+ Notes, AttachmentPath, CreatedBy, CreatedAt, IsDeleted)
+VALUES
+(@SessionId, @EpCode, @EpDescription, @Quantity, @Unit, @UnitPrice, @Total,
+ @Notes, @AttachmentPath, @CreatedBy, @CreatedAt, 0);
+SELECT last_insert_rowid();";
+            return _conn.ExecuteScalar<int>(sql, new
+            {
+                item.SessionId, item.EpCode, item.EpDescription, item.Quantity,
+                item.Unit, item.UnitPrice, Total = item.Total,
+                item.Notes, item.AttachmentPath, item.CreatedBy,
+                CreatedAt = item.CreatedAt.ToString("o")
+            });
+        }
+
+        public void UpdateManualItem(ManualQuantityEntry item)
+        {
+            if (item == null) throw new ArgumentNullException(nameof(item));
+            const string sql = @"
+UPDATE ManualItems SET
+    EpCode = @EpCode, EpDescription = @EpDescription, Quantity = @Quantity,
+    Unit = @Unit, UnitPrice = @UnitPrice, Total = @Total,
+    Notes = @Notes, AttachmentPath = @AttachmentPath,
+    ModifiedAt = @ModifiedAt
+WHERE Id = @Id;";
+            _conn.Execute(sql, new
+            {
+                item.Id, item.EpCode, item.EpDescription, item.Quantity,
+                item.Unit, item.UnitPrice, Total = item.Total,
+                item.Notes, item.AttachmentPath,
+                ModifiedAt = DateTime.UtcNow.ToString("o")
+            });
+        }
+
+        public void DeleteManualItem(int id)
+        {
+            // Soft delete per audit trail
+            _conn.Execute(
+                "UPDATE ManualItems SET IsDeleted = 1, ModifiedAt = @Now WHERE Id = @Id;",
+                new { Id = id, Now = DateTime.UtcNow.ToString("o") });
+        }
+
+        private class ManualItemRow
+        {
+            public int Id { get; set; }
+            public int SessionId { get; set; }
+            public string EpCode { get; set; } = "";
+            public string? EpDescription { get; set; }
+            public string? Unit { get; set; }
+            public double Quantity { get; set; }
+            public double UnitPrice { get; set; }
+            public double Total { get; set; }
+            public string? Notes { get; set; }
+            public string? AttachmentPath { get; set; }
+            public string? CreatedBy { get; set; }
+            public DateTime CreatedAt { get; set; }
+            public DateTime? ModifiedAt { get; set; }
+            public int IsDeleted { get; set; }
+
+            public ManualQuantityEntry ToEntry() => new ManualQuantityEntry
+            {
+                Id = Id, SessionId = SessionId, EpCode = EpCode,
+                EpDescription = EpDescription ?? "", Unit = Unit ?? "",
+                Quantity = Quantity, UnitPrice = UnitPrice,
+                // Total è computed via getter — non serve riassegnarlo
+                Notes = Notes ?? "", AttachmentPath = AttachmentPath ?? "",
+                CreatedBy = CreatedBy ?? "", CreatedAt = CreatedAt, ModifiedAt = ModifiedAt,
+                IsDeleted = IsDeleted != 0
+            };
+        }
+
+        // =====================================================================
+        // SelectionRules (I6) — preset regole di selezione in JSON
+        // =====================================================================
+
+        public IReadOnlyList<(int Id, string Name)> GetSelectionRulePresetNames()
+        {
+            const string sql = "SELECT Id, Name FROM SelectionRules ORDER BY Name;";
+            // Dapper non supporta direttamente ValueTuple → leggiamo in un record privato
+            return _conn.Query<SelectionRuleRow>(sql)
+                .Select(r => (r.Id, r.Name))
+                .ToList();
+        }
+
+        public SelectionRulePreset? GetSelectionRulePreset(int id)
+        {
+            const string sql = "SELECT Id, Name, RuleJson, CreatedAt FROM SelectionRules WHERE Id = @Id;";
+            var row = _conn.QueryFirstOrDefault<SelectionRuleRow>(sql, new { Id = id });
+            if (row == null) return null;
+
+            try
+            {
+                var preset = QtoRevitPlugin.Services.SelectionRulePresetService.Deserialize(row.RuleJson);
+                // Garantisce il nome corrispondente anche se il JSON salvato aveva un nome diverso
+                if (string.IsNullOrEmpty(preset.RuleName)) preset.RuleName = row.Name;
+                return preset;
+            }
+            catch
+            {
+                // JSON corrotto → non throw qui; il chiamante vedrà null e può mostrare errore UI
+                return null;
+            }
+        }
+
+        public int UpsertSelectionRulePreset(SelectionRulePreset preset)
+        {
+            if (preset == null) throw new ArgumentNullException(nameof(preset));
+            if (string.IsNullOrWhiteSpace(preset.RuleName))
+                throw new ArgumentException("Il preset deve avere un RuleName non vuoto.", nameof(preset));
+
+            var json = QtoRevitPlugin.Services.SelectionRulePresetService.Serialize(preset);
+
+            // SelectionRules non ha UNIQUE(Name) nello schema — implementiamo manualmente
+            // l'upsert: cerca per Name, UPDATE se esiste altrimenti INSERT.
+            using var tx = _conn.BeginTransaction();
+            try
+            {
+                var existingId = _conn.ExecuteScalar<int?>(
+                    "SELECT Id FROM SelectionRules WHERE Name = @Name LIMIT 1;",
+                    new { Name = preset.RuleName },
+                    transaction: tx);
+
+                int id;
+                if (existingId.HasValue)
+                {
+                    _conn.Execute(
+                        "UPDATE SelectionRules SET RuleJson = @RuleJson WHERE Id = @Id;",
+                        new { Id = existingId.Value, RuleJson = json },
+                        transaction: tx);
+                    id = existingId.Value;
+                }
+                else
+                {
+                    id = _conn.ExecuteScalar<int>(
+                        @"INSERT INTO SelectionRules (Name, RuleJson, CreatedAt)
+                          VALUES (@Name, @RuleJson, @CreatedAt);
+                          SELECT last_insert_rowid();",
+                        new
+                        {
+                            Name = preset.RuleName,
+                            RuleJson = json,
+                            CreatedAt = DateTime.UtcNow.ToString("o")
+                        },
+                        transaction: tx);
+                }
+
+                tx.Commit();
+                return id;
+            }
+            catch
+            {
+                try { tx.Rollback(); } catch { }
+                throw;
+            }
+        }
+
+        public void DeleteSelectionRulePreset(int id)
+        {
+            _conn.Execute("DELETE FROM SelectionRules WHERE Id = @Id;", new { Id = id });
+        }
+
+        private class SelectionRuleRow
+        {
+            public int Id { get; set; }
+            public string Name { get; set; } = "";
+            public string RuleJson { get; set; } = "";
+            public DateTime CreatedAt { get; set; }
         }
 
         // =====================================================================
