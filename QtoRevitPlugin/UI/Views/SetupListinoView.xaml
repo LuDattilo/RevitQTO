@@ -13,13 +13,13 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Toolbar: bottone popout in alto a destra della sub-view -->
         <Grid Grid.Row="0" Margin="16,8,16,4">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="Gestione listini prezzi + ricerca voci EP"
+            <TextBlock Grid.Column="0"
+                       Text="Gestione listini prezzi + ricerca voci EP"
                        FontSize="11" Foreground="{DynamicResource InkMutedBrush}"
                        VerticalAlignment="Center" />
             <Button Grid.Column="1" x:Name="BtnPopout" Click="OnPopoutClick"
@@ -32,7 +32,6 @@
                     ToolTip="Apre la scheda Listino in una finestra separata per workflow multi-monitor" />
         </Grid>
 
-        <!-- Contenuto: libreria + ricerca -->
         <Border Grid.Row="1" Style="{DynamicResource CardStyle}" Margin="16,4,16,8">
             <Grid>
                 <Grid.RowDefinitions>
