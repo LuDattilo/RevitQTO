@@ -7,6 +7,16 @@
         WindowStartupLocation="CenterScreen"
         ShowInTaskbar="True"
         Background="{DynamicResource PanelBgBrush}">
+
+    <!-- BUGFIX: merge theme nelle Window.Resources (in Revit Application.Current è spesso null) -->
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/QtoRevitPlugin;component/Theme/QtoTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
     <!-- Host generico per una UserControl estratta da un tab del DockablePane.
          L'utente apre la scheda in finestra separata per avere più spazio in workflow
          multi-monitor. I bottoni standard Window (minimize/maximize/close) sono forniti

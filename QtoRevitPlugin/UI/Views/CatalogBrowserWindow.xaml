@@ -9,6 +9,21 @@
         ShowInTaskbar="True"
         Background="{DynamicResource PanelBgBrush}">
 
+    <!--
+      BUGFIX: le Window in contesto Revit non ereditano automaticamente le Resources
+      di Application.Current (spesso null o popolata in ritardo). I DynamicResource
+      fallivano silenziosamente → tutti i brush cadevano sul default nero WPF.
+      Merge esplicito del theme in Window.Resources garantisce risoluzione corretta
+      indipendentemente dallo stato di Application.
+    -->
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/QtoRevitPlugin;component/Theme/QtoTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
