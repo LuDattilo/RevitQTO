@@ -31,78 +31,56 @@
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <Border Style="{DynamicResource CardStyle}" Margin="16,8,16,16">
                 <StackPanel>
-                    <TextBlock Text="METADATI COMPUTO (PERSISTITI NEL .CME · USATI NELL'INTESTAZIONE EXPORT XPWE)"
+                    <TextBlock Text="METADATI COMPUTO · INTESTAZIONE EXPORT XPWE / XLSX"
                                Style="{DynamicResource SectionLabelStyle}" />
+                    <TextBlock Margin="0,4,0,8"
+                               Text="Ogni campo può essere compilato a mano o ereditato da un parametro del modello Revit via dropdown «Sorgente». Con «+ Aggiungi parametro condiviso…» crei un nuovo Shared Parameter e lo leghi a ProjectInformation."
+                               TextWrapping="Wrap"
+                               FontSize="10"
+                               Foreground="{DynamicResource InkMutedBrush}" />
 
-                    <!-- Riga 1: Denominazione Opera + Committente -->
+                    <!-- Selector inline per gli 11 FieldKey (ProjectInfoFieldKeys.All) -->
+                    <ItemsControl ItemsSource="{Binding FieldRows}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,6,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="170" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="240" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               Text="{Binding Label}"
+                                               FontSize="11"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource InkDefaultBrush}" />
+                                    <TextBox Grid.Column="1"
+                                             Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
+                                             FontSize="11" Padding="6,4" />
+                                    <ComboBox Grid.Column="3"
+                                              ItemsSource="{Binding ParamSources}"
+                                              SelectedItem="{Binding SelectedSource, Mode=TwoWay}"
+                                              DisplayMemberPath="DisplayName"
+                                              FontSize="11" Padding="6,3"
+                                              ToolTip="Sorgente del valore: manuale, parametro del modello o crea nuovo Shared Parameter." />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Campi senza selector (date, ribasso, logo) -->
+                    <TextBlock Text="DATE E PARAMETRI GARA"
+                               Style="{DynamicResource SectionLabelStyle}"
+                               Margin="0,18,0,0" />
+
                     <Grid Margin="0,8,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="8" />
                             <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0">
-                            <TextBlock Text="Denominazione opera" FontSize="10" Foreground="{DynamicResource InkMutedBrush}" />
-                            <TextBox Text="{Binding DenominazioneOpera, UpdateSourceTrigger=PropertyChanged}" FontSize="11" Padding="6,4" />
-                        </StackPanel>
-                        <StackPanel Grid.Column="2">
-                            <TextBlock Text="Committente" FontSize="10" Foreground="{DynamicResource InkMutedBrush}" />
-                            <TextBox Text="{Binding Committente, UpdateSourceTrigger=PropertyChanged}" FontSize="11" Padding="6,4" />
-                        </StackPanel>
-                    </Grid>
-
-                    <!-- Riga 2: Impresa + RUP -->
-                    <Grid Margin="0,8,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="8" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0">
-                            <TextBlock Text="Impresa appaltatrice" FontSize="10" Foreground="{DynamicResource InkMutedBrush}" />
-                            <TextBox Text="{Binding Impresa, UpdateSourceTrigger=PropertyChanged}" FontSize="11" Padding="6,4" />
-                        </StackPanel>
-                        <StackPanel Grid.Column="2">
-                            <TextBlock Text="Responsabile Unico del Procedimento (RUP)" FontSize="10" Foreground="{DynamicResource InkMutedBrush}" />
-                            <TextBox Text="{Binding Rup, UpdateSourceTrigger=PropertyChanged}" FontSize="11" Padding="6,4" />
-                        </StackPanel>
-                    </Grid>
-
-                    <!-- Riga 3: Direttore Lavori -->
-                    <StackPanel Margin="0,8,0,0">
-                        <TextBlock Text="Direttore dei Lavori" FontSize="10" Foreground="{DynamicResource InkMutedBrush}" />
-                        <TextBox Text="{Binding DirettoreLavori, UpdateSourceTrigger=PropertyChanged}" FontSize="11" Padding="6,4" />
-                    </StackPanel>
-
-                    <!-- Riga 4: Luogo / Comune / Provincia -->
-                    <Grid Margin="0,8,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="2*" />
-                            <ColumnDefinition Width="8" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="8" />
-                            <ColumnDefinition Width="80" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0">
-                            <TextBlock Text="Luogo (via/piazza)" FontSize="10" Foreground="{DynamicResource InkMutedBrush}" />
-                            <TextBox Text="{Binding Luogo, UpdateSourceTrigger=PropertyChanged}" FontSize="11" Padding="6,4" />
-                        </StackPanel>
-                        <StackPanel Grid.Column="2">
-                            <TextBlock Text="Comune" FontSize="10" Foreground="{DynamicResource InkMutedBrush}" />
-                            <TextBox Text="{Binding Comune, UpdateSourceTrigger=PropertyChanged}" FontSize="11" Padding="6,4" />
-                        </StackPanel>
-                        <StackPanel Grid.Column="4">
-                            <TextBlock Text="Prov." FontSize="10" Foreground="{DynamicResource InkMutedBrush}" />
-                            <TextBox Text="{Binding Provincia, UpdateSourceTrigger=PropertyChanged}" FontSize="11" Padding="6,4" MaxLength="2" />
-                        </StackPanel>
-                    </Grid>
-
-                    <!-- Riga 5: Date -->
-                    <Grid Margin="0,8,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="8" />
-                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="140" />
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0">
                             <TextBlock Text="Data computo" FontSize="10" Foreground="{DynamicResource InkMutedBrush}" />
@@ -112,47 +90,16 @@
                             <TextBlock Text="Data prezzi listino" FontSize="10" Foreground="{DynamicResource InkMutedBrush}" />
                             <DatePicker SelectedDate="{Binding DataPrezzi}" FontSize="11" />
                         </StackPanel>
-                    </Grid>
-
-                    <!-- Riga 6: Riferimento prezzario + Ribasso -->
-                    <Grid Margin="0,8,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="8" />
-                            <ColumnDefinition Width="140" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0">
-                            <TextBlock Text="Riferimento prezzario (es. DEI 2024, Toscana 2024)" FontSize="10" Foreground="{DynamicResource InkMutedBrush}" />
-                            <TextBox Text="{Binding RiferimentoPrezzario, UpdateSourceTrigger=PropertyChanged}" FontSize="11" Padding="6,4" />
-                        </StackPanel>
-                        <StackPanel Grid.Column="2">
+                        <StackPanel Grid.Column="4">
                             <TextBlock Text="Ribasso d'asta (%)" FontSize="10" Foreground="{DynamicResource InkMutedBrush}" />
                             <TextBox Text="{Binding RibassoPercentuale, UpdateSourceTrigger=PropertyChanged}" FontSize="11" Padding="6,4" />
                         </StackPanel>
                     </Grid>
 
-                    <!-- Riga 7: CIG + CUP -->
-                    <Grid Margin="0,8,0,0">
+                    <!-- Footer: Save + status -->
+                    <Grid Margin="0,16,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="8" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0">
-                            <TextBlock Text="CIG" FontSize="10" Foreground="{DynamicResource InkMutedBrush}" />
-                            <TextBox Text="{Binding Cig, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas" FontSize="11" Padding="6,4" />
-                        </StackPanel>
-                        <StackPanel Grid.Column="2">
-                            <TextBlock Text="CUP" FontSize="10" Foreground="{DynamicResource InkMutedBrush}" />
-                            <TextBox Text="{Binding Cup, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas" FontSize="11" Padding="6,4" />
-                        </StackPanel>
-                    </Grid>
-
-                    <!-- Footer: Save + status + import actions -->
-                    <Grid Margin="0,14,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
@@ -162,15 +109,6 @@
                                    FontSize="10" FontStyle="Italic"
                                    Foreground="{DynamicResource InkMutedBrush}" />
                         <Button Grid.Column="1"
-                                Content="⬇ Eredita da Revit"
-                                Click="OnImportFromRevitClick"
-                                Padding="10,4" FontSize="11"
-                                Background="Transparent"
-                                Foreground="{DynamicResource InkDefaultBrush}"
-                                BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1"
-                                Margin="0,0,6,0" Cursor="Hand"
-                                ToolTip="Importa i campi disponibili dai Project Information e dai parametri di progetto del modello Revit attivo" />
-                        <Button Grid.Column="2"
                                 Content="📋 Copia da altro CME…"
                                 Click="OnCopyFromOtherCmeClick"
                                 Padding="10,4" FontSize="11"
@@ -178,8 +116,8 @@
                                 Foreground="{DynamicResource InkDefaultBrush}"
                                 BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1"
                                 Margin="0,0,6,0" Cursor="Hand"
-                                ToolTip="Apre un altro file .cme e copia le informazioni di progetto nei campi attuali (non sovrascrive i campi già compilati)" />
-                        <Button Grid.Column="3"
+                                ToolTip="Apre un altro file .cme e copia le informazioni di progetto nei campi vuoti (non sovrascrive)." />
+                        <Button Grid.Column="2"
                                 Content="💾 Salva"
                                 Command="{Binding SaveCommand}"
                                 Padding="12,4" FontSize="11" FontWeight="SemiBold"
