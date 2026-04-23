@@ -74,7 +74,21 @@ namespace QtoRevitPlugin.UI.Panes
         /// </summary>
         private void OnPaneLoaded(object sender, RoutedEventArgs e)
         {
-            // BUGFIX: BuildSwitcher qui (non nel ctor): a questo punto le Resources
+            // STEP 1: Safety net min-size PRIMA di qualsiasi operazione che triggeri
+            // layout pass. Se lo facciamo dopo BuildSwitcher/UpdateActiveView, il
+            // layout iniziale del PlaceholderView può far collassare la finestra
+            // floating (regressione osservata dopo fix b60ec39/d9991c3).
+            var window = Window.GetWindow(this);
+            if (window != null && window.ActualWidth <= 1500 && window.ActualHeight <= 1200)
+            {
+                // Non docked nella MainWindow di Revit (>1500×1200 = docked) → aggiusta
+                if (window.MinWidth < 420) window.MinWidth = 420;
+                if (window.MinHeight < 600) window.MinHeight = 600;
+                if (window.Width < 420) window.Width = 520;
+                if (window.Height < 600) window.Height = 760;
+            }
+
+            // STEP 2: BuildSwitcher qui (non nel ctor): a questo punto le Resources
             // MergedDictionaries sono sicuramente risolte e FindResource ritorna lo
             // Style reale invece del sentinel NamedObject. Idempotente via _switcherBuilt.
             if (!_switcherBuilt)
@@ -84,19 +98,6 @@ namespace QtoRevitPlugin.UI.Panes
                 UpdateSessionMenuEnabled();
                 _switcherBuilt = true;
             }
-
-            // Safety net min-size su floating window (logica originale §I15)
-            var window = Window.GetWindow(this);
-            if (window == null) return;
-
-            // Se siamo docked nella MainWindow di Revit la Width sarà >> 1500.
-            // In quel caso non tocchiamo la finestra (non è nostra).
-            if (window.ActualWidth > 1500 || window.ActualHeight > 1200) return;
-
-            if (window.MinWidth < 420) window.MinWidth = 420;
-            if (window.MinHeight < 600) window.MinHeight = 600;
-            if (window.Width < 420) window.Width = 520;
-            if (window.Height < 600) window.Height = 760;
         }
 
         /// <summary>

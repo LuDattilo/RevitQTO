@@ -10,8 +10,16 @@ namespace QtoRevitPlugin.UI.Panes
     /// - Guid STABILE (mai rigenerarlo: Revit persiste lo stato per Guid)
     /// - Floating by default, coordinate top-right dello schermo primario
     /// - MinimumWidth/Height esplicite per evitare il fallback 150x100 di Revit
-    /// - NON impostare VisibleByDefault: Revit gestisce la visibilità da solo
-    ///   (persistenza in %AppData%\Autodesk\Revit\2025\UIState.dat)
+    /// - <b>VisibleByDefault = false</b>: impedisce l'auto-apertura al primo
+    ///   avvio assoluto (quando UIState.dat non ha ancora stato salvato).
+    ///   Negli avvii successivi Revit usa UIState.dat e ignora questo flag.
+    ///
+    /// <para><b>Bugfix</b> (2026-04-23): <c>InitialState</c> con <c>FloatingRectangle</c>
+    /// veniva interpretato da Revit come override esplicito dello stato salvato →
+    /// il pane si apriva automaticamente ogni volta. Combinato con reflection
+    /// che falliva silenziosamente su Revit 2025+, le dimensioni cadevano al
+    /// fallback 150×100. Fix: VisibleByDefault=false esplicito + min-size
+    /// applicata anche in OnPaneLoaded del UserControl come safety net.</para>
     /// </summary>
     public class QtoDockablePaneProvider : IDockablePaneProvider
     {
@@ -52,7 +60,12 @@ namespace QtoRevitPlugin.UI.Panes
             TrySet(state, "MinimumHeight", 600);
 
             data.InitialState = state;
-            // ❌ NON impostare data.VisibleByDefault: la visibilità è gestita da Revit
+
+            // VisibleByDefault=false previene auto-apertura al primo avvio assoluto.
+            // Quando UIState.dat esiste con stato per questo Guid, Revit usa quello
+            // e VisibleByDefault viene ignorato — quindi non blocca la riapertura
+            // se l'utente aveva lasciato il pane visibile alla sessione precedente.
+            data.VisibleByDefault = false;
         }
 
         private static RevitRect ComputeInitialFloatingRect()
