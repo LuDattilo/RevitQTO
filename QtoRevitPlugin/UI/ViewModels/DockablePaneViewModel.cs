@@ -18,7 +18,8 @@ namespace QtoRevitPlugin.UI.ViewModels
         FilterManager,
         Health,
         Np,
-        Export
+        Export,
+        ComputoStructure
     }
 
     public class QtoViewItem : ObservableObject
@@ -102,6 +103,7 @@ namespace QtoRevitPlugin.UI.ViewModels
             Views.Add(new QtoViewItem(QtoViewKey.Selection, "Selezione", "§I3", 4));
             Views.Add(new QtoViewItem(QtoViewKey.Preview, "Preview", "§Fase 11", 1));
             Views.Add(new QtoViewItem(QtoViewKey.Tagging, "Tagging", "§I1·I2·I12·I13", 5));
+            Views.Add(new QtoViewItem(QtoViewKey.ComputoStructure, "Struttura Computo", "§Sprint9", 9));
             Views.Add(new QtoViewItem(QtoViewKey.Health, "Health", "§I5", 6));
             Views.Add(new QtoViewItem(QtoViewKey.FilterManager, "Filtri Vista", "§I11", 9));
             Views.Add(new QtoViewItem(QtoViewKey.QtoViews, "Viste CME", "§I14", 9));

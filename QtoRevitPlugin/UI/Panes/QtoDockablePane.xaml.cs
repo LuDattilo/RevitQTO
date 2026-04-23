@@ -137,6 +137,8 @@ namespace QtoRevitPlugin.UI.Panes
                 // + preview read-only delle famiglie (Sorgente A).
                 QtoViewKey.Tagging => new MappingView(),
 
+                QtoViewKey.ComputoStructure => new ComputoStructureView(),
+
                 QtoViewKey.QtoViews => new PlaceholderView("Viste CME Dedicate", item.Reference, item.AvailableInSprint,
                     "Vista 3D isometrica CME + piante 2D per livello + 3 Schedule nativi " +
                     "(Assegnazioni / Mancanti / Nuovi Prezzi). Creazione idempotente, " +
