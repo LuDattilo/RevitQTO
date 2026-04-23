@@ -200,6 +200,21 @@ namespace QtoRevitPlugin.Services
             _repository.UpdateSession(_activeSession);
         }
 
+        /// <summary>
+        /// Notifica alle view che la Fase Revit attiva della sessione è cambiata (soft-switch).
+        /// Persiste immediatamente il cambio (ActivePhaseId/Name già impostati dal chiamante)
+        /// e solleva <see cref="SessionChanged"/> con <see cref="SessionChangeKind.PhaseChanged"/>,
+        /// così che tutte le view phase-bound (ComputoStructure, Verifica, Tagging) si aggiornino.
+        /// </summary>
+        public void NotifyActivePhaseChanged()
+        {
+            if (_activeSession == null || _repository == null) return;
+            _activeSession.LastSavedAt = DateTime.UtcNow;
+            _repository.UpdateSession(_activeSession);
+            SessionChanged?.Invoke(this,
+                new SessionChangedEventArgs(_activeSession, SessionChangeKind.PhaseChanged));
+        }
+
         /// <summary>Rinomina la sessione (non il file). Cambia solo il SessionName nel DB.</summary>
         public void RenameActiveSession(string newName)
         {
@@ -319,7 +334,9 @@ namespace QtoRevitPlugin.Services
         Forked,
         Renamed,
         Closed,
-        Deleted
+        Deleted,
+        /// <summary>Fase Revit attiva cambiata (contesto soft-switch phase-bound).</summary>
+        PhaseChanged
     }
 
     public class SessionChangedEventArgs : EventArgs

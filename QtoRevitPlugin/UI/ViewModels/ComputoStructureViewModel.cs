@@ -37,7 +37,22 @@ namespace QtoRevitPlugin.UI.ViewModels
 
         public ComputoStructureViewModel()
         {
+            if (QtoApplication.Instance?.SessionManager != null)
+                QtoApplication.Instance.SessionManager.SessionChanged += (_, _) => RefreshFromSession();
+
             Reload();
+        }
+
+        /// <summary>
+        /// Richiamato quando la sessione attiva o la sua fase cambia: ricarica i
+        /// capitoli e aggiunge alla status line un riferimento alla fase corrente.
+        /// </summary>
+        public void RefreshFromSession()
+        {
+            Reload();
+            var phaseName = QtoApplication.Instance?.SessionManager?.ActiveSession?.ActivePhaseName;
+            if (!string.IsNullOrWhiteSpace(phaseName) && !string.IsNullOrWhiteSpace(StatusMessage))
+                StatusMessage += $" · fase «{phaseName}».";
         }
 
         partial void OnSelectedNodeChanged(ComputoChapterViewModel? value)

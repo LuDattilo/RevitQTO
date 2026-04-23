@@ -66,14 +66,20 @@ namespace QtoRevitPlugin.Services
         };
 
         /// <summary>
-        /// Trova elementi per categoria + (opzionale) filtro nome famiglia/tipo + fase.
+        /// Trova elementi per categoria + (opzionale) filtro nome famiglia/tipo + fase + modalità computo.
         /// Selezione v2: supporta anche filtri parametrici e limite massimo risultati.
+        /// <para>
+        /// La modalità <see cref="SelectionComputationMode.NewAndExisting"/> restituisce New+Existing,
+        /// mentre <see cref="SelectionComputationMode.Demolitions"/> restituisce solo gli elementi
+        /// demoliti nella fase indicata.
+        /// </para>
         /// </summary>
         public IReadOnlyList<ElementRowInfo> FindElements(
             Document doc,
             BuiltInCategory category,
             string? nameQuery,
             int? phaseFilterId,
+            SelectionComputationMode computationMode = SelectionComputationMode.NewAndExisting,
             IReadOnlyList<ParamFilterRule>? paramRules = null,
             int maxResults = 500)
         {
@@ -88,13 +94,14 @@ namespace QtoRevitPlugin.Services
 #else
                 var phaseId = new ElementId(phaseFilterId.Value);
 #endif
-                var phaseFilter = new ElementPhaseStatusFilter(
-                    phaseId,
-                    new List<ElementOnPhaseStatus>
+                var statuses = computationMode == SelectionComputationMode.Demolitions
+                    ? new List<ElementOnPhaseStatus> { ElementOnPhaseStatus.Demolished }
+                    : new List<ElementOnPhaseStatus>
                     {
                         ElementOnPhaseStatus.New,
                         ElementOnPhaseStatus.Existing
-                    });
+                    };
+                var phaseFilter = new ElementPhaseStatusFilter(phaseId, statuses);
                 collector = collector.WherePasses(phaseFilter);
             }
 

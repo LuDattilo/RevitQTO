@@ -114,7 +114,8 @@ namespace QtoRevitPlugin.UI.ViewModels
 
             session.ActivePhaseId = SelectedPhase.PhaseId;
             session.ActivePhaseName = SelectedPhase.Name;
-            QtoApplication.Instance!.SessionManager.Flush();
+            // Notifica tutte le view phase-bound che la fase attiva è cambiata.
+            QtoApplication.Instance!.SessionManager.NotifyActivePhaseChanged();
 
             StatusMessage = $"Fase attiva: «{SelectedPhase.Name}» · salvata sul computo.";
         }
