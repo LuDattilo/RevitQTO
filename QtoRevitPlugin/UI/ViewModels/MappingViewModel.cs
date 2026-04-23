@@ -380,10 +380,15 @@ namespace QtoRevitPlugin.UI.ViewModels
                 return;
             }
 
-            if (EditingManualItem.Id == 0)
+            // IsNew distingue creazione vs update (indipendente dall'Id che potrà
+            // collidere con rowid SQLite dopo la persistenza).
+            if (EditingManualItem.IsNew)
             {
                 EditingManualItem.Id = NextLocalId(ManualItems.Select(m => m.Id));
                 ManualItems.Add(EditingManualItem);
+                // Dopo l'inserimento in-memory la voce NON è più "nuova" per futuri edit:
+                // IsNew tornerà a true solo su duplica o nuovo Add esplicito.
+                EditingManualItem.IsNew = false;
                 ManualStatus = $"Aggiunta voce «{EditingManualItem.EpCode}» (non ancora persistita · Sprint 5).";
             }
             else
@@ -406,6 +411,7 @@ namespace QtoRevitPlugin.UI.ViewModels
             if (SelectedManualItem == null) return;
             var copy = SelectedManualItem.CloneForEdit();
             copy.Id = NextLocalId(ManualItems.Select(m => m.Id));
+            copy.IsNew = true;  // copia = nuova riga da persistere
             copy.EpDescription = (copy.EpDescription ?? "") + " (copia)";
             ManualItems.Add(copy);
             ManualStatus = $"Duplicata voce «{copy.EpCode}».";
@@ -554,6 +560,10 @@ namespace QtoRevitPlugin.UI.ViewModels
     public partial class ManualItemVm : ObservableObject
     {
         [ObservableProperty] private int _id;
+        /// <summary>True se la voce è stata creata localmente e non ancora persistita su DB.
+        /// Sprint 5: usare IsNew invece della convenzione Id==0 per evitare collisioni con
+        /// rowid SQLite (autoincrement DB potrebbe generare Id=N già presente in-memory).</summary>
+        [ObservableProperty] private bool _isNew = true;
         [ObservableProperty] private string _epCode = string.Empty;
         [ObservableProperty] private string _epDescription = string.Empty;
         [ObservableProperty] private string _unit = string.Empty;
@@ -581,6 +591,7 @@ namespace QtoRevitPlugin.UI.ViewModels
         public ManualItemVm CloneForEdit() => new()
         {
             Id = this.Id,
+            IsNew = this.IsNew,
             EpCode = this.EpCode,
             EpDescription = this.EpDescription,
             Unit = this.Unit,

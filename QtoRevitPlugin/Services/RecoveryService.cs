@@ -89,8 +89,13 @@ namespace QtoRevitPlugin.Services
                 return analysis;
             }
 
-            // Caso 4: entrambi hanno timestamp → confronto
-            var diff = (analysis.ModelLastSync!.Value - analysis.DbLastSync!.Value).TotalSeconds;
+            // Caso 4: entrambi hanno timestamp → confronto.
+            // Normalizza a UTC prima della sottrazione: SQLite DateTime ha spesso
+            // DateTimeKind.Unspecified, mentre ModelLastSync può essere Utc o Local —
+            // senza normalizzazione il confronto sbaglia di ore nei fusi orari non-UTC.
+            var modelUtc = ToUtc(analysis.ModelLastSync!.Value);
+            var dbUtc = ToUtc(analysis.DbLastSync!.Value);
+            var diff = (modelUtc - dbUtc).TotalSeconds;
 
             if (Math.Abs(diff) <= AlignmentToleranceSeconds)
             {
@@ -148,6 +153,25 @@ namespace QtoRevitPlugin.Services
                 .DefaultIfEmpty()
                 .Max();
             return lastSaved;
+        }
+
+        /// <summary>
+        /// Normalizza un DateTime a UTC. Kind=Utc → restituisce invariato;
+        /// Kind=Local → converte con offset fuso orario locale;
+        /// Kind=Unspecified (comune con SQLite) → ASSUME locale e converte.
+        /// </summary>
+        private static DateTime ToUtc(DateTime dt)
+        {
+            switch (dt.Kind)
+            {
+                case DateTimeKind.Utc:
+                    return dt;
+                case DateTimeKind.Local:
+                    return dt.ToUniversalTime();
+                default:
+                    // Unspecified (tipico SQLite) → assumiamo locale
+                    return DateTime.SpecifyKind(dt, DateTimeKind.Local).ToUniversalTime();
+            }
         }
 
         private static string FormatTimeSpan(double seconds)
