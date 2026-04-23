@@ -53,12 +53,6 @@ namespace QtoRevitPlugin.UI.ViewModels
                 return;
             }
 
-            // MED-C2: nota — SQLite con singola SqliteConnection fornisce letture
-            // consistenti all'interno della stessa operazione (no MVCC gap). Un
-            // transaction esplicita per READ richiederebbe di esporre BeginTransaction
-            // sull'IQtoRepository con un tipo astratto (IDbTransaction) — non ne
-            // vale la pena finché il VM non ha scritture concorrenti reali.
-            // Le 2 query GetComputoChapters + GetAssignments sono sicure qui.
             var all = _repo.GetComputoChapters(_sessionId);
             var assignments = _repo.GetAssignments(_sessionId);
 
@@ -143,8 +137,6 @@ namespace QtoRevitPlugin.UI.ViewModels
         {
             if (_repo == null || SelectedNode == null) return;
 
-            // LOW-C1: usa TaskDialog Revit invece di MessageBox WPF per coerenza
-            // visuale con il resto del plugin (dark theme Revit 2024+).
             var td = new Autodesk.Revit.UI.TaskDialog("Elimina capitolo")
             {
                 MainInstruction = $"Eliminare '{SelectedNode.Model.Code} {SelectedNode.Model.Name}'?",
@@ -165,7 +157,6 @@ namespace QtoRevitPlugin.UI.ViewModels
         private void Rename()
         {
             if (_repo == null || SelectedNode == null) return;
-            // Popup di edit — delegato a ChapterEditorPopup in Task 9
             var popup = new QtoRevitPlugin.UI.Views.ChapterEditorPopup(SelectedNode.Model);
             if (popup.ShowDialog() == true)
             {
