@@ -6,6 +6,29 @@ using System.Linq;
 
 namespace QtoRevitPlugin.Services
 {
+    public enum ParamOperator
+    {
+        Contains,
+        Equals,
+        NotEquals,
+        GreaterThan,
+        LessThan,
+        GreaterOrEqual,
+        LessOrEqual
+    }
+
+    /// <summary>
+    /// Regola filtro parametrica usata in Selezione v2. I valori sono in unità
+    /// DISPLAY del progetto (es. "0.30" per 30 cm). Il service converte in unità
+    /// interne Revit prima del confronto per StorageType.Double.
+    /// </summary>
+    public class ParamFilterRule
+    {
+        public string ParameterName { get; set; } = "";
+        public ParamOperator Operator { get; set; } = ParamOperator.Contains;
+        public string Value { get; set; } = "";
+    }
+
     /// <summary>
     /// Servizio di selezione elementi Revit (§I3 SelectionView).
     /// Query con FilteredElementCollector e comandi di isola/nascondi sulla vista corrente.
@@ -44,12 +67,15 @@ namespace QtoRevitPlugin.Services
 
         /// <summary>
         /// Trova elementi per categoria + (opzionale) filtro nome famiglia/tipo + fase.
+        /// Selezione v2: supporta anche filtri parametrici e limite massimo risultati.
         /// </summary>
         public IReadOnlyList<ElementRowInfo> FindElements(
             Document doc,
             BuiltInCategory category,
             string? nameQuery,
-            int? phaseFilterId)
+            int? phaseFilterId,
+            IReadOnlyList<ParamFilterRule>? paramRules = null,
+            int maxResults = 500)
         {
             var collector = new FilteredElementCollector(doc)
                 .OfCategory(category)
@@ -72,12 +98,18 @@ namespace QtoRevitPlugin.Services
                 collector = collector.WherePasses(phaseFilter);
             }
 
+            var activeRules = paramRules?
+                .Where(r => !string.IsNullOrWhiteSpace(r.ParameterName) && !string.IsNullOrWhiteSpace(r.Value))
+                .ToList();
+
             var elements = collector.ToElements();
             var result = new List<ElementRowInfo>(elements.Count);
             var nameQueryLower = nameQuery?.Trim().ToLowerInvariant();
 
             foreach (var el in elements)
             {
+                if (result.Count >= maxResults) break;
+
                 var info = ToRowInfo(el, doc);
 
                 // Filtro testuale opzionale su FamilyName/TypeName (case-insensitive contains)
@@ -85,6 +117,12 @@ namespace QtoRevitPlugin.Services
                 {
                     var haystack = (info.FamilyName + " " + info.TypeName).ToLowerInvariant();
                     if (!haystack.Contains(nameQueryLower)) continue;
+                }
+
+                // Filtri parametrici Selezione v2
+                if (activeRules != null && activeRules.Count > 0)
+                {
+                    if (!PassesAllRules(el, activeRules)) continue;
                 }
 
                 result.Add(info);
@@ -220,5 +258,143 @@ namespace QtoRevitPlugin.Services
             return ids.Select(i => new ElementId(i)).ToList();
 #endif
         }
+
+        // -------------------------------------------------------------------
+        // Selezione v2 — Filtri parametrici
+        // -------------------------------------------------------------------
+
+        private static bool PassesAllRules(Element el, List<ParamFilterRule> rules)
+        {
+            foreach (var rule in rules)
+            {
+                var param = ResolveParameter(el, rule.ParameterName);
+                if (param == null || !param.HasValue) return false;
+                if (!EvaluateRule(param, rule)) return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Cerca il parametro per nome: prima sull'istanza (LookupParameter + scan
+        /// case-insensitive), poi sul tipo. LookupParameter di Revit API è case-sensitive,
+        /// da qui il fallback con ScanParameters.
+        /// </summary>
+        private static Parameter? ResolveParameter(Element el, string name)
+        {
+            var p = el.LookupParameter(name);
+            if (p != null) return p;
+
+            p = ScanParameters(el.Parameters, name);
+            if (p != null) return p;
+
+            var typeEl = el.Document.GetElement(el.GetTypeId());
+            if (typeEl != null)
+            {
+                p = typeEl.LookupParameter(name);
+                if (p != null) return p;
+
+                p = ScanParameters(typeEl.Parameters, name);
+                if (p != null) return p;
+            }
+
+            return null;
+        }
+
+        private static Parameter? ScanParameters(ParameterSet pset, string name)
+        {
+            foreach (Parameter p in pset)
+            {
+                if (p.Definition?.Name != null &&
+                    string.Equals(p.Definition.Name, name, System.StringComparison.OrdinalIgnoreCase))
+                    return p;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Valuta una regola su un parametro usando StorageType.
+        /// Per StorageType.Double converte da unità interne Revit (piedi, piedi²)
+        /// alle unità di progetto tramite UnitUtils.ConvertFromInternalUnits.
+        /// </summary>
+        private static bool EvaluateRule(Parameter param, ParamFilterRule rule)
+        {
+            switch (param.StorageType)
+            {
+                case StorageType.String:
+                    return EvalString(param.AsString() ?? "", rule);
+
+                case StorageType.Double:
+                {
+                    if (!TryParseDouble(rule.Value, out double target)) return false;
+
+                    double rawVal = param.AsDouble();
+                    double displayVal = rawVal;
+                    try
+                    {
+                        var unitId = param.GetUnitTypeId();
+                        if (unitId != null && unitId != UnitTypeId.Custom)
+                            displayVal = UnitUtils.ConvertFromInternalUnits(rawVal, unitId);
+                    }
+                    catch
+                    {
+                        displayVal = rawVal;
+                    }
+                    return EvalDouble(displayVal, rule.Operator, target);
+                }
+
+                case StorageType.Integer:
+                {
+                    if (!int.TryParse(rule.Value, out int target)) return false;
+                    return EvalInt(param.AsInteger(), rule.Operator, target);
+                }
+
+                case StorageType.ElementId:
+                {
+                    var refEl = param.Element.Document.GetElement(param.AsElementId());
+                    var name = refEl?.Name ?? param.AsValueString() ?? "";
+                    return EvalString(name, rule);
+                }
+
+                default:
+                    return true;
+            }
+        }
+
+        private static bool EvalString(string val, ParamFilterRule rule) =>
+            rule.Operator switch
+            {
+                ParamOperator.Contains  => val.IndexOf(rule.Value, System.StringComparison.OrdinalIgnoreCase) >= 0,
+                ParamOperator.Equals    => string.Equals(val, rule.Value, System.StringComparison.OrdinalIgnoreCase),
+                ParamOperator.NotEquals => !string.Equals(val, rule.Value, System.StringComparison.OrdinalIgnoreCase),
+                _ => true
+            };
+
+        private static bool EvalDouble(double val, ParamOperator op, double target) =>
+            op switch
+            {
+                ParamOperator.Equals         => System.Math.Abs(val - target) < 1e-6,
+                ParamOperator.NotEquals      => System.Math.Abs(val - target) >= 1e-6,
+                ParamOperator.GreaterThan    => val > target,
+                ParamOperator.LessThan       => val < target,
+                ParamOperator.GreaterOrEqual => val >= target,
+                ParamOperator.LessOrEqual    => val <= target,
+                _ => true
+            };
+
+        private static bool EvalInt(int val, ParamOperator op, int target) =>
+            op switch
+            {
+                ParamOperator.Equals         => val == target,
+                ParamOperator.NotEquals      => val != target,
+                ParamOperator.GreaterThan    => val > target,
+                ParamOperator.LessThan       => val < target,
+                ParamOperator.GreaterOrEqual => val >= target,
+                ParamOperator.LessOrEqual    => val <= target,
+                _ => true
+            };
+
+        private static bool TryParseDouble(string s, out double val) =>
+            double.TryParse(s, System.Globalization.NumberStyles.Any,
+                           System.Globalization.CultureInfo.InvariantCulture, out val);
     }
 }
