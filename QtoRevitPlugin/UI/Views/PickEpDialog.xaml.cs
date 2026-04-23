@@ -1,0 +1,180 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Windows;
+using System.Windows.Controls;
+using QtoRevitPlugin.Application;
+using QtoRevitPlugin.Models;
+
+namespace QtoRevitPlugin.UI.Views
+{
+    /// <summary>
+    /// Dialog modale per scegliere una <see cref="PriceItem"/> da assegnare
+    /// come EP. Mostra i listini disponibili (attivo preselezionato), consente
+    /// filtro testuale full-text su Codice/Descrizione. Restituisce
+    /// <see cref="SelectedItem"/> via <see cref="Window.DialogResult"/>.
+    ///
+    /// Scope UI-4 v1: solo voci da listini locali. Preferiti personali
+    /// saranno integrati in v2 (richiede resolver cross-source).
+    /// </summary>
+    public partial class PickEpDialog : Window
+    {
+        private readonly List<PriceListRow> _lists = new();
+        private List<EpPickRow> _allItems = new();
+
+        /// <summary>
+        /// Voce selezionata (non-null solo se DialogResult == true).
+        /// </summary>
+        public EpPickRow? SelectedItem { get; private set; }
+
+        public PickEpDialog()
+        {
+            InitializeComponent();
+            Loaded += OnDialogLoaded;
+        }
+
+        /// <summary>
+        /// Imposta sottotitolo custom (es. "3 istanze · Muro di base").
+        /// </summary>
+        public void SetSubtitle(string subtitle)
+        {
+            if (!string.IsNullOrWhiteSpace(subtitle))
+                SubtitleBlock.Text = subtitle;
+        }
+
+        private void OnDialogLoaded(object? sender, RoutedEventArgs e)
+        {
+            LoadLists();
+            SearchBox.Focus();
+        }
+
+        private void LoadLists()
+        {
+            var lib = QtoApplication.Instance?.UserLibrary?.Library;
+            if (lib == null)
+            {
+                FooterStatus.Text = "UserLibrary non disponibile.";
+                return;
+            }
+
+            _lists.Clear();
+            foreach (var l in lib.GetPriceLists())
+                _lists.Add(new PriceListRow(l.Id, l.Name ?? "(senza nome)", l.IsActive));
+
+            // Nessun listino → placeholder nel combo
+            if (_lists.Count == 0)
+            {
+                FooterStatus.Text = "Nessun listino importato. Vai su «Setup → Listino» per caricarne uno.";
+                ListCombo.IsEnabled = false;
+                SearchBox.IsEnabled = false;
+                return;
+            }
+
+            ListCombo.ItemsSource = _lists;
+            ListCombo.DisplayMemberPath = nameof(PriceListRow.DisplayLabel);
+
+            // Preseleziona il primo attivo, o il primo in assoluto
+            var active = _lists.FirstOrDefault(x => x.IsActive) ?? _lists[0];
+            ListCombo.SelectedItem = active;
+        }
+
+        private void OnListChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (ListCombo.SelectedItem is not PriceListRow row) return;
+            var lib = QtoApplication.Instance?.UserLibrary?.Library;
+            if (lib == null) return;
+
+            var items = lib.GetPriceItemsByList(row.Id);
+            _allItems = items.Select(EpPickRow.FromModel).ToList();
+            ApplyFilter();
+        }
+
+        private void OnSearchChanged(object sender, TextChangedEventArgs e) => ApplyFilter();
+
+        private void ApplyFilter()
+        {
+            var q = (SearchBox.Text ?? string.Empty).Trim();
+            IEnumerable<EpPickRow> src = _allItems;
+            if (q.Length > 0)
+            {
+                // Match banale su Code + ShortDescription (case-insensitive).
+                // Upgrade futuro: usa HybridSearchScopeResolver con FTS.
+                src = _allItems.Where(i =>
+                    (i.Code?.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                    (i.ShortDescription?.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0));
+            }
+            var filtered = src.OrderBy(i => i.Code, StringComparer.OrdinalIgnoreCase).ToList();
+            ItemsList.ItemsSource = filtered;
+            FooterStatus.Text = $"{filtered.Count} voce/i";
+
+            // OK abilitato solo se c'è selezione
+            OkButton.IsEnabled = filtered.Count > 0 && ItemsList.SelectedItem is EpPickRow;
+            ItemsList.SelectionChanged += (_, __) =>
+                OkButton.IsEnabled = ItemsList.SelectedItem is EpPickRow;
+        }
+
+        private void OnItemDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (ItemsList.SelectedItem is EpPickRow) OnOkClick(sender, new RoutedEventArgs());
+        }
+
+        private void OnOkClick(object sender, RoutedEventArgs e)
+        {
+            if (ItemsList.SelectedItem is EpPickRow row)
+            {
+                SelectedItem = row;
+                DialogResult = true;
+                Close();
+            }
+        }
+
+        private void OnCancelClick(object sender, RoutedEventArgs e)
+        {
+            DialogResult = false;
+            Close();
+        }
+    }
+
+    /// <summary>Riga listino per combo source.</summary>
+    public class PriceListRow
+    {
+        public PriceListRow(int id, string name, bool isActive)
+        {
+            Id = id;
+            Name = name;
+            IsActive = isActive;
+        }
+        public int Id { get; }
+        public string Name { get; }
+        public bool IsActive { get; }
+        public string DisplayLabel => IsActive ? $"★ {Name}" : Name;
+    }
+
+    /// <summary>Riga voce listino per ListView del dialog.</summary>
+    public class EpPickRow
+    {
+        public int Id { get; set; }
+        public int PriceListId { get; set; }
+        public string Code { get; set; } = string.Empty;
+        public string ShortDescription { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string Unit { get; set; } = string.Empty;
+        public double UnitPrice { get; set; }
+        public string UnitPriceFormatted => UnitPrice.ToString("#,##0.00 €");
+
+        public static EpPickRow FromModel(PriceItem p) => new EpPickRow
+        {
+            Id = p.Id,
+            PriceListId = p.PriceListId,
+            Code = p.Code ?? string.Empty,
+            // PriceItem espone ShortDesc; esponiamo qui come ShortDescription per
+            // leggibilità UI. Fallback su Description se ShortDesc vuota.
+            ShortDescription = !string.IsNullOrWhiteSpace(p.ShortDesc)
+                ? p.ShortDesc
+                : (p.Description ?? string.Empty),
+            Description = p.Description ?? string.Empty,
+            Unit = p.Unit ?? string.Empty,
+            UnitPrice = p.UnitPrice,
+        };
+    }
+}
