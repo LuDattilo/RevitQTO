@@ -1,6 +1,7 @@
 <UserControl x:Class="QtoRevitPlugin.UI.Views.MappingView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:QtoRevitPlugin.UI.ViewModels"
              xmlns:models="clr-namespace:QtoRevitPlugin.Models;assembly=QtoRevitPlugin.Core">
 
     <Grid Background="{DynamicResource PanelBgBrush}">
@@ -90,6 +91,19 @@
                                           SelectedItem="{Binding SelectedFamilyCategory, Mode=TwoWay}"
                                           DisplayMemberPath="Label"
                                           FontSize="11" Padding="6,3" />
+                                <!-- Badge Fase attiva (phase-bound con SessionManager.PhaseChanged) -->
+                                <Border Grid.Column="2" Margin="12,0,0,0"
+                                        VerticalAlignment="Center"
+                                        HorizontalAlignment="Left"
+                                        Background="{DynamicResource BrandAccentSoftBrush}"
+                                        BorderBrush="{DynamicResource BrandAccentBrush}" BorderThickness="1"
+                                        CornerRadius="10" Padding="8,3"
+                                        Visibility="{Binding ActivePhaseLabel, Converter={x:Static vm:StringNotEmptyToVisibilityConverter.Instance}}">
+                                    <TextBlock Text="{Binding ActivePhaseLabel}"
+                                               Foreground="{DynamicResource ChromeTextBrush}"
+                                               FontFamily="{DynamicResource FontMono}"
+                                               FontSize="10" FontWeight="SemiBold" />
+                                </Border>
                                 <StackPanel Grid.Column="3" Orientation="Horizontal">
                                     <Button x:Name="BtnRefreshFamilies" Click="OnRefreshFamiliesClick"
                                             Content="Aggiorna"

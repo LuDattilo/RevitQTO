@@ -48,6 +48,13 @@ namespace QtoRevitPlugin.UI.ViewModels
 
         [ObservableProperty] private string _familyStatus = "Seleziona una categoria per vedere le famiglie.";
 
+        /// <summary>
+        /// Etichetta della fase attiva della sessione (bindata in UI come badge
+        /// sopra la tabella famiglie). Vuoto se nessuna sessione o nessuna fase.
+        /// Si aggiorna automaticamente su <see cref="SessionChangeKind.PhaseChanged"/>.
+        /// </summary>
+        [ObservableProperty] private string _activePhaseLabel = string.Empty;
+
         // =====================================================================
         // Tab 2 — Locali (Sorgente B)
         // =====================================================================
@@ -93,6 +100,35 @@ namespace QtoRevitPlugin.UI.ViewModels
 
             // Reagisci ad aggiunte/rimozioni manuali per aggiornare il totale
             ManualItems.CollectionChanged += (_, _) => RecalcManualTotal();
+
+            // Phase-bound: quando la fase attiva della sessione cambia (da
+            // SelectionView o PhaseFilterView tramite NotifyActivePhaseChanged),
+            // aggiorniamo la label in UI e rilanciamo l'aggregazione famiglie.
+            if (QtoApplication.Instance?.SessionManager != null)
+                QtoApplication.Instance.SessionManager.SessionChanged += OnSessionChanged;
+
+            RefreshActivePhaseLabel();
+        }
+
+        private void OnSessionChanged(object? sender, SessionChangedEventArgs e)
+        {
+            // Aggiorna la label di fase per ogni evento di sessione (Created/
+            // Resumed cambiano il contesto, PhaseChanged cambia il filtro).
+            RefreshActivePhaseLabel();
+
+            // Per PhaseChanged ricarichiamo la tab Famiglie se c'è una categoria
+            // attiva, così l'utente vede immediatamente l'aggregazione filtrata
+            // sulla nuova fase — niente click manuale richiesto.
+            if (e.Kind == SessionChangeKind.PhaseChanged && SelectedFamilyCategory != null)
+                RefreshFamilyTypes();
+        }
+
+        private void RefreshActivePhaseLabel()
+        {
+            var session = QtoApplication.Instance?.SessionManager?.ActiveSession;
+            ActivePhaseLabel = session == null || string.IsNullOrWhiteSpace(session.ActivePhaseName)
+                ? string.Empty
+                : $"Fase: {session.ActivePhaseName}";
         }
 
         // =====================================================================
@@ -124,10 +160,31 @@ namespace QtoRevitPlugin.UI.ViewModels
             var sw = System.Diagnostics.Stopwatch.StartNew();
             try
             {
-                var instances = new FilteredElementCollector(doc)
+                // Phase-bound: se la sessione ha una fase attiva, filtriamo le
+                // istanze New+Existing su quella fase (coerente con SelectionView).
+                // Se nessuna fase, si mostrano tutte le istanze della categoria.
+                var collector = new FilteredElementCollector(doc)
                     .OfCategory(SelectedFamilyCategory.Bic)
-                    .WhereElementIsNotElementType()
-                    .ToElements();
+                    .WhereElementIsNotElementType();
+
+                var session = QtoApplication.Instance?.SessionManager?.ActiveSession;
+                var phaseFilterId = session?.ActivePhaseId ?? 0;
+                if (phaseFilterId > 0)
+                {
+#if REVIT2025_OR_LATER
+                    var phaseId = new ElementId((long)phaseFilterId);
+#else
+                    var phaseId = new ElementId(phaseFilterId);
+#endif
+                    var statuses = new List<ElementOnPhaseStatus>
+                    {
+                        ElementOnPhaseStatus.New,
+                        ElementOnPhaseStatus.Existing
+                    };
+                    collector = collector.WherePasses(new ElementPhaseStatusFilter(phaseId, statuses));
+                }
+
+                var instances = collector.ToElements();
 
                 var groups = instances
                     .Select(el => ExtractFamilyTypeKey(el, doc))
@@ -145,9 +202,10 @@ namespace QtoRevitPlugin.UI.ViewModels
                     FamilyTypes.Add(row);
 
                 sw.Stop();
+                var phaseSuffix = string.IsNullOrEmpty(ActivePhaseLabel) ? string.Empty : $" · {ActivePhaseLabel}";
                 FamilyStatus = groups.Count == 0
-                    ? $"Nessuna istanza di categoria «{SelectedFamilyCategory.Label}» nel documento."
-                    : $"{groups.Count} tipo(i) · {groups.Sum(g => g.InstanceCount)} istanze · categoria «{SelectedFamilyCategory.Label}» · {sw.ElapsedMilliseconds} ms";
+                    ? $"Nessuna istanza di categoria «{SelectedFamilyCategory.Label}»{phaseSuffix}."
+                    : $"{groups.Count} tipo(i) · {groups.Sum(g => g.InstanceCount)} istanze · categoria «{SelectedFamilyCategory.Label}»{phaseSuffix} · {sw.ElapsedMilliseconds} ms";
             }
             catch (Exception ex)
             {
