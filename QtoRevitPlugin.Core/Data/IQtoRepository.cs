@@ -57,6 +57,12 @@ namespace QtoRevitPlugin.Data
         /// è una tabella separata da PriceItems). Ritorna il numero di righe cancellate.
         /// </summary>
         int RemoveFavorites(System.Collections.Generic.IEnumerable<int> favoriteIds);
+
+        // RevitParamMapping (v9 · .cme). Mapping configurabile campi Informazioni
+        // Progetto → parametri Revit da cui ereditare il valore.
+        System.Collections.Generic.IReadOnlyList<RevitParamMapping> GetRevitParamMappings(int sessionId);
+        void UpsertRevitParamMapping(RevitParamMapping mapping);
+        void DeleteRevitParamMapping(int sessionId, string fieldKey);
     }
 
     public interface IFavoritesRepository

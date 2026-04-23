@@ -1018,6 +1018,47 @@ WHERE SessionId = @SessionId AND AuditStatus = 'Active' AND EpCode IS NOT NULL A
         }
 
         // =====================================================================
+        // RevitParamMapping (v9) — mapping campi Informazioni Progetto
+        // =====================================================================
+
+        public IReadOnlyList<RevitParamMapping> GetRevitParamMappings(int sessionId)
+        {
+            const string sql = @"
+SELECT Id, SessionId, FieldKey, ParamName, IsBuiltIn, SkipIfFilled
+FROM RevitParamMapping
+WHERE SessionId = @SessionId
+ORDER BY FieldKey;";
+            return _conn.Query<RevitParamMapping>(sql, new { SessionId = sessionId }).ToList();
+        }
+
+        public void UpsertRevitParamMapping(RevitParamMapping mapping)
+        {
+            // UNIQUE(SessionId, FieldKey) nello schema → ON CONFLICT REPLACE
+            const string sql = @"
+INSERT INTO RevitParamMapping (SessionId, FieldKey, ParamName, IsBuiltIn, SkipIfFilled)
+VALUES (@SessionId, @FieldKey, @ParamName, @IsBuiltIn, @SkipIfFilled)
+ON CONFLICT(SessionId, FieldKey) DO UPDATE SET
+    ParamName = excluded.ParamName,
+    IsBuiltIn = excluded.IsBuiltIn,
+    SkipIfFilled = excluded.SkipIfFilled;";
+
+            _conn.Execute(sql, new
+            {
+                mapping.SessionId,
+                mapping.FieldKey,
+                mapping.ParamName,
+                IsBuiltIn = mapping.IsBuiltIn ? 1 : 0,
+                SkipIfFilled = mapping.SkipIfFilled ? 1 : 0
+            });
+        }
+
+        public void DeleteRevitParamMapping(int sessionId, string fieldKey)
+        {
+            const string sql = "DELETE FROM RevitParamMapping WHERE SessionId = @SessionId AND FieldKey = @FieldKey";
+            _conn.Execute(sql, new { SessionId = sessionId, FieldKey = fieldKey });
+        }
+
+        // =====================================================================
         // IDisposable
         // =====================================================================
 
