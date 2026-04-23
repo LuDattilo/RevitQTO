@@ -99,5 +99,68 @@ namespace QtoRevitPlugin.AI
                 if (provider is IDisposable d) d.Dispose();
             }
         }
+
+        /// <summary>
+        /// UI-9: warmup asincrono della cache embedding per il listino attivo.
+        /// Chiamato in background al session load così la prima chiamata a
+        /// <see cref="GetSuggestionsAsync"/> è istantanea (niente HTTP embed per-item).
+        /// </summary>
+        /// <param name="settings">CmeSettings per AI enabled + URL Ollama.</param>
+        /// <param name="repo">Repository attivo (richiesto dal factory).</param>
+        /// <param name="items">
+        /// Voci del listino attivo per cui garantire l'embedding in cache.
+        /// Già presenti in DB vengono skippate (idempotente).
+        /// </param>
+        /// <param name="progress">Callback opzionale per progress UI (index 1-based).</param>
+        /// <param name="logger">Callback opzionale warn.</param>
+        /// <returns>
+        /// true se il warmup è stato eseguito (AI Ready); false se AI disabled
+        /// / unreachable / eccezione. Mai throw.
+        /// </returns>
+        public static async Task<bool> WarmupEmbeddingCacheAsync(
+            CmeSettings settings,
+            IQtoRepository repo,
+            IReadOnlyList<PriceItem> items,
+            IProgress<int>? progress = null,
+            Action<string>? logger = null,
+            CancellationToken externalCt = default)
+        {
+            if (settings == null || !settings.AiEnabled) return false;
+            if (repo == null || items == null || items.Count == 0) return false;
+
+            IQtoAiProvider? provider = null;
+            try
+            {
+                provider = QtoAiFactory.Create(settings, repo, logger);
+                if (provider == null || !provider.IsAvailable)
+                    return false;
+
+                // EnsureEmbeddingCacheAsync è definito solo su OllamaAiProvider
+                // concreto, non sull'interfaccia. Uso pattern type-check per
+                // evitare di sporcare l'interfaccia con un metodo runtime-only.
+                if (provider is Ollama.OllamaAiProvider ollama)
+                {
+                    await ollama.EnsureEmbeddingCacheAsync(items, progress, externalCt)
+                        .ConfigureAwait(false);
+                    return true;
+                }
+
+                return false;
+            }
+            catch (OperationCanceledException)
+            {
+                logger?.Invoke("AiSuggestionsGateway.Warmup: cancellation");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                logger?.Invoke($"AiSuggestionsGateway.Warmup throw — {ex.GetType().Name}: {ex.Message}");
+                return false;
+            }
+            finally
+            {
+                if (provider is IDisposable d) d.Dispose();
+            }
+        }
     }
 }

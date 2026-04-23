@@ -184,7 +184,9 @@
                                    FontSize="10"
                                    Foreground="{DynamicResource InkMutedBrush}"
                                    Margin="0,4,0,8" />
-                        <DataGrid ItemsSource="{Binding Anomalies}"
+                        <DataGrid x:Name="AnomaliesGrid"
+                                  ItemsSource="{Binding Anomalies}"
+                                  MouseDoubleClick="OnRowDoubleClick"
                                   AutoGenerateColumns="False"
                                   CanUserAddRows="False"
                                   CanUserDeleteRows="False"
@@ -195,7 +197,8 @@
                                   Background="White"
                                   BorderThickness="1"
                                   BorderBrush="{DynamicResource EdgeLightBrush}"
-                                  IsReadOnly="True">
+                                  IsReadOnly="True"
+                                  ToolTip="Doppio click su una riga per selezionare l'elemento in Revit.">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Severità" Binding="{Binding SeverityLabel}" Width="80" />
                                 <DataGridTextColumn Header="EP" Binding="{Binding EpCode}" Width="140" />
@@ -230,7 +233,9 @@
                                    FontSize="10"
                                    Foreground="{DynamicResource InkMutedBrush}"
                                    Margin="0,4,0,8" />
-                        <DataGrid ItemsSource="{Binding Mismatches}"
+                        <DataGrid x:Name="MismatchesGrid"
+                                  ItemsSource="{Binding Mismatches}"
+                                  MouseDoubleClick="OnRowDoubleClick"
                                   AutoGenerateColumns="False"
                                   CanUserAddRows="False"
                                   CanUserDeleteRows="False"
@@ -241,7 +246,8 @@
                                   Background="White"
                                   BorderThickness="1"
                                   BorderBrush="{DynamicResource EdgeLightBrush}"
-                                  IsReadOnly="True">
+                                  IsReadOnly="True"
+                                  ToolTip="Doppio click su una riga per selezionare l'elemento in Revit.">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Similarità" Binding="{Binding SimilarityLabel}" Width="80" />
                                 <DataGridTextColumn Header="Categoria · Famiglia" Binding="{Binding CategoryFamilyLabel}" Width="200" />
