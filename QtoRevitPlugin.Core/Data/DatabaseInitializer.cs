@@ -97,6 +97,27 @@ namespace QtoRevitPlugin.Data
 
             using var tx = conn.BeginTransaction();
 
+            // --------------------------------------------------------------
+            // Pre-migration: garantisce la compatibilità delle COLONNE a cui
+            // i CREATE INDEX dentro InitialStatements fanno riferimento.
+            //
+            // Senza questo guard, uno scenario realistico rompe il riavvio:
+            //   - DB creato sotto schema v7 (ComputoChapters senza SoaCategoryId)
+            //   - App aggiornata a v8+ (DDL di ComputoChapters ora include
+            //     CREATE INDEX IX_ComputoChapters_Soa ON ComputoChapters(SoaCategoryId))
+            //   - Al riavvio: CREATE TABLE IF NOT EXISTS è no-op (tabella esiste)
+            //     ma CREATE INDEX ... ON tab(colonna_mancante) FAIL con
+            //     "no such column: SoaCategoryId" → plugin crash all'avvio.
+            //
+            // La fix è eseguire le ALTER TABLE "add column" PRIMA di rieseguire
+            // gli InitialStatements, così le colonne esistono quando gli indici
+            // vengono (ri)creati.
+            // --------------------------------------------------------------
+            if (TableExists(conn, tx, "ComputoChapters") && !ColumnExists(conn, tx, "ComputoChapters", "SoaCategoryId"))
+            {
+                ExecuteStatement(conn, tx, DatabaseSchema.MigrateV7ToV8_AddSoaCategoryIdToChapters);
+            }
+
             // Migrazione v1 → v2 (Sprint 2): aggiunge PriceItems_FTS virtual table.
             // I CREATE TABLE/VIRTUAL TABLE sono idempotenti (IF NOT EXISTS), basta rieseguirli.
             foreach (var stmt in DatabaseSchema.InitialStatements)
