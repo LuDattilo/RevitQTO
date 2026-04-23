@@ -11,6 +11,9 @@ namespace QtoRevitPlugin.UI.ViewModels
     public enum QtoViewKey
     {
         Home,
+        ProjectSetup,
+        PriceList,
+        Verification,
         Preview,
         Setup,
         Phase,
@@ -55,6 +58,7 @@ namespace QtoRevitPlugin.UI.ViewModels
         private readonly WorkflowStateEvaluator _workflowStateEvaluator = new WorkflowStateEvaluator();
 
         public ObservableCollection<QtoViewItem> Views { get; } = new();
+        public ObservableCollection<QtoViewItem> SecondaryViews { get; } = new();
         public ObservableCollection<string> HomeWorkflowSteps { get; } = new()
         {
             "1 Setup progetto",
@@ -126,25 +130,29 @@ namespace QtoRevitPlugin.UI.ViewModels
 
         private void BuildViewList()
         {
-            // Ordine logico di workflow: prima configuri, poi selezioni e vedi preview,
-            // poi tagghi, poi verifichi (health/filtri/viste), poi NP, poi export.
             Views.Add(new QtoViewItem(QtoViewKey.Home, "Home", "Avvio", 1));
-            Views.Add(new QtoViewItem(QtoViewKey.Setup, "Setup", "§Fase 1", 2));
+            Views.Add(new QtoViewItem(QtoViewKey.ProjectSetup, "Setup progetto", "§Fase 1", 2));
+            Views.Add(new QtoViewItem(QtoViewKey.PriceList, "Listino", "§Fase 1 · Listino", 2));
             Views.Add(new QtoViewItem(QtoViewKey.Selection, "Selezione", "§I3", 4));
-            Views.Add(new QtoViewItem(QtoViewKey.Preview, "Preview", "§Fase 11", 1));
             Views.Add(new QtoViewItem(QtoViewKey.Tagging, "Tagging", "§I1·I2·I12·I13", 5));
-            // Sprint 10: ComputoStructure e Np sono ora sezioni DENTRO Setup (non più tab separati).
-            // L'enum QtoViewKey mantiene i valori per backward-compat col case `CreateViewFor`.
-            Views.Add(new QtoViewItem(QtoViewKey.Health, "Health", "§I5", 6));
-            Views.Add(new QtoViewItem(QtoViewKey.FilterManager, "Filtri Vista", "§I11", 9));
-            Views.Add(new QtoViewItem(QtoViewKey.QtoViews, "Viste CME", "§I14", 9));
+            Views.Add(new QtoViewItem(QtoViewKey.Verification, "Verifica", "§Fase 11", 1));
             Views.Add(new QtoViewItem(QtoViewKey.Export, "Export", "§Fase 12", 9));
+
+            SecondaryViews.Add(new QtoViewItem(QtoViewKey.Health, "Health", "§I5", 6));
+            SecondaryViews.Add(new QtoViewItem(QtoViewKey.FilterManager, "Filtri Vista", "§I11", 9));
+            SecondaryViews.Add(new QtoViewItem(QtoViewKey.QtoViews, "Viste CME", "§I14", 9));
 
             ActiveView = Views.First(v => v.Key == QtoViewKey.Home);
         }
 
         private void OnSessionChanged(object? sender, SessionChangedEventArgs e)
         {
+            if (e.Kind is SessionChangeKind.Created or SessionChangeKind.Resumed or SessionChangeKind.Forked
+                or SessionChangeKind.Closed or SessionChangeKind.Deleted)
+            {
+                NavigateTo(QtoViewKey.Home);
+            }
+
             RefreshFromSession();
         }
 
@@ -193,7 +201,7 @@ namespace QtoRevitPlugin.UI.ViewModels
         /// <summary>Cambia view dal codice (es. dopo azione "Apri Health Check" da un bottone contestuale).</summary>
         public void NavigateTo(QtoViewKey key)
         {
-            var target = Views.FirstOrDefault(v => v.Key == key);
+            var target = Views.Concat(SecondaryViews).FirstOrDefault(v => v.Key == key);
             if (target != null) ActiveView = target;
         }
 

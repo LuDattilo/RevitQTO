@@ -138,16 +138,14 @@ namespace QtoRevitPlugin.UI.Panes
 
         private void BuildSwitcher()
         {
-            // Difesa in profondità: TryFindResource ritorna null invece del
-            // NamedObject sentinel se la chiave non c'è, così il cast sicuro fallisce
-            // con messaggio utile invece di crash opaco.
-            var switcherStyle = TryFindResource("SwitcherButton") as Style;
-            if (switcherStyle == null)
+            var workflowStyle = TryFindResource("WorkflowNavButton") as Style;
+            var utilityStyle = TryFindResource("SwitcherButton") as Style;
+
+            if (workflowStyle == null || utilityStyle == null)
             {
                 Services.CrashLogger.Warn(
-                    "QtoDockablePane.BuildSwitcher: style 'SwitcherButton' non trovato. " +
-                    "Il tema QtoTheme.xaml non è stato caricato correttamente. " +
-                    "I bottoni dello switcher useranno lo stile default WPF.");
+                    "QtoDockablePane.BuildSwitcher: uno o più style di navigazione non trovati. " +
+                    "Il tema QtoTheme.xaml non è stato caricato correttamente.");
             }
 
             foreach (var item in _vm.Views)
@@ -157,9 +155,22 @@ namespace QtoRevitPlugin.UI.Panes
                     Content = item.Label,
                     Tag = item
                 };
-                if (switcherStyle != null) btn.Style = switcherStyle;
+                if (workflowStyle != null) btn.Style = workflowStyle;
                 btn.Click += (_, _) => _vm.ActiveView = item;
                 SwitcherHost.Children.Add(btn);
+                _buttonCache[item.Key] = btn;
+            }
+
+            foreach (var item in _vm.SecondaryViews)
+            {
+                var btn = new ToggleButton
+                {
+                    Content = item.Label,
+                    Tag = item
+                };
+                if (utilityStyle != null) btn.Style = utilityStyle;
+                btn.Click += (_, _) => _vm.ActiveView = item;
+                SecondarySwitcherHost.Children.Add(btn);
                 _buttonCache[item.Key] = btn;
             }
         }
@@ -197,6 +208,9 @@ namespace QtoRevitPlugin.UI.Panes
             return item.Key switch
             {
                 QtoViewKey.Home => CreateHomeView(),
+                QtoViewKey.ProjectSetup => new ProjectInfoView(),
+                QtoViewKey.PriceList => new SetupListinoView(),
+                QtoViewKey.Verification => new PreviewView { DataContext = _vm },
                 QtoViewKey.Preview => new PreviewView { DataContext = _vm },
 
                 QtoViewKey.Setup => new SetupView(),

@@ -4,73 +4,103 @@
              Background="{DynamicResource PanelBgBrush}">
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <Grid Margin="16,14,16,16">
+        <Grid Margin="8,4,8,16">
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <Grid Grid.Row="0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-
-                <StackPanel Grid.Column="0">
-                    <TextBlock Text="Home"
-                               Style="{DynamicResource ViewTitleStyle}" />
-                    <TextBlock Text="Avvio operativo del computo"
-                               Margin="0,2,0,0"
-                               Foreground="{DynamicResource InkMutedBrush}"
-                               FontFamily="{DynamicResource FontMono}"
-                               FontSize="10" />
-                </StackPanel>
-
-                <Border Grid.Column="1"
-                        Background="{DynamicResource PanelSubBrush}"
-                        BorderBrush="{DynamicResource EdgeLightBrush}"
-                        BorderThickness="1"
-                        CornerRadius="6"
-                        Padding="10,6"
-                        VerticalAlignment="Top">
-                    <StackPanel>
-                        <TextBlock Text="Ultimo computo"
-                                   Foreground="{DynamicResource InkMutedBrush}"
-                                   FontFamily="{DynamicResource FontMono}"
-                                   FontSize="9" />
-                        <TextBlock Text="{Binding LastSessionHint}"
-                                   Foreground="{DynamicResource InkBrush}"
-                                   FontWeight="SemiBold" />
-                    </StackPanel>
-                </Border>
-            </Grid>
-
             <Border Grid.Row="1"
-                    Margin="0,14,0,0"
-                    Style="{DynamicResource CardStyle}">
-                <StackPanel>
-                    <TextBlock Text="{Binding HomePrimaryMessage}"
-                               Style="{DynamicResource SectionLabelStyle}" />
-                    <TextBlock Text="{Binding HomeSecondaryMessage}"
-                               Margin="0,8,0,0"
-                               Foreground="{DynamicResource InkDimBrush}"
-                               TextWrapping="Wrap" />
+                    Style="{DynamicResource CardStyle}"
+                    Background="{DynamicResource ChromeBgBrush}"
+                    BorderBrush="{DynamicResource ChromeEdgeBrush}"
+                    Padding="18">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.5*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
 
-                    <UniformGrid Columns="3" Margin="0,14,0,0">
-                        <Button Content="Nuovo computo"
-                                Margin="0,0,8,0"
-                                Click="OnNewSessionClick" />
-                        <Button Content="Apri computo"
-                                Margin="0,0,8,0"
-                                Click="OnOpenSessionClick" />
-                        <Button Content="Riprendi ultimo"
-                                IsEnabled="{Binding CanResumeLastSession}"
-                                Click="OnResumeLastClick" />
-                    </UniformGrid>
-                </StackPanel>
+                    <StackPanel Grid.Column="0"
+                                Margin="0,0,18,0">
+                        <TextBlock Text="Home"
+                                   Foreground="{DynamicResource ChromeTextBrush}"
+                                   FontFamily="{DynamicResource FontDisplay}"
+                                   FontSize="20"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Text="Avvio operativo del computo"
+                                   Margin="0,4,0,0"
+                                   Foreground="{DynamicResource ChromeTextDimBrush}"
+                                   FontFamily="{DynamicResource FontMono}"
+                                   FontSize="10" />
+
+                        <TextBlock Text="{Binding HomePrimaryMessage}"
+                                   Margin="0,18,0,0"
+                                   Foreground="{DynamicResource BrandAccentSoftBrush}"
+                                   FontFamily="{DynamicResource FontDisplay}"
+                                   FontSize="16" />
+                        <TextBlock Text="{Binding HomeSecondaryMessage}"
+                                   Margin="0,10,0,0"
+                                   Foreground="{DynamicResource ChromeTextBrush}"
+                                   TextWrapping="Wrap" />
+
+                        <WrapPanel Margin="0,18,0,0">
+                            <Button Content="Nuovo computo"
+                                    Style="{DynamicResource BtnPrimary}"
+                                    Margin="0,0,10,10"
+                                    Click="OnNewSessionClick" />
+                            <Button Content="Apri computo"
+                                    Style="{DynamicResource BtnSecondary}"
+                                    Margin="0,0,10,10"
+                                    Click="OnOpenSessionClick" />
+                            <Button Content="Riprendi ultimo"
+                                    Style="{DynamicResource BtnSecondary}"
+                                    Margin="0,0,0,10"
+                                    IsEnabled="{Binding CanResumeLastSession}"
+                                    Click="OnResumeLastClick" />
+                        </WrapPanel>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1">
+                        <Border Background="#221C1917"
+                                BorderBrush="{DynamicResource ChromeEdgeBrush}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="12">
+                            <StackPanel>
+                                <TextBlock Text="Ultimo computo"
+                                           Foreground="{DynamicResource ChromeTextDimBrush}"
+                                           FontFamily="{DynamicResource FontMono}"
+                                           FontSize="9" />
+                                <TextBlock Text="{Binding LastSessionHint}"
+                                           Margin="0,6,0,0"
+                                           Foreground="{DynamicResource ChromeTextBrush}"
+                                           FontWeight="SemiBold"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Margin="0,12,0,0"
+                                Background="#221C1917"
+                                BorderBrush="{DynamicResource ChromeEdgeBrush}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="12">
+                            <StackPanel>
+                                <TextBlock Text="Vincoli di flusso"
+                                           Foreground="{DynamicResource ChromeTextDimBrush}"
+                                           FontFamily="{DynamicResource FontMono}"
+                                           FontSize="9" />
+                                <TextBlock Margin="0,8,0,0"
+                                           Text="Il Listino precede la Selezione. La fase Revit viene gestita dentro Selezione e aggiorna le viste phase-bound con soft switch."
+                                           TextWrapping="Wrap"
+                                           Foreground="{DynamicResource ChromeTextBrush}" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Grid>
             </Border>
 
             <TextBlock Grid.Row="2"
@@ -81,43 +111,31 @@
                        FontSize="9"
                        FontWeight="Bold" />
 
-            <ItemsControl Grid.Row="3"
-                          ItemsSource="{Binding HomeWorkflowSteps}">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <WrapPanel />
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Border Background="{DynamicResource PanelSubBrush}"
-                                BorderBrush="{DynamicResource EdgeLightBrush}"
-                                BorderThickness="1"
-                                CornerRadius="6"
-                                Padding="10,8"
-                                Margin="0,0,10,10">
-                            <TextBlock Text="{Binding}"
-                                       Foreground="{DynamicResource InkBrush}"
-                                       FontWeight="SemiBold" />
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-
-            <Border Grid.Row="4"
-                    Margin="0,8,0,0"
-                    Background="{DynamicResource PanelSubBrush}"
-                    BorderBrush="{DynamicResource EdgeLightBrush}"
-                    BorderThickness="1"
-                    CornerRadius="6"
-                    Padding="14,12">
+            <Border Grid.Row="3"
+                    Style="{DynamicResource CardStyle}"
+                    Padding="16">
                 <StackPanel>
-                    <TextBlock Text="Vincoli di flusso"
-                               Style="{DynamicResource SectionLabelStyle}" />
-                    <TextBlock Margin="0,8,0,0"
-                               Text="Il Listino precede la Selezione. La fase Revit viene gestita dentro Selezione e aggiorna le viste phase-bound con soft switch."
-                               TextWrapping="Wrap"
-                               Foreground="{DynamicResource InkDimBrush}" />
+                    <ItemsControl ItemsSource="{Binding HomeWorkflowSteps}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{DynamicResource PanelSubBrush}"
+                                        BorderBrush="{DynamicResource EdgeLightBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="12,10"
+                                        Margin="0,0,10,10">
+                                    <TextBlock Text="{Binding}"
+                                               Foreground="{DynamicResource InkDefaultBrush}"
+                                               FontWeight="SemiBold" />
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                 </StackPanel>
             </Border>
         </Grid>

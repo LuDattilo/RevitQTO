@@ -13,5 +13,12 @@ namespace QtoRevitPlugin.UI.Views
         {
             InitializeComponent();
         }
+
+        public SetupView(int initialTabIndex)
+        {
+            InitializeComponent();
+            if (initialTabIndex >= 0 && initialTabIndex < SetupTabs.Items.Count)
+                SetupTabs.SelectedIndex = initialTabIndex;
+        }
     }
 }
