@@ -235,21 +235,12 @@ namespace QtoRevitPlugin.SharedParams
             // nella stessa sessione, e un nuovo GUID orfanerebbe i dati già taggati.
             if (existing != null) return existing;
 
-#if REVIT2025_OR_LATER
             var opts = new ExternalDefinitionCreationOptions(qtoParam.Name, qtoParam.SpecTypeId)
             {
                 GUID = qtoParam.Guid,
                 Description = qtoParam.Description,
                 Visible = true,
             };
-#else
-            var opts = new ExternalDefinitionCreationOptions(qtoParam.Name, qtoParam.ParameterType)
-            {
-                GUID = qtoParam.Guid,
-                Description = qtoParam.Description,
-                Visible = true,
-            };
-#endif
             return group.Definitions.Create(opts) as ExternalDefinition;
         }
 

@@ -155,29 +155,29 @@ namespace QtoRevitPlugin.Reports
             writer.WriteStartElement("PweDGSuperCapitoli");
             WriteDgItem(writer, "DGSuperCapitoliItem", id: 1,
                 desSintetica: data.Header.Titolo.Length > 0 ? data.Header.Titolo : "Computo",
-                codice: "");
+                codice: "", codFase: null);
             writer.WriteEndElement();
 
             // Capitoli e SubCapitoli vuoti (i nostri ComputoChapter vanno su Categorie)
             writer.WriteStartElement("PweDGCapitoli"); writer.WriteEndElement();
             writer.WriteStartElement("PweDGSubCapitoli"); writer.WriteEndElement();
 
-            // SuperCategorie (nostro livello 1)
+            // SuperCategorie (nostro livello 1) — SoaCode effettivo in CodFase
             writer.WriteStartElement("PweDGSuperCategorie");
             foreach (var ic in catIndex.Super)
-                WriteDgItem(writer, "DGSuperCategorieItem", ic.PwId, ic.Name, ic.Code);
+                WriteDgItem(writer, "DGSuperCategorieItem", ic.PwId, ic.Name, ic.Code, ic.EffectiveSoaCode);
             writer.WriteEndElement();
 
             // Categorie (nostro livello 2)
             writer.WriteStartElement("PweDGCategorie");
             foreach (var ic in catIndex.Cat)
-                WriteDgItem(writer, "DGCategorieItem", ic.PwId, ic.Name, ic.Code);
+                WriteDgItem(writer, "DGCategorieItem", ic.PwId, ic.Name, ic.Code, ic.EffectiveSoaCode);
             writer.WriteEndElement();
 
             // SubCategorie (nostro livello 3)
             writer.WriteStartElement("PweDGSubCategorie");
             foreach (var ic in catIndex.Sub)
-                WriteDgItem(writer, "DGSubCategorieItem", ic.PwId, ic.Name, ic.Code);
+                WriteDgItem(writer, "DGSubCategorieItem", ic.PwId, ic.Name, ic.Code, ic.EffectiveSoaCode);
             writer.WriteEndElement();
 
             writer.WriteEndElement(); // PweDGCapitoliCategorie
@@ -227,7 +227,7 @@ namespace QtoRevitPlugin.Reports
             writer.WriteEndElement(); // PweDatiGenerali
         }
 
-        private static void WriteDgItem(XmlWriter writer, string itemName, int id, string desSintetica, string codice)
+        private static void WriteDgItem(XmlWriter writer, string itemName, int id, string desSintetica, string codice, string? codFase)
         {
             writer.WriteStartElement(itemName);
             writer.WriteAttributeString("ID", id.ToString(CultureInfo.InvariantCulture));
@@ -235,7 +235,15 @@ namespace QtoRevitPlugin.Reports
             writer.WriteStartElement("DesEstesa"); writer.WriteEndElement();
             writer.WriteElementString("DataInit", EmptyDate);
             writer.WriteElementString("Durata", "0");
-            writer.WriteStartElement("CodFase"); writer.WriteEndElement();
+            // CodFase = codice SOA (OG/OS) se assegnato/ereditato. Vuoto altrimenti.
+            if (string.IsNullOrEmpty(codFase))
+            {
+                writer.WriteStartElement("CodFase"); writer.WriteEndElement();
+            }
+            else
+            {
+                writer.WriteElementString("CodFase", codFase);
+            }
             writer.WriteElementString("Percentuale", "0");
             writer.WriteElementString("Codice", codice);
             writer.WriteEndElement();
@@ -421,6 +429,8 @@ namespace QtoRevitPlugin.Reports
         public string Code { get; set; } = "";
         public string Name { get; set; } = "";
         public int Level { get; set; }      // 1, 2, 3
+        /// <summary>Codice SOA effettivo (proprio o ereditato dal parent). Null se non assegnato.</summary>
+        public string? EffectiveSoaCode { get; set; }
     }
 
     internal struct CategoryChain

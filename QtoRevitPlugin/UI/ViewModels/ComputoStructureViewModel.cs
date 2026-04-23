@@ -22,12 +22,63 @@ namespace QtoRevitPlugin.UI.ViewModels
 
         public ObservableCollection<ComputoChapterViewModel> Roots { get; } = new ObservableCollection<ComputoChapterViewModel>();
 
+        /// <summary>
+        /// Elenco SOA caricato dal DB (read-only, letto una volta al Reload).
+        /// Binding del ComboBox OG/OS nel pannello dettaglio nodo.
+        /// </summary>
+        public ObservableCollection<SoaCategory> AvailableSoa { get; } = new ObservableCollection<SoaCategory>();
+
         [ObservableProperty] private ComputoChapterViewModel? _selectedNode;
         [ObservableProperty] private string _statusMessage = string.Empty;
+
+        /// <summary>SOA corrente del nodo selezionato (null = non assegnato proprio).
+        /// Bind TwoWay col ComboBox: set scatena UpdateSoaOnSelectedNode.</summary>
+        [ObservableProperty] private SoaCategory? _selectedNodeSoa;
 
         public ComputoStructureViewModel()
         {
             Reload();
+        }
+
+        partial void OnSelectedNodeChanged(ComputoChapterViewModel? value)
+        {
+            // Sincronizza SelectedNodeSoa col nodo selezionato (no feedback loop:
+            // check sul valore prima di set).
+            var expected = value?.OwnSoaCategoryId is int id
+                ? AvailableSoa.FirstOrDefault(s => s.Id == id)
+                : null;
+            if (!ReferenceEquals(_selectedNodeSoa, expected))
+            {
+                _isSyncingSoa = true;
+                SelectedNodeSoa = expected;
+                _isSyncingSoa = false;
+            }
+        }
+
+        private bool _isSyncingSoa;
+        partial void OnSelectedNodeSoaChanged(SoaCategory? value)
+        {
+            if (_isSyncingSoa) return;            // stiamo solo sincronizzando UI, non salvare
+            if (_repo == null || SelectedNode == null) return;
+
+            var newId = value?.Id;
+            if (SelectedNode.Model.SoaCategoryId == newId) return;  // no-op
+
+            SelectedNode.Model.SoaCategoryId = newId;
+            try
+            {
+                _repo.UpdateComputoChapter(SelectedNode.Model);
+                // Aggiorna EffectiveSoaCode sull'intero sottoalbero (ereditarietà implicita)
+                RefreshEffectiveSoa();
+                StatusMessage = value == null
+                    ? $"Rimosso codice SOA da «{SelectedNode.Model.Code}»."
+                    : $"Assegnato {value.Code} a «{SelectedNode.Model.Code}».";
+            }
+            catch (Exception ex)
+            {
+                QtoRevitPlugin.Services.CrashLogger.WriteException("ComputoStructureViewModel.UpdateSoa", ex);
+                StatusMessage = $"Errore salvataggio SOA: {ex.Message}";
+            }
         }
 
         public void Reload()
@@ -51,6 +102,12 @@ namespace QtoRevitPlugin.UI.ViewModels
             var all = _repo.GetComputoChapters(_sessionId);
             var assignments = _repo.GetAssignments(_sessionId);
 
+            // Load SOA categorie (read-only, cache una volta per Reload)
+            AvailableSoa.Clear();
+            foreach (var soa in _repo.GetSoaCategories())
+                AvailableSoa.Add(soa);
+            _soaById = AvailableSoa.ToDictionary(s => s.Id, s => s);
+
             var countByChapter = assignments
                 .Where(a => a.ComputoChapterId.HasValue && a.AuditStatus == AssignmentStatus.Active)
                 .GroupBy(a => a.ComputoChapterId!.Value)
@@ -64,12 +121,45 @@ namespace QtoRevitPlugin.UI.ViewModels
             foreach (var vm in byId.Values.OrderBy(v => v.Model.SortOrder).ThenBy(v => v.Model.Code))
             {
                 if (vm.Model.ParentChapterId.HasValue && byId.TryGetValue(vm.Model.ParentChapterId.Value, out var parent))
+                {
                     parent.Children.Add(vm);
+                    vm.SetParent(parent);
+                }
                 else if (vm.Model.Level == 1)
+                {
                     Roots.Add(vm);
+                    vm.SetParent(null);
+                }
             }
 
+            // Risolvi EffectiveSoaCode su tutti i nodi (eredità implicita)
+            foreach (var root in Roots)
+                RefreshEffectiveSoaRecursive(root);
+
             StatusMessage = $"{all.Count} capitoli · {countByChapter.Sum(kv => kv.Value)} voci assegnate.";
+        }
+
+        private Dictionary<int, SoaCategory> _soaById = new Dictionary<int, SoaCategory>();
+
+        /// <summary>
+        /// Ricalcola EffectiveSoaCode sull'intero albero Roots. Chiamato dopo
+        /// ogni modifica di SoaCategoryId su un nodo per propagare l'eredità ai figli.
+        /// </summary>
+        private void RefreshEffectiveSoa()
+        {
+            foreach (var root in Roots)
+                RefreshEffectiveSoaRecursive(root);
+        }
+
+        private void RefreshEffectiveSoaRecursive(ComputoChapterViewModel node)
+        {
+            var effectiveId = node.EffectiveSoaCategoryId;
+            node.EffectiveSoaCode = effectiveId.HasValue && _soaById.TryGetValue(effectiveId.Value, out var s)
+                ? s.Code
+                : null;
+            node.NotifyDisplayChanged();
+            foreach (var child in node.Children)
+                RefreshEffectiveSoaRecursive(child);
         }
 
         [RelayCommand]

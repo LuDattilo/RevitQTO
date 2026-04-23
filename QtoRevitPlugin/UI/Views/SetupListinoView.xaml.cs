@@ -1,4 +1,5 @@
 using Microsoft.Win32;
+using QtoRevitPlugin.Services;
 using QtoRevitPlugin.UI.ViewModels;
 using System;
 using System.Linq;
@@ -19,10 +20,17 @@ namespace QtoRevitPlugin.UI.Views
     public partial class SetupListinoView : UserControl
     {
         private SetupViewModel Vm => (SetupViewModel)DataContext;
+        private PopoutWindow? _popoutWindow;
 
-        public SetupListinoView()
+        public SetupListinoView() : this(null, showPopoutButton: true)
         {
+        }
+
+        private SetupListinoView(SetupViewModel? viewModel, bool showPopoutButton)
+        {
+            DataContext = viewModel ?? new SetupViewModel();
             InitializeComponent();
+            BtnPopout.Visibility = showPopoutButton ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void OnImportClick(object sender, RoutedEventArgs e)
@@ -82,7 +90,29 @@ namespace QtoRevitPlugin.UI.Views
 
         private void OnPopoutClick(object sender, RoutedEventArgs e)
         {
-            PopoutWindow.Popout(new SetupListinoView(), "CME · Setup · Listino");
+            try
+            {
+                switch (FloatingWindowReusePolicy.Decide(_popoutWindow != null, _popoutWindow?.IsVisible == true))
+                {
+                    case FloatingWindowReuseAction.ActivateVisible:
+                        _popoutWindow!.Activate();
+                        return;
+                    case FloatingWindowReuseAction.ShowHidden:
+                        _popoutWindow!.Show();
+                        _popoutWindow.Activate();
+                        return;
+                }
+
+                _popoutWindow = PopoutWindow.Popout(
+                    new SetupListinoView(Vm, showPopoutButton: false),
+                    "CME · Setup · Listino");
+                _popoutWindow.Closed += (_, _) => _popoutWindow = null;
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.WriteException("SetupListinoView.Popout", ex);
+                TaskDialog.Show("CME – Listino", $"Impossibile aprire la finestra Listino:\n{ex.Message}");
+            }
         }
 
         private CatalogBrowserWindow? _catalogWindow;
@@ -96,11 +126,17 @@ namespace QtoRevitPlugin.UI.Views
                 return;
             }
 
-            if (_catalogWindow != null && _catalogWindow.IsLoaded)
+            switch (FloatingWindowReusePolicy.Decide(_catalogWindow != null, _catalogWindow?.IsVisible == true))
             {
-                _catalogWindow.Activate();
-                return;
+                case FloatingWindowReuseAction.ActivateVisible:
+                    _catalogWindow!.Activate();
+                    return;
+                case FloatingWindowReuseAction.ShowHidden:
+                    _catalogWindow!.Show();
+                    _catalogWindow.Activate();
+                    return;
             }
+
             _catalogWindow = new CatalogBrowserWindow();
             _catalogWindow.Closed += (_, _) => _catalogWindow = null;
             _catalogWindow.Show();

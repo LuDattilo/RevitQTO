@@ -68,6 +68,11 @@
     <PackageReference Include="Revit.Async" Version="2.*" />
   </ItemGroup>
 
+  <!-- System.Text.Json non è built-in in .NET Framework 4.8 — richiede NuGet -->
+  <ItemGroup Condition="'$(TargetFramework)'=='net48'">
+    <PackageReference Include="System.Text.Json" Version="8.*" />
+  </ItemGroup>
+
   <!-- NuGet packages Sprint 1–2 (commentati finché non servono) -->
   <!--
   <ItemGroup>
@@ -109,30 +114,141 @@
   -->
   <PropertyGroup>
     <DeployToRevit Condition="'$(DeployToRevit)' == ''">true</DeployToRevit>
-    <RevitAddinsFolder>$(APPDATA)\Autodesk\Revit\Addins\2025</RevitAddinsFolder>
-    <RevitAddinSubfolder>$(RevitAddinsFolder)\QtoRevitPlugin</RevitAddinSubfolder>
+    <!-- net48 targets (Revit 2022–2024) -->
+    <RevitAddinsFolder2023>$(APPDATA)\Autodesk\Revit\Addins\2023</RevitAddinsFolder2023>
+    <RevitAddinSubfolder2023>$(RevitAddinsFolder2023)\QtoRevitPlugin</RevitAddinSubfolder2023>
+    <RevitAddinsFolder2024>$(APPDATA)\Autodesk\Revit\Addins\2024</RevitAddinsFolder2024>
+    <RevitAddinSubfolder2024>$(RevitAddinsFolder2024)\QtoRevitPlugin</RevitAddinSubfolder2024>
+    <!-- net8.0-windows targets (Revit 2025+) -->
+    <RevitAddinsFolder2025>$(APPDATA)\Autodesk\Revit\Addins\2025</RevitAddinsFolder2025>
+    <RevitAddinSubfolder2025>$(RevitAddinsFolder2025)\QtoRevitPlugin</RevitAddinSubfolder2025>
+    <RevitAddinsFolder2026>$(APPDATA)\Autodesk\Revit\Addins\2026</RevitAddinsFolder2026>
+    <RevitAddinSubfolder2026>$(RevitAddinsFolder2026)\QtoRevitPlugin</RevitAddinSubfolder2026>
+    <RevitAddinsFolder2027>$(APPDATA)\Autodesk\Revit\Addins\2027</RevitAddinsFolder2027>
+    <RevitAddinSubfolder2027>$(RevitAddinsFolder2027)\QtoRevitPlugin</RevitAddinSubfolder2027>
   </PropertyGroup>
 
+  <!-- Deploy net8.0-windows → Revit 2025 -->
   <Target Name="DeployToRevit2025"
           AfterTargets="FlattenNativeSqlite"
-          Condition="'$(TargetFramework)' == 'net8.0-windows' AND '$(DeployToRevit)' == 'true' AND '$(CI)' == '' AND Exists('$(RevitAddinsFolder)')">
-    <Message Importance="high" Text="→ Deploy QTO Plugin a $(RevitAddinSubfolder)" />
+          Condition="'$(TargetFramework)' == 'net8.0-windows' AND '$(DeployToRevit)' == 'true' AND '$(CI)' == '' AND Exists('$(RevitAddinsFolder2025)')">
+    <Message Importance="high" Text="→ Deploy QTO Plugin a $(RevitAddinSubfolder2025)" />
 
     <ItemGroup>
-      <_DeployFiles Include="$(OutputPath)**\*.*"
-                    Exclude="$(OutputPath)**\*.xml;$(OutputPath)**\*.pdb" />
+      <_DeployFiles2025 Include="$(OutputPath)**\*.*"
+                        Exclude="$(OutputPath)**\*.xml;$(OutputPath)**\*.pdb" />
     </ItemGroup>
 
-    <RemoveDir Directories="$(RevitAddinSubfolder)"
-               Condition="Exists('$(RevitAddinSubfolder)')" />
-    <MakeDir Directories="$(RevitAddinSubfolder)" />
+    <RemoveDir Directories="$(RevitAddinSubfolder2025)"
+               Condition="Exists('$(RevitAddinSubfolder2025)')" />
+    <MakeDir Directories="$(RevitAddinSubfolder2025)" />
 
-    <Copy SourceFiles="@(_DeployFiles)"
-          DestinationFolder="$(RevitAddinSubfolder)\%(RecursiveDir)"
+    <Copy SourceFiles="@(_DeployFiles2025)"
+          DestinationFolder="$(RevitAddinSubfolder2025)\%(RecursiveDir)"
           SkipUnchangedFiles="true" />
 
     <Copy SourceFiles="$(ProjectDir)QtoRevitPlugin.addin"
-          DestinationFolder="$(RevitAddinsFolder)"
+          DestinationFolder="$(RevitAddinsFolder2025)"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- Deploy net48 → Revit 2024 -->
+  <Target Name="DeployToRevit2024"
+          AfterTargets="Build"
+          Condition="'$(TargetFramework)' == 'net48' AND '$(DeployToRevit)' == 'true' AND '$(CI)' == '' AND Exists('$(RevitAddinsFolder2024)')">
+    <Message Importance="high" Text="→ Deploy QTO Plugin (net48) a $(RevitAddinSubfolder2024)" />
+
+    <ItemGroup>
+      <_DeployFiles2024 Include="$(OutputPath)**\*.*"
+                        Exclude="$(OutputPath)**\*.xml;$(OutputPath)**\*.pdb" />
+    </ItemGroup>
+
+    <RemoveDir Directories="$(RevitAddinSubfolder2024)"
+               Condition="Exists('$(RevitAddinSubfolder2024)')" />
+    <MakeDir Directories="$(RevitAddinSubfolder2024)" />
+
+    <Copy SourceFiles="@(_DeployFiles2024)"
+          DestinationFolder="$(RevitAddinSubfolder2024)\%(RecursiveDir)"
+          SkipUnchangedFiles="true" />
+
+    <Copy SourceFiles="$(ProjectDir)QtoRevitPlugin.addin"
+          DestinationFolder="$(RevitAddinsFolder2024)"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- Deploy net48 → Revit 2023 (stessa DLL net48, compatibile runtime) -->
+  <Target Name="DeployToRevit2023"
+          AfterTargets="Build"
+          Condition="'$(TargetFramework)' == 'net48' AND '$(DeployToRevit)' == 'true' AND '$(CI)' == '' AND Exists('$(RevitAddinsFolder2023)')">
+    <Message Importance="high" Text="→ Deploy QTO Plugin (net48) a $(RevitAddinSubfolder2023)" />
+
+    <ItemGroup>
+      <_DeployFiles2023 Include="$(OutputPath)**\*.*"
+                        Exclude="$(OutputPath)**\*.xml;$(OutputPath)**\*.pdb" />
+    </ItemGroup>
+
+    <RemoveDir Directories="$(RevitAddinSubfolder2023)"
+               Condition="Exists('$(RevitAddinSubfolder2023)')" />
+    <MakeDir Directories="$(RevitAddinSubfolder2023)" />
+
+    <Copy SourceFiles="@(_DeployFiles2023)"
+          DestinationFolder="$(RevitAddinSubfolder2023)\%(RecursiveDir)"
+          SkipUnchangedFiles="true" />
+
+    <Copy SourceFiles="$(ProjectDir)QtoRevitPlugin.addin"
+          DestinationFolder="$(RevitAddinsFolder2023)"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <!--
+    Deploy net8.0-windows → Revit 2026.
+    R2026 potrebbe non essere installato ora: la condizione Exists() protegge da errori.
+    Quando verrà installato, il deploy partirà automaticamente al prossimo Build.
+  -->
+  <Target Name="DeployToRevit2026"
+          AfterTargets="FlattenNativeSqlite"
+          Condition="'$(TargetFramework)' == 'net8.0-windows' AND '$(DeployToRevit)' == 'true' AND '$(CI)' == '' AND Exists('$(RevitAddinsFolder2026)')">
+    <Message Importance="high" Text="→ Deploy QTO Plugin (net8) a $(RevitAddinSubfolder2026)" />
+
+    <ItemGroup>
+      <_DeployFiles2026 Include="$(OutputPath)**\*.*"
+                        Exclude="$(OutputPath)**\*.xml;$(OutputPath)**\*.pdb" />
+    </ItemGroup>
+
+    <RemoveDir Directories="$(RevitAddinSubfolder2026)"
+               Condition="Exists('$(RevitAddinSubfolder2026)')" />
+    <MakeDir Directories="$(RevitAddinSubfolder2026)" />
+
+    <Copy SourceFiles="@(_DeployFiles2026)"
+          DestinationFolder="$(RevitAddinSubfolder2026)\%(RecursiveDir)"
+          SkipUnchangedFiles="true" />
+
+    <Copy SourceFiles="$(ProjectDir)QtoRevitPlugin.addin"
+          DestinationFolder="$(RevitAddinsFolder2026)"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- Deploy net8.0-windows → Revit 2027 -->
+  <Target Name="DeployToRevit2027"
+          AfterTargets="FlattenNativeSqlite"
+          Condition="'$(TargetFramework)' == 'net8.0-windows' AND '$(DeployToRevit)' == 'true' AND '$(CI)' == '' AND Exists('$(RevitAddinsFolder2027)')">
+    <Message Importance="high" Text="→ Deploy QTO Plugin (net8) a $(RevitAddinSubfolder2027)" />
+
+    <ItemGroup>
+      <_DeployFiles2027 Include="$(OutputPath)**\*.*"
+                        Exclude="$(OutputPath)**\*.xml;$(OutputPath)**\*.pdb" />
+    </ItemGroup>
+
+    <RemoveDir Directories="$(RevitAddinSubfolder2027)"
+               Condition="Exists('$(RevitAddinSubfolder2027)')" />
+    <MakeDir Directories="$(RevitAddinSubfolder2027)" />
+
+    <Copy SourceFiles="@(_DeployFiles2027)"
+          DestinationFolder="$(RevitAddinSubfolder2027)\%(RecursiveDir)"
+          SkipUnchangedFiles="true" />
+
+    <Copy SourceFiles="$(ProjectDir)QtoRevitPlugin.addin"
+          DestinationFolder="$(RevitAddinsFolder2027)"
           SkipUnchangedFiles="true" />
   </Target>
 

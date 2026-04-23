@@ -6,6 +6,7 @@
     <RevitDir2024 Condition="'$(RevitDir2024)'==''">C:\Program Files\Autodesk\Revit 2024</RevitDir2024>
     <RevitDir2025 Condition="'$(RevitDir2025)'==''">C:\Program Files\Autodesk\Revit 2025</RevitDir2025>
     <RevitDir2026 Condition="'$(RevitDir2026)'==''">C:\Program Files\Autodesk\Revit 2026</RevitDir2026>
+    <RevitDir2027 Condition="'$(RevitDir2027)'==''">C:\Program Files\Autodesk\Revit 2027</RevitDir2027>
   </PropertyGroup>
 
   <!-- Importa overrides locali (ignorato da git) -->

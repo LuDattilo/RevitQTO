@@ -60,13 +60,8 @@ namespace QtoRevitPlugin.Services
             }
             else
             {
-#if REVIT2025_OR_LATER
                 var opts = new ExternalDefinitionCreationOptions(
                     RecoveryService.LastSyncParamName, SpecTypeId.String.Text);
-#else
-                var opts = new ExternalDefinitionCreationOptions(
-                    RecoveryService.LastSyncParamName, ParameterType.Text);
-#endif
                 def = group.Definitions.Create(opts);
             }
 

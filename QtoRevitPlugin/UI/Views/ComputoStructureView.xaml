@@ -11,8 +11,10 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
+        <!-- Toolbar CRUD -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
             <Button Content="+ Super" Command="{Binding AddSuperCommand}" Margin="0,0,4,0" Padding="6,2"/>
             <Button Content="+ Cat" Command="{Binding AddCategoryCommand}" Margin="0,0,4,0" Padding="6,2"/>
@@ -21,6 +23,7 @@
             <Button Content="Elimina" Command="{Binding DeleteCommand}" Margin="0,0,0,0" Padding="6,2"/>
         </StackPanel>
 
+        <!-- TreeView (unchanged) -->
         <TreeView x:Name="ChaptersTree" Grid.Row="1" ItemsSource="{Binding Roots}"
                   SelectedItemChanged="OnTreeSelectedItemChanged">
             <TreeView.ItemContainerStyle>
@@ -36,6 +39,44 @@
             </TreeView.ItemTemplate>
         </TreeView>
 
-        <TextBlock Grid.Row="2" Text="{Binding StatusMessage}" Foreground="Gray" Margin="0,4,0,0"/>
+        <!-- Pannello dettaglio nodo selezionato: ComboBox OG/OS -->
+        <Border Grid.Row="2" Margin="0,6,0,0"
+                Background="{DynamicResource PanelSubBrush}"
+                BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1"
+                Padding="10,8">
+            <StackPanel>
+                <TextBlock Text="CODICE SOA (OG / OS) — D.LGS. 36/2023 ALL. II.12"
+                           Style="{DynamicResource SectionLabelStyle}" />
+                <Grid Margin="0,6,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Nodo selezionato:" VerticalAlignment="Center" Margin="0,0,8,0"
+                               FontSize="11" Foreground="{DynamicResource InkMutedBrush}" />
+                    <ComboBox Grid.Column="1"
+                              ItemsSource="{Binding AvailableSoa}"
+                              SelectedItem="{Binding SelectedNodeSoa, Mode=TwoWay}"
+                              IsEnabled="{Binding SelectedNode, Converter={x:Static vm:NullToBoolConverter.Instance}}"
+                              FontSize="11">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding Code}" FontFamily="Consolas"
+                                               FontWeight="SemiBold" Width="60" />
+                                    <TextBlock Text="{Binding Description}" Foreground="{DynamicResource InkMutedBrush}"
+                                               TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </Grid>
+                <TextBlock FontSize="10" FontStyle="Italic" Margin="0,4,0,0"
+                           Foreground="{DynamicResource InkMutedBrush}"
+                           Text="Il codice assegnato a un nodo si propaga ai figli per eredità. Rimuovi selezione per cancellare l'assegnazione propria (il nodo erediterà dal parent se presente)." />
+            </StackPanel>
+        </Border>
+
+        <TextBlock Grid.Row="3" Text="{Binding StatusMessage}" Foreground="Gray" Margin="0,4,0,0"/>
     </Grid>
 </UserControl>

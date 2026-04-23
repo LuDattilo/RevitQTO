@@ -2,10 +2,6 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:QtoRevitPlugin.UI.ViewModels">
-    <UserControl.DataContext>
-        <vm:SetupViewModel/>
-    </UserControl.DataContext>
-
     <Grid Background="{DynamicResource PanelBgBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />

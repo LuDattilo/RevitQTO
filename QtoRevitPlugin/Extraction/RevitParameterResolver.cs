@@ -23,7 +23,7 @@ namespace QtoRevitPlugin.Extraction
     /// <para>
     /// Identificatori non speciali → <c>room.LookupParameter(name)</c>. Se trovato e di tipo
     /// <c>StorageType.Double</c>, il valore viene convertito da internal units a display units
-    /// (m/m²/m³) a seconda del <c>ParameterType</c>. Per parametri Integer ritorna il valore
+    /// (m/m²/m³) a seconda del <c>SpecTypeId</c> ricavato da <c>Definition.GetDataType()</c>. Per parametri Integer ritorna il valore
     /// direttamente (no conversion). String/ElementId → null (non valutabili in formula numerica).
     /// </para>
     /// <para>
@@ -146,8 +146,9 @@ namespace QtoRevitPlugin.Extraction
 
         /// <summary>
         /// Converte il valore double del parametro da internal units (feet-family) al SI.
-        /// Usa l'API <see cref="UnitUtils.ConvertFromInternalUnits(double, ForgeTypeId)"/>
-        /// basata su <see cref="ParameterTypeId"/> (disponibile da Revit 2021+).
+        /// Usa <see cref="Definition.GetDataType()"/> per ottenere il <see cref="ForgeTypeId"/>
+        /// del tipo di dato (SpecTypeId), confrontato con <see cref="SpecTypeId.Length"/>,
+        /// <see cref="SpecTypeId.Area"/> e <see cref="SpecTypeId.Volume"/> (disponibile R2022+).
         /// In caso di errore ricade sui fattori di conversione fissi per Length/Area/Volume.
         /// </summary>
         private static double ConvertDoubleToSi(Parameter p)
@@ -157,19 +158,18 @@ namespace QtoRevitPlugin.Extraction
                 var def = p.Definition;
                 if (def != null)
                 {
-                    var dataType = p.GetUnitTypeId();
-                    if (dataType != null && !dataType.Empty())
+                    // GetDataType() ritorna un ForgeTypeId di categoria SpecTypeId (tipo di dato),
+                    // NON un UnitTypeId. Confrontare con SpecTypeId.* per riconoscere lunghezze/aree/volumi.
+                    var specType = def.GetDataType();
+                    if (specType != null && !specType.Empty())
                     {
-                        // ConvertFromInternalUnits richiede il UnitTypeId target (metri, m², m³, ecc.).
-                        // Mappiamo i tipi base più comuni; gli altri restano in internal units.
-                        if (dataType == UnitTypeId.Meters || dataType == UnitTypeId.Feet || dataType == UnitTypeId.Millimeters
-                            || dataType == UnitTypeId.Centimeters)
+                        if (specType.Equals(SpecTypeId.Length))
                             return UnitUtils.ConvertFromInternalUnits(p.AsDouble(), UnitTypeId.Meters);
 
-                        if (dataType == UnitTypeId.SquareMeters || dataType == UnitTypeId.SquareFeet)
+                        if (specType.Equals(SpecTypeId.Area))
                             return UnitUtils.ConvertFromInternalUnits(p.AsDouble(), UnitTypeId.SquareMeters);
 
-                        if (dataType == UnitTypeId.CubicMeters || dataType == UnitTypeId.CubicFeet)
+                        if (specType.Equals(SpecTypeId.Volume))
                             return UnitUtils.ConvertFromInternalUnits(p.AsDouble(), UnitTypeId.CubicMeters);
                     }
                 }
