@@ -69,14 +69,25 @@ namespace QtoRevitPlugin.Services
 
         private List<(string, double)> ExtractHashParams(Element elem, MappingRule rule)
         {
+            // Nessun fallback silenzioso su HOST_AREA_COMPUTED: se il parametro mappato
+            // non esiste o non ha valore, il contributo è 0 (mantiene coerenza dell'hash
+            // storico, ma evita collisioni semantiche tra elementi con Area uguale ma
+            // parametri di mapping diversi). Il fallback precedente causava false-negative
+            // nel diff (modifiche non rilevate su porte/finestre con stessa area).
             var result = new List<(string, double)>();
             foreach (var paramName in rule.HashParams)
             {
                 double value = 0;
-                var p = elem.LookupParameter(paramName)
-                    ?? elem.get_Parameter(BuiltInParameter.HOST_AREA_COMPUTED);
-                if (p != null && p.HasValue)
+                var p = elem.LookupParameter(paramName);
+                if (p == null)
+                {
+                    QtoRevitPlugin.Services.CrashLogger.Warn(
+                        $"ExtractHashParams: parametro '{paramName}' non trovato su elemento {elem.UniqueId} (cat={elem.Category?.Name}). Hash contribution = 0.");
+                }
+                else if (p.HasValue)
+                {
                     value = p.AsDouble();
+                }
                 result.Add((paramName, value));
             }
             return result;
@@ -84,8 +95,9 @@ namespace QtoRevitPlugin.Services
 
         private static double ExtractPrimaryQty(Element elem, MappingRule rule)
         {
-            var p = elem.LookupParameter(rule.DefaultParam)
-                ?? elem.get_Parameter(BuiltInParameter.HOST_AREA_COMPUTED);
+            // Nessun fallback su HOST_AREA_COMPUTED — se il parametro canonico della
+            // MappingRule non è disponibile, ritorna 0 e lascia all'utente riconciliare.
+            var p = elem.LookupParameter(rule.DefaultParam);
             return p != null && p.HasValue ? p.AsDouble() : 0;
         }
 

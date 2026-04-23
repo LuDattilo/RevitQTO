@@ -314,80 +314,95 @@ namespace QtoRevitPlugin.UI.ViewModels
                 var userId = _userContext?.UserId ?? Environment.UserName;
                 var favorite = ActiveFavoriteItem;
 
-                foreach (var elemId in selectedIds)
+                // Transaction singola per l'intera selezione: 3 scritture × N elementi
+                // eseguite in autocommit erano ~100× più lente su selezioni grandi.
+                using var tx = _qtoRepository.BeginTransaction();
+                try
                 {
-                    var elem = doc.GetElement(elemId);
-                    if (elem == null) continue;
-
-                    var qty = extractor.Extract(elem, SelectedQuantityParam, out var error);
-                    if (error != null) lastError = error;
-
-                    var assignment = new QtoAssignment
+                    foreach (var elemId in selectedIds)
                     {
-                        SessionId = sessionId,
+                        var elem = doc.GetElement(elemId);
+                        if (elem == null) continue;
+
+                        var qty = extractor.Extract(elem, SelectedQuantityParam, out var error);
+                        if (error != null) lastError = error;
+
+                        var assignment = new QtoAssignment
+                        {
+                            SessionId = sessionId,
 #if REVIT2024_OR_EARLIER
-                        ElementId = elemId.IntegerValue,
+                            ElementId = elemId.IntegerValue,
 #else
-                        ElementId = (int)elemId.Value,
+                            ElementId = (int)elemId.Value,
 #endif
-                        UniqueId = elem.UniqueId,
-                        Category = elem.Category?.Name ?? "",
-                        EpCode = favorite!.Code,
-                        EpDescription = favorite.ShortDesc,
-                        Quantity = qty,
-                        Unit = favorite.Unit,
-                        UnitPrice = favorite.UnitPrice,
-                        RuleApplied = SelectedQuantityParam,
-                        Source = QtoSource.RevitElement,
-                        CreatedBy = userId,
-                        CreatedAt = now,
-                        AuditStatus = AssignmentStatus.Active,
-                        Version = 1,
-                        ComputoChapterId = ActiveFavoriteItem != null && SelectedChapterOption?.Chapter != null
-                            ? SelectedChapterOption.Chapter.Id
-                            : (int?)null,
-                    };
+                            UniqueId = elem.UniqueId,
+                            Category = elem.Category?.Name ?? "",
+                            EpCode = favorite!.Code,
+                            EpDescription = favorite.ShortDesc,
+                            Quantity = qty,
+                            Unit = favorite.Unit,
+                            UnitPrice = favorite.UnitPrice,
+                            RuleApplied = SelectedQuantityParam,
+                            Source = QtoSource.RevitElement,
+                            CreatedBy = userId,
+                            CreatedAt = now,
+                            AuditStatus = AssignmentStatus.Active,
+                            Version = 1,
+                            ComputoChapterId = ActiveFavoriteItem != null && SelectedChapterOption?.Chapter != null
+                                ? SelectedChapterOption.Chapter.Id
+                                : (int?)null,
+                        };
 
-                    _qtoRepository.InsertAssignment(assignment);
+                        _qtoRepository.InsertAssignment(assignment, tx);
 
-                    // Snapshot SHA256 per Model Diff (usa BuiltInCategory enum per chiave locale-indipendente)
-                    var catOst = ModelDiffService.TryGetCategoryOst(elem);
-                    var rule = _mappingRulesService.GetRule(catOst);
-                    var paramValues = new List<(string, double)>();
-                    foreach (var hp in rule.HashParams)
-                    {
-                        var p = elem.LookupParameter(hp);
-                        paramValues.Add((hp, p?.HasValue == true ? p.AsDouble() : 0));
+                        // Snapshot SHA256 per Model Diff (usa BuiltInCategory enum per chiave locale-indipendente)
+                        var catOst = ModelDiffService.TryGetCategoryOst(elem);
+                        var rule = _mappingRulesService.GetRule(catOst);
+                        var paramValues = new List<(string, double)>();
+                        foreach (var hp in rule.HashParams)
+                        {
+                            var p = elem.LookupParameter(hp);
+                            paramValues.Add((hp, p?.HasValue == true ? p.AsDouble() : 0));
+                        }
+                        var snapshotHash = ModelDiffService.ComputeHashStatic(elem.UniqueId, paramValues);
+
+                        _qtoRepository.UpsertSnapshot(new ElementSnapshot
+                        {
+                            SessionId = sessionId,
+#if REVIT2024_OR_EARLIER
+                            ElementId = elemId.IntegerValue,
+#else
+                            ElementId = (int)elemId.Value,
+#endif
+                            UniqueId = elem.UniqueId,
+                            SnapshotHash = snapshotHash,
+                            SnapshotQty = qty,
+                            AssignedEP = new List<string> { favorite!.Code },
+                            LastUpdated = now
+                        }, tx);
+
+                        _qtoRepository.AppendChangeLog(new ChangeLogEntry
+                        {
+                            SessionId = sessionId,
+                            ElementUniqueId = elem.UniqueId,
+                            PriceItemCode = favorite.Code,
+                            ChangeType = "Created",
+                            NewValueJson = JsonSerializer.Serialize(new { qty, param = SelectedQuantityParam }),
+                            UserId = userId,
+                            Timestamp = now
+                        }, tx);
+
+                        assigned++;
                     }
-                    var snapshotHash = ModelDiffService.ComputeHashStatic(elem.UniqueId, paramValues);
 
-                    _qtoRepository.UpsertSnapshot(new ElementSnapshot
-                    {
-                        SessionId = sessionId,
-#if REVIT2024_OR_EARLIER
-                        ElementId = elemId.IntegerValue,
-#else
-                        ElementId = (int)elemId.Value,
-#endif
-                        UniqueId = elem.UniqueId,
-                        SnapshotHash = snapshotHash,
-                        SnapshotQty = qty,
-                        AssignedEP = new List<string> { favorite!.Code },
-                        LastUpdated = now
-                    });
-
-                    _qtoRepository.AppendChangeLog(new ChangeLogEntry
-                    {
-                        SessionId = sessionId,
-                        ElementUniqueId = elem.UniqueId,
-                        PriceItemCode = favorite.Code,
-                        ChangeType = "Created",
-                        NewValueJson = JsonSerializer.Serialize(new { qty, param = SelectedQuantityParam }),
-                        UserId = userId,
-                        Timestamp = now
-                    });
-
-                    assigned++;
+                    tx.Commit();
+                }
+                catch (Exception ex)
+                {
+                    tx.Rollback();
+                    QtoRevitPlugin.Services.CrashLogger.WriteException("AssignAsync.BulkInsert", ex);
+                    lastError = ex.Message;
+                    assigned = 0; // rollback = nulla inserito
                 }
 
                 // Aggiorna LastUsed per velocizzare flussi massivi
