@@ -936,9 +936,11 @@ WHERE s.ProjectPath = @ProjectPath
 
         public IReadOnlyList<UserFavorite> GetFavorites()
         {
+            // v11: PriceListPublicId è incluso nel SELECT. Dapper mappa
+            // automaticamente TEXT→string? (null se colonna NULL).
             const string sql = @"
 SELECT Id, PriceItemId, Code, Description, Unit, UnitPrice,
-       ListName, ListId, AddedAt, Note
+       ListName, ListId, PriceListPublicId, AddedAt, Note
 FROM UserFavorites
 ORDER BY AddedAt DESC, Code";
             return _conn.Query<UserFavorite>(sql).ToList();
@@ -958,10 +960,13 @@ ORDER BY AddedAt DESC, Code";
         /// </summary>
         public int AddFavorite(UserFavorite fav)
         {
+            // v11: PriceListPublicId incluso nell'INSERT. Auto-popolato da
+            // PriceLists.PublicId se il chiamante non lo fornisce esplicitamente
+            // (vedi ResolvePublicIdIfMissing sotto).
             const string insertSql = @"
 INSERT OR IGNORE INTO UserFavorites
-(PriceItemId, Code, Description, Unit, UnitPrice, ListName, ListId, AddedAt, Note)
-VALUES (@PriceItemId, @Code, @Description, @Unit, @UnitPrice, @ListName, @ListId, @AddedAt, @Note);";
+(PriceItemId, Code, Description, Unit, UnitPrice, ListName, ListId, PriceListPublicId, AddedAt, Note)
+VALUES (@PriceItemId, @Code, @Description, @Unit, @UnitPrice, @ListName, @ListId, @PriceListPublicId, @AddedAt, @Note);";
 
             // SELECT changes() immediatamente dopo INSERT restituisce 1 se la riga è stata
             // inserita, 0 se la constraint UNIQUE(Code, ListId) ha scattato OR IGNORE.
@@ -974,6 +979,19 @@ WHERE Code = @Code AND ListId IS @ListId LIMIT 1;";
             using var tx = _conn.BeginTransaction();
             try
             {
+                // v11 auto-resolve: se il chiamante non fornisce PriceListPublicId
+                // ma fornisce ListId, guardiamo il PublicId nella tabella PriceLists.
+                // Questo mantiene il dato coerente anche per chiamanti legacy che
+                // non conoscono il nuovo campo.
+                var resolvedPublicId = fav.PriceListPublicId;
+                if (string.IsNullOrWhiteSpace(resolvedPublicId) && fav.ListId.HasValue)
+                {
+                    resolvedPublicId = _conn.ExecuteScalar<string?>(
+                        "SELECT PublicId FROM PriceLists WHERE Id = @Id LIMIT 1;",
+                        new { Id = fav.ListId.Value },
+                        transaction: tx);
+                }
+
                 var inserted = _conn.Execute(insertSql, new
                 {
                     fav.PriceItemId,
@@ -983,6 +1001,7 @@ WHERE Code = @Code AND ListId IS @ListId LIMIT 1;";
                     fav.UnitPrice,
                     fav.ListName,
                     fav.ListId,
+                    PriceListPublicId = resolvedPublicId,
                     AddedAt = fav.AddedAt.ToString("o"),
                     fav.Note
                 }, transaction: tx);

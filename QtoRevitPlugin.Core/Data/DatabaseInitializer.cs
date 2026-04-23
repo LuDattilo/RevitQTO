@@ -83,7 +83,7 @@ namespace QtoRevitPlugin.Data
                 versionCmd.Transaction = tx;
                 versionCmd.CommandText = "INSERT INTO SchemaInfo (Version, Notes) VALUES ($v, $n);";
                 versionCmd.Parameters.AddWithValue("$v", DatabaseSchema.CurrentVersion);
-                versionCmd.Parameters.AddWithValue("$n", "Schema iniziale Sprint 1-10");
+                versionCmd.Parameters.AddWithValue("$n", "Schema iniziale Sprint 1-11");
                 versionCmd.ExecuteNonQuery();
             }
 
@@ -116,6 +116,15 @@ namespace QtoRevitPlugin.Data
             if (TableExists(conn, tx, "ComputoChapters") && !ColumnExists(conn, tx, "ComputoChapters", "SoaCategoryId"))
             {
                 ExecuteStatement(conn, tx, DatabaseSchema.MigrateV7ToV8_AddSoaCategoryIdToChapters);
+            }
+
+            // Pre-migration v10→v11 (T3.1): la colonna UserFavorites.PriceListPublicId
+            // deve esistere PRIMA del loop InitialStatements, perché quello contiene
+            // CREATE INDEX idx_favorites_public ON UserFavorites(PriceListPublicId)
+            // che fallirebbe su DB pre-v11 senza la colonna.
+            if (TableExists(conn, tx, "UserFavorites") && !ColumnExists(conn, tx, "UserFavorites", "PriceListPublicId"))
+            {
+                ExecuteStatement(conn, tx, DatabaseSchema.MigrateV10ToV11_AddPriceListPublicId);
             }
 
             // Migrazione v1 → v2 (Sprint 2): aggiunge PriceItems_FTS virtual table.
@@ -225,6 +234,17 @@ namespace QtoRevitPlugin.Data
                 // v9→v10: UserFavorites (popolata solo in UserLibrary).
                 ExecuteStatement(conn, tx, DatabaseSchema.MigrateV9ToV10_CreateUserFavorites);
                 ExecuteStatement(conn, tx, DatabaseSchema.MigrateV9ToV10_IndexFavoritesCode);
+            }
+
+            // v10→v11 (T3.1): la colonna PriceListPublicId è già stata aggiunta
+            // dalla pre-migration sopra (per sbloccare CREATE INDEX nel loop
+            // InitialStatements). Qui eseguiamo il backfill idempotente
+            // da PriceLists.PublicId per i preferiti esistenti.
+            if (TableExists(conn, tx, "UserFavorites")
+                && TableExists(conn, tx, "PriceLists")
+                && ColumnExists(conn, tx, "PriceLists", "PublicId"))
+            {
+                ExecuteStatement(conn, tx, DatabaseSchema.MigrateV10ToV11_BackfillPublicId);
             }
 
             using (var insert = conn.CreateCommand())
