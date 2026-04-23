@@ -28,4 +28,20 @@ namespace QtoRevitPlugin.UI.ViewModels
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
             => throw new NotSupportedException();
     }
+
+    /// <summary>
+    /// Converter WPF: stringa non vuota → Visible, null/empty/whitespace → Collapsed.
+    /// Utile per badge o altri elementi visibili solo quando c'è una label da mostrare
+    /// (es. "Fase: Demolizioni" nella MappingView phase-bound).
+    /// </summary>
+    public class StringNotEmptyToVisibilityConverter : IValueConverter
+    {
+        public static readonly StringNotEmptyToVisibilityConverter Instance = new StringNotEmptyToVisibilityConverter();
+
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+            => value is string s && !string.IsNullOrWhiteSpace(s) ? Visibility.Visible : Visibility.Collapsed;
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => throw new NotSupportedException();
+    }
 }

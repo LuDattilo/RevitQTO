@@ -1,0 +1,277 @@
+<UserControl x:Class="QtoRevitPlugin.UI.Views.HomeView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:QtoRevitPlugin.UI.ViewModels"
+             Background="{DynamicResource PanelBgBrush}">
+
+    <UserControl.Resources>
+        <vm:StepStatusToGlyphConverter x:Key="StepGlyph" />
+        <vm:StepStatusToBackgroundConverter x:Key="StepBg" />
+        <vm:StepStatusToEnabledConverter x:Key="StepEnabled" />
+        <vm:StepStatusToOpacityConverter x:Key="StepOpacity" />
+        <vm:AiStatusToGlyphConverter x:Key="AiGlyph" />
+        <vm:AiStatusToBrushConverter x:Key="AiBrush" />
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <Grid Margin="8,4,8,16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="1"
+                    Style="{DynamicResource CardStyle}"
+                    Background="{DynamicResource ChromeBgBrush}"
+                    BorderBrush="{DynamicResource ChromeEdgeBrush}"
+                    Padding="18">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.5*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0"
+                                Margin="0,0,18,0">
+                        <TextBlock Text="Home"
+                                   Foreground="{DynamicResource ChromeTextBrush}"
+                                   FontFamily="{DynamicResource FontDisplay}"
+                                   FontSize="20"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Text="Avvio operativo del computo"
+                                   Margin="0,4,0,0"
+                                   Foreground="{DynamicResource ChromeTextDimBrush}"
+                                   FontFamily="{DynamicResource FontMono}"
+                                   FontSize="10" />
+
+                        <TextBlock Text="{Binding HomePrimaryMessage}"
+                                   Margin="0,18,0,0"
+                                   Foreground="{DynamicResource BrandAccentSoftBrush}"
+                                   FontFamily="{DynamicResource FontDisplay}"
+                                   FontSize="16" />
+                        <TextBlock Text="{Binding HomeSecondaryMessage}"
+                                   Margin="0,10,0,0"
+                                   Foreground="{DynamicResource ChromeTextBrush}"
+                                   TextWrapping="Wrap" />
+
+                        <WrapPanel Margin="0,18,0,0">
+                            <Button Content="Nuovo computo"
+                                    Style="{DynamicResource BtnPrimary}"
+                                    Margin="0,0,10,10"
+                                    Click="OnNewSessionClick" />
+                            <Button Content="Apri computo"
+                                    Style="{DynamicResource BtnSecondary}"
+                                    Margin="0,0,10,10"
+                                    Click="OnOpenSessionClick" />
+                            <Button Content="Riprendi ultimo"
+                                    Style="{DynamicResource BtnSecondary}"
+                                    Margin="0,0,0,10"
+                                    IsEnabled="{Binding CanResumeLastSession}"
+                                    Click="OnResumeLastClick" />
+                        </WrapPanel>
+
+                        <!-- KPI sessione (visibili solo con sessione attiva) -->
+                        <UniformGrid Columns="3"
+                                     Margin="0,18,0,0"
+                                     Visibility="{Binding HasActiveSession, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}">
+                            <StackPanel Margin="0,0,12,0">
+                                <TextBlock Text="ELEMENTI"
+                                           Foreground="{DynamicResource ChromeTextDimBrush}"
+                                           FontFamily="{DynamicResource FontMono}"
+                                           FontSize="9"
+                                           FontWeight="Bold" />
+                                <TextBlock Text="{Binding TotalElements}"
+                                           Margin="0,4,0,0"
+                                           Foreground="{DynamicResource ChromeTextBrush}"
+                                           FontFamily="{DynamicResource FontDisplay}"
+                                           FontSize="22"
+                                           FontWeight="SemiBold" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,12,0">
+                                <TextBlock Text="TAGGATI"
+                                           Foreground="{DynamicResource ChromeTextDimBrush}"
+                                           FontFamily="{DynamicResource FontMono}"
+                                           FontSize="9"
+                                           FontWeight="Bold" />
+                                <TextBlock Text="{Binding ProgressText}"
+                                           Margin="0,4,0,0"
+                                           Foreground="{DynamicResource BrandAccentSoftBrush}"
+                                           FontFamily="{DynamicResource FontDisplay}"
+                                           FontSize="22"
+                                           FontWeight="SemiBold" />
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock Text="IMPORTO"
+                                           Foreground="{DynamicResource ChromeTextDimBrush}"
+                                           FontFamily="{DynamicResource FontMono}"
+                                           FontSize="9"
+                                           FontWeight="Bold" />
+                                <TextBlock Text="{Binding AmountText}"
+                                           Margin="0,4,0,0"
+                                           Foreground="{DynamicResource ChromeTextBrush}"
+                                           FontFamily="{DynamicResource FontDisplay}"
+                                           FontSize="22"
+                                           FontWeight="SemiBold" />
+                            </StackPanel>
+                        </UniformGrid>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1">
+                        <Border Background="#221C1917"
+                                BorderBrush="{DynamicResource ChromeEdgeBrush}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="12">
+                            <StackPanel>
+                                <TextBlock Text="Ultimo computo"
+                                           Foreground="{DynamicResource ChromeTextDimBrush}"
+                                           FontFamily="{DynamicResource FontMono}"
+                                           FontSize="9" />
+                                <TextBlock Text="{Binding LastSessionHint}"
+                                           Margin="0,6,0,0"
+                                           Foreground="{DynamicResource ChromeTextBrush}"
+                                           FontWeight="SemiBold"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Margin="0,12,0,0"
+                                Background="#221C1917"
+                                BorderBrush="{DynamicResource ChromeEdgeBrush}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="12">
+                            <StackPanel>
+                                <TextBlock Text="Vincoli di flusso"
+                                           Foreground="{DynamicResource ChromeTextDimBrush}"
+                                           FontFamily="{DynamicResource FontMono}"
+                                           FontSize="9" />
+                                <TextBlock Margin="0,8,0,0"
+                                           Text="Il Listino precede la Selezione. La fase Revit viene gestita dentro Selezione e aggiorna le viste phase-bound con soft switch."
+                                           TextWrapping="Wrap"
+                                           Foreground="{DynamicResource ChromeTextBrush}" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- AI status badge (D5) -->
+                        <Border Margin="0,12,0,0"
+                                Background="#221C1917"
+                                BorderBrush="{DynamicResource ChromeEdgeBrush}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="12"
+                                ToolTip="{Binding AiStatusHint}">
+                            <StackPanel>
+                                <TextBlock Text="Stato AI"
+                                           Foreground="{DynamicResource ChromeTextDimBrush}"
+                                           FontFamily="{DynamicResource FontMono}"
+                                           FontSize="9" />
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <TextBlock Text="{Binding AiStatus, Converter={StaticResource AiGlyph}}"
+                                               Foreground="{Binding AiStatus, Converter={StaticResource AiBrush}}"
+                                               FontFamily="{DynamicResource FontMono}"
+                                               FontSize="14"
+                                               FontWeight="Bold"
+                                               Margin="0,0,8,0"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding AiStatusLabel}"
+                                               Foreground="{DynamicResource ChromeTextBrush}"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding AiStatusHint}"
+                                           Margin="0,4,0,0"
+                                           Foreground="{DynamicResource ChromeTextDimBrush}"
+                                           FontSize="10"
+                                           TextTrimming="CharacterEllipsis"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <TextBlock Grid.Row="2"
+                       Margin="0,18,0,8"
+                       Text="WORKFLOW"
+                       Foreground="{DynamicResource BrandAccentBrush}"
+                       FontFamily="{DynamicResource FontMono}"
+                       FontSize="9"
+                       FontWeight="Bold" />
+
+            <Border Grid.Row="3"
+                    Style="{DynamicResource CardStyle}"
+                    Padding="16">
+                <StackPanel>
+                    <ItemsControl ItemsSource="{Binding HomeWorkflowSteps}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <!-- Chip cliccabile per step. Stato visuale:
+                                     Done=BrandAccentSoft / Current=BrandAccentDeep /
+                                     Available=PanelSub / Locked=ChromeBg+opacity 0.4 -->
+                                <Button Margin="0,0,10,10"
+                                        Padding="0"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Cursor="Hand"
+                                        IsEnabled="{Binding Status, Converter={StaticResource StepEnabled}}"
+                                        Opacity="{Binding Status, Converter={StaticResource StepOpacity}}"
+                                        Command="{Binding DataContext.NavigateToStepCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="ChipBorder"
+                                                    Background="{Binding Status, Converter={StaticResource StepBg}}"
+                                                    BorderBrush="{DynamicResource EdgeLightBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="8"
+                                                    Padding="14,10"
+                                                    MinWidth="160">
+                                                <StackPanel>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="{Binding Status, Converter={StaticResource StepGlyph}}"
+                                                                   FontFamily="{DynamicResource FontMono}"
+                                                                   FontSize="13"
+                                                                   FontWeight="Bold"
+                                                                   Foreground="{DynamicResource ChromeTextBrush}"
+                                                                   Margin="0,0,8,0" />
+                                                        <TextBlock Text="{Binding Order, StringFormat='{}{0}.'}"
+                                                                   Foreground="{DynamicResource ChromeTextDimBrush}"
+                                                                   FontFamily="{DynamicResource FontMono}"
+                                                                   FontSize="10"
+                                                                   Margin="0,2,6,0" />
+                                                        <TextBlock Text="{Binding Label}"
+                                                                   Foreground="{DynamicResource ChromeTextBrush}"
+                                                                   FontWeight="SemiBold"
+                                                                   VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                    <TextBlock Text="{Binding Hint}"
+                                                               Margin="21,4,0,0"
+                                                               Foreground="{DynamicResource ChromeTextDimBrush}"
+                                                               FontSize="10"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                </StackPanel>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="ChipBorder" Property="BorderBrush" Value="{DynamicResource BrandAccentBrush}" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </ScrollViewer>
+</UserControl>

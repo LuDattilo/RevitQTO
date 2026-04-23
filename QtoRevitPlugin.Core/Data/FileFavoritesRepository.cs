@@ -23,14 +23,15 @@ namespace QtoRevitPlugin.Data
 
         public FavoriteSet LoadGlobal()
         {
-            var path = Path.Combine(_globalDir, "default.json");
-            return LoadFromFile(path) ?? new FavoriteSet();
+            var path = Path.Combine(_globalDir, "favorites.personal.json");
+            return LoadFromFile(path) ?? new FavoriteSet { Scope = FavoriteScope.Personal };
         }
 
         public void SaveGlobal(FavoriteSet set)
         {
             Directory.CreateDirectory(_globalDir);
-            var path = Path.Combine(_globalDir, "default.json");
+            set.Scope = FavoriteScope.Personal;
+            var path = Path.Combine(_globalDir, "favorites.personal.json");
             File.WriteAllText(path, JsonSerializer.Serialize(set, JsonOptions));
         }
 
@@ -38,7 +39,7 @@ namespace QtoRevitPlugin.Data
         {
             var dir = Path.GetDirectoryName(cmePath);
             if (string.IsNullOrEmpty(dir)) return null;
-            var path = Path.Combine(dir, "favorites.json");
+            var path = Path.Combine(dir, "favorites.project.json");
             return LoadFromFile(path);
         }
 
@@ -47,7 +48,8 @@ namespace QtoRevitPlugin.Data
             var dir = Path.GetDirectoryName(cmePath);
             if (string.IsNullOrEmpty(dir)) return;
             Directory.CreateDirectory(dir);
-            var path = Path.Combine(dir, "favorites.json");
+            set.Scope = FavoriteScope.Project;
+            var path = Path.Combine(dir, "favorites.project.json");
             File.WriteAllText(path, JsonSerializer.Serialize(set, JsonOptions));
         }
 

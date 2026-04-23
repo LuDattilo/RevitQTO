@@ -71,7 +71,7 @@ namespace QtoRevitPlugin.Application
                 CrashLogger.Info("→ SessionManager + AutoSave + PaneVM");
                 SessionManager = new SessionManager();
                 AutoSave = new AutoSaveService(SessionManager);
-                PaneViewModel = new DockablePaneViewModel(SessionManager);
+                PaneViewModel = new DockablePaneViewModel(SessionManager, UserLibrary);
 
                 SessionManager.SessionChanged += (_, args) =>
                 {

@@ -10,8 +10,6 @@
              FontFamily="{DynamicResource FontBody}"
              Background="{DynamicResource PanelBgBrush}">
 
-    <!-- Il tema QtoTheme.xaml è caricato in Application.Current.Resources da QtoApplication.OnStartup -->
-
     <Grid Background="{DynamicResource PanelBgBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -20,153 +18,239 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Header brand scuro (stile engineering) -->
-        <Border Grid.Row="0" Background="{DynamicResource ChromeBgBrush}" Padding="14,10">
-            <StackPanel>
-                <!-- Riga superiore: logo + titolo + version + LIVE badge -->
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+        <Border Grid.Row="0"
+                Margin="14,14,14,0"
+                Style="{DynamicResource CardStyle}"
+                Padding="16">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-                    <!-- Logo Q arancione -->
-                    <Border Grid.Column="0" Background="{DynamicResource BrandAccentBrush}"
-                            Width="26" Height="26" CornerRadius="2"
-                            VerticalAlignment="Center">
-                        <TextBlock Text="Q" Foreground="White"
-                                   FontFamily="{DynamicResource FontDisplay}"
-                                   FontSize="15" FontWeight="Bold"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
-
-                    <!-- Titolo uppercase -->
-                    <TextBlock Grid.Column="1" Text="CME"
-                               Foreground="{DynamicResource ChromeTextBrush}"
-                               FontFamily="{DynamicResource FontDisplay}"
-                               FontSize="13" FontWeight="Bold"
-                               Margin="10,0,0,0"
-                               VerticalAlignment="Center" />
-
-                    <!-- Menu Sessione (file-like: Nuovo/Apri/Salva/SalvaConNome/Rinomina/Chiudi/Elimina) -->
-                    <Button Grid.Column="2"
-                            x:Name="SessionMenuButton"
-                            Click="OnSessionMenuClick"
-                            Margin="14,0,0,0"
-                            HorizontalAlignment="Left"
-                            VerticalAlignment="Center"
-                            Padding="8,4"
-                            Background="Transparent"
-                            Foreground="{DynamicResource ChromeTextBrush}"
-                            BorderBrush="{DynamicResource ChromeEdgeBrush}"
-                            BorderThickness="1"
-                            FontFamily="{DynamicResource FontBody}"
-                            FontSize="11"
-                            FontWeight="SemiBold"
-                            Cursor="Hand">
-                        <Button.Content>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="Sessione" />
-                                <TextBlock Text=" ▾" Opacity="0.7" />
-                            </StackPanel>
-                        </Button.Content>
-                        <Button.ContextMenu>
-                            <ContextMenu x:Name="SessionContextMenu">
-                                <MenuItem x:Name="MiNew" Header="Nuovo computo…" Click="OnNewSession" />
-                                <MenuItem x:Name="MiOpen" Header="Apri computo…" Click="OnOpenSession" />
-                                <Separator />
-                                <MenuItem x:Name="MiSave" Header="Salva" Click="OnSave" />
-                                <MenuItem x:Name="MiSaveAs" Header="Salva con nome…" Click="OnSaveAs" />
-                                <Separator />
-                                <MenuItem x:Name="MiRename" Header="Rinomina…" Click="OnRename" />
-                                <MenuItem x:Name="MiClose" Header="Chiudi computo" Click="OnClose" />
-                                <Separator />
-                                <MenuItem x:Name="MiDelete" Header="Elimina…" Click="OnDelete" />
-                                <Separator />
-                                <MenuItem x:Name="MiSettings" Header="Impostazioni…" Click="OnSettings" />
-                            </ContextMenu>
-                        </Button.ContextMenu>
-                    </Button>
-
-                    <!-- Version -->
-                    <TextBlock Grid.Column="3" Text="v1.0"
-                               Foreground="{DynamicResource ChromeTextDimBrush}"
-                               FontFamily="{DynamicResource FontMono}"
-                               FontSize="10"
-                               VerticalAlignment="Center"
-                               Margin="0,0,8,0" />
-
-                    <!-- Badge LIVE arancione -->
-                    <Border Grid.Column="4"
-                            Background="{DynamicResource BrandAccentBrush}"
-                            CornerRadius="2" Padding="5,2"
-                            VerticalAlignment="Center">
-                        <TextBlock Text="LIVE" Foreground="White"
-                                   FontFamily="{DynamicResource FontMono}"
-                                   FontSize="9" FontWeight="Bold"
-                                   LineHeight="10" />
-                    </Border>
-                </Grid>
-
-                <!-- Riga inferiore: sessione corrente -->
-                <Grid Margin="0,8,0,0">
+                <Grid Grid.Row="0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Grid.Column="0">
-                        <TextBlock Text="{Binding SessionTitle}"
-                                   Foreground="{DynamicResource ChromeTextBrush}"
-                                   FontFamily="{DynamicResource FontBody}"
-                                   FontSize="11" FontWeight="SemiBold"
-                                   TextTrimming="CharacterEllipsis" />
-                        <TextBlock Text="{Binding ProjectSubtitle}"
-                                   Foreground="{DynamicResource ChromeTextDimBrush}"
+                        <StackPanel Orientation="Horizontal">
+                            <Border Background="{DynamicResource BrandAccentBrush}"
+                                    Width="30"
+                                    Height="30"
+                                    CornerRadius="8"
+                                    VerticalAlignment="Center">
+                                <TextBlock Text="Q"
+                                           Foreground="White"
+                                           FontFamily="{DynamicResource FontDisplay}"
+                                           FontSize="16"
+                                           FontWeight="Bold"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel Margin="10,0,0,0">
+                                <TextBlock Text="CME Workspace"
+                                           FontFamily="{DynamicResource FontDisplay}"
+                                           FontSize="16"
+                                           Foreground="{DynamicResource InkDefaultBrush}" />
+                                <TextBlock Text="Hub operativo per setup, listino, selezione e tagging"
+                                           Margin="0,2,0,0"
+                                           FontFamily="{DynamicResource FontMono}"
+                                           FontSize="10"
+                                           Foreground="{DynamicResource InkMutedBrush}" />
+                            </StackPanel>
+                        </StackPanel>
+
+                        <Border Margin="0,14,0,0"
+                                Background="{DynamicResource BrandAccentSoftBrush}"
+                                BorderBrush="{DynamicResource EdgeLightBrush}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="12,10">
+                            <StackPanel>
+                                <TextBlock Text="{Binding SessionTitle}"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource InkDefaultBrush}"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding ProjectSubtitle}"
+                                           Margin="0,4,0,0"
+                                           FontFamily="{DynamicResource FontMono}"
+                                           FontSize="10"
+                                           Foreground="{DynamicResource InkDimBrush}"
+                                           TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1"
+                                Margin="18,0,0,0"
+                                HorizontalAlignment="Right">
+                        <WrapPanel HorizontalAlignment="Right">
+                            <Button Content="Nuovo"
+                                    Style="{DynamicResource BtnPrimary}"
+                                    Margin="0,0,8,8"
+                                    Click="OnNewSession" />
+                            <Button Content="Apri"
+                                    Style="{DynamicResource BtnSecondary}"
+                                    Margin="0,0,8,8"
+                                    Click="OnOpenSession" />
+                            <Button Content="Riprendi ultimo"
+                                    Style="{DynamicResource BtnSecondary}"
+                                    Margin="0,0,8,8"
+                                    IsEnabled="{Binding CanResumeLastSession}"
+                                    Click="OnResumeLastSession" />
+                            <Button x:Name="SessionMenuButton"
+                                    Content="Sessione ▾"
+                                    Style="{DynamicResource BtnSecondary}"
+                                    Margin="0,0,0,8"
+                                    Click="OnSessionMenuClick">
+                                <Button.ContextMenu>
+                                    <ContextMenu x:Name="SessionContextMenu">
+                                        <MenuItem x:Name="MiNew" Header="Nuovo computo…" Click="OnNewSession" />
+                                        <MenuItem x:Name="MiOpen" Header="Apri computo…" Click="OnOpenSession" />
+                                        <Separator />
+                                        <MenuItem x:Name="MiSave" Header="Salva" Click="OnSave" />
+                                        <MenuItem x:Name="MiSaveAs" Header="Salva con nome…" Click="OnSaveAs" />
+                                        <Separator />
+                                        <MenuItem x:Name="MiRename" Header="Rinomina…" Click="OnRename" />
+                                        <MenuItem x:Name="MiClose" Header="Chiudi computo" Click="OnClose" />
+                                        <Separator />
+                                        <MenuItem x:Name="MiDelete" Header="Elimina…" Click="OnDelete" />
+                                        <Separator />
+                                        <MenuItem x:Name="MiSettings" Header="Impostazioni…" Click="OnSettings" />
+                                    </ContextMenu>
+                                </Button.ContextMenu>
+                            </Button>
+                        </WrapPanel>
+
+                        <TextBlock Text="REVIT 2025 · LIVE"
+                                   HorizontalAlignment="Right"
                                    FontFamily="{DynamicResource FontMono}"
                                    FontSize="10"
-                                   Margin="0,1,0,0"
-                                   TextTrimming="CharacterEllipsis" />
-                    </StackPanel>
-
-                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding ProgressText}"
-                                   Foreground="{DynamicResource ChromeTextDimBrush}"
-                                   FontFamily="{DynamicResource FontMono}" FontSize="10"
-                                   HorizontalAlignment="Right" />
-                        <TextBlock Text="{Binding AmountText}"
-                                   Foreground="{DynamicResource BrandAccentBrush}"
-                                   FontFamily="{DynamicResource FontMono}"
-                                   FontSize="13" FontWeight="Bold"
-                                   HorizontalAlignment="Right" />
+                                   Foreground="{DynamicResource BrandAccentBrush}" />
                     </StackPanel>
                 </Grid>
-            </StackPanel>
+
+                <UniformGrid Grid.Row="1"
+                             Columns="3"
+                             Margin="0,16,0,0">
+                    <Border Margin="0,0,8,0"
+                            Background="{DynamicResource PanelSubBrush}"
+                            BorderBrush="{DynamicResource EdgeLightBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="12,10">
+                        <StackPanel>
+                            <TextBlock Text="Progresso"
+                                       Style="{DynamicResource SectionLabelStyle}" />
+                            <TextBlock Text="{Binding ProgressText}"
+                                       Style="{DynamicResource KpiValueStyle}"
+                                       FontSize="18" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Margin="0,0,8,0"
+                            Background="{DynamicResource PanelSubBrush}"
+                            BorderBrush="{DynamicResource EdgeLightBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="12,10">
+                        <StackPanel>
+                            <TextBlock Text="Importo"
+                                       Style="{DynamicResource SectionLabelStyle}" />
+                            <TextBlock Text="{Binding AmountText}"
+                                       Style="{DynamicResource KpiValueStyle}"
+                                       FontSize="18" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Background="{DynamicResource PanelSubBrush}"
+                            BorderBrush="{DynamicResource EdgeLightBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="12,10">
+                        <StackPanel>
+                            <TextBlock Text="Contesto fase"
+                                       Style="{DynamicResource SectionLabelStyle}" />
+                            <TextBlock Text="{Binding PreviewPhaseContext}"
+                                       Foreground="{DynamicResource InkDimBrush}"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+                </UniformGrid>
+            </Grid>
         </Border>
 
-        <!-- View switcher su chrome scuro -->
-        <Border Grid.Row="1" Background="{DynamicResource ChromeBgBrush}"
-                BorderBrush="{DynamicResource ChromeEdgeBrush}"
-                BorderThickness="0,0,0,1"
-                Padding="14,8,14,10">
+        <Border Grid.Row="1"
+                Margin="14,12,14,0"
+                Style="{DynamicResource CardStyle}"
+                Padding="14,12">
             <StackPanel>
-                <TextBlock Text="VISTA CORRENTE"
-                           Foreground="{DynamicResource BrandAccentBrush}"
-                           FontFamily="{DynamicResource FontMono}"
-                           FontSize="9" FontWeight="Bold"
-                           Margin="0,0,0,6" />
+                <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="Workflow"
+                                   Foreground="{DynamicResource InkDefaultBrush}"
+                                   FontFamily="{DynamicResource FontDisplay}"
+                                   FontSize="13"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Text="Listino prima di Selezione. La fase Revit vive dentro Selezione e aggiorna il contesto operativo."
+                                   Margin="0,2,0,0"
+                                   Foreground="{DynamicResource InkMutedBrush}"
+                                   FontFamily="{DynamicResource FontMono}"
+                                   FontSize="10" />
+                    </StackPanel>
+
+                    <Border Grid.Column="1"
+                            Background="{DynamicResource BrandAccentSoftBrush}"
+                            BorderBrush="{DynamicResource EdgeLightBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="10,6">
+                        <TextBlock Text="{Binding ActiveView.Reference}"
+                                   FontFamily="{DynamicResource FontMono}"
+                                   FontSize="10"
+                                   Foreground="{DynamicResource BrandAccentDeepBrush}" />
+                    </Border>
+                </Grid>
                 <WrapPanel x:Name="SwitcherHost" Orientation="Horizontal" />
+                <Border Margin="0,4,0,0"
+                        Background="{DynamicResource PanelSubBrush}"
+                        BorderBrush="{DynamicResource EdgeLightBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="10,8">
+                    <StackPanel>
+                        <TextBlock Text="Strumenti secondari"
+                                   Foreground="{DynamicResource InkMutedBrush}"
+                                   FontFamily="{DynamicResource FontMono}"
+                                   FontSize="9"
+                                   FontWeight="Bold" />
+                        <WrapPanel x:Name="SecondarySwitcherHost"
+                                   Margin="0,8,0,0"
+                                   Orientation="Horizontal" />
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </Border>
 
         <!-- Content area: view attiva -->
-        <ContentControl Grid.Row="2" x:Name="ViewHost" />
+        <Border Grid.Row="2"
+                Margin="14,12,14,0"
+                Background="{DynamicResource PanelBgBrush}">
+            <ContentControl x:Name="ViewHost" />
+        </Border>
 
         <!-- Status bar -->
-        <Border Grid.Row="3" Background="{DynamicResource PanelSubBrush}"
+        <Border Grid.Row="3"
+                Margin="14,12,14,14"
+                Background="{DynamicResource PanelSubBrush}"
                 BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="0,1,0,0"
                 Padding="12,6">
             <Grid>
@@ -178,12 +262,6 @@
                            Text="{Binding StatusMessage}"
                            FontSize="11"
                            Foreground="{DynamicResource InkDimBrush}"
-                           VerticalAlignment="Center" />
-                <TextBlock Grid.Column="1"
-                           Text="{Binding ActiveView.Reference}"
-                           FontFamily="{DynamicResource FontMono}"
-                           FontSize="10"
-                           Foreground="{DynamicResource InkMutedBrush}"
                            VerticalAlignment="Center" />
             </Grid>
         </Border>
