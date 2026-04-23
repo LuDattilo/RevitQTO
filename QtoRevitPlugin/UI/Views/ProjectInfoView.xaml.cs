@@ -137,6 +137,20 @@ namespace QtoRevitPlugin.UI.Views
                 return;
             }
 
+            // Guard aggiuntivo: impedisce l'apertura di un DB già aperto dalla
+            // UserLibrary globale (aprirebbe una seconda connessione in scrittura
+            // sullo stesso file e attiverebbe MigrateIfNeeded → locking potenziale).
+            var userLibPath = QtoApplication.Instance?.UserLibrary?.Library?.DatabasePath;
+            if (!string.IsNullOrEmpty(userLibPath) &&
+                string.Equals(Path.GetFullPath(sourcePath), Path.GetFullPath(userLibPath!),
+                    System.StringComparison.OrdinalIgnoreCase))
+            {
+                TaskDialog.Show("CME – Copia Informazioni Progetto",
+                    "Il file selezionato è la UserLibrary globale del plugin, non un file .cme di progetto.\n\n" +
+                    "Scegli un file .cme creato dal plugin CME.");
+                return;
+            }
+
             try
             {
                 using var srcRepo = new QtoRepository(sourcePath);

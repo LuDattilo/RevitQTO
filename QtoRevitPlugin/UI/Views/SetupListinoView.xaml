@@ -255,7 +255,14 @@
                                 </StackPanel>
                             </Border>
 
-                            <!-- DataGrid preferiti (nascosto quando vuoto) -->
+                            <!--
+                                DataGrid preferiti (nascosto quando vuoto).
+                                rev.7 (feedback utente): rimosso MaxHeight=160 vincolante perché
+                                la Row 5 della Grid esterna è già `2* MinHeight=120` e con
+                                GridSplitter — la DataGrid deve STRETCH per riempire lo spazio
+                                dell'Expander invece di rimanere ancorata al centro con
+                                white-space sopra/sotto.
+                            -->
                             <DataGrid x:Name="FavoritesGrid"
                                       ItemsSource="{Binding Favorites}"
                                       SelectedItem="{Binding SelectedFavorite, Mode=TwoWay}"
@@ -263,7 +270,8 @@
                                       AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
                                       HeadersVisibility="Column" FontSize="11" FontWeight="Normal"
                                       Foreground="{DynamicResource InkDefaultBrush}"
-                                      MaxHeight="160" GridLinesVisibility="None"
+                                      GridLinesVisibility="None"
+                                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                                       IsReadOnly="True"
                                       Visibility="{Binding FavoritesIsEmpty,
                                                    Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
