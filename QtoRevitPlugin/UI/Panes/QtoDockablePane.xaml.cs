@@ -30,6 +30,16 @@ namespace QtoRevitPlugin.UI.Panes
         {
             _vm = vm;
             DataContext = _vm;
+
+            // BUGFIX #bug-invalidcast-style: `Application.Current` è null durante
+            // OnStartup di un plugin Revit (Revit non crea un WPF Application object).
+            // Il theme caricato in QtoApplication.LoadThemeIntoApplicationResources
+            // fa early-return se Application.Current è null → il DockablePane non
+            // trova "SwitcherButton" in FindResource e crasha con InvalidCastException
+            // (NamedObject sentinel → Style). Soluzione: merge del theme direttamente
+            // nelle Resources di QUESTO UserControl, prima di InitializeComponent.
+            EnsureThemeLoaded();
+
             InitializeComponent();
 
             BuildSwitcher();
@@ -69,16 +79,64 @@ namespace QtoRevitPlugin.UI.Panes
             if (window.Height < 600) window.Height = 760;
         }
 
+        /// <summary>
+        /// Merge idempotente di QtoTheme.xaml nelle Resources del pane.
+        /// Necessario perché Application.Current è null in OnStartup di un plugin Revit:
+        /// il load "globale" tentato in QtoApplication non funziona e bisogna caricare
+        /// il tema al livello dell'UserControl. Guardie multi-livello: marker key per
+        /// evitare double-load, try/catch per log diagnostico.
+        /// </summary>
+        private void EnsureThemeLoaded()
+        {
+            const string markerKey = "QtoThemeLoaded";
+            if (Resources.Contains(markerKey)) return;
+
+            try
+            {
+                var uri = new Uri("/QtoRevitPlugin;component/Theme/QtoTheme.xaml", UriKind.Relative);
+                var theme = (System.Windows.ResourceDictionary)System.Windows.Application.LoadComponent(uri);
+                Resources.MergedDictionaries.Add(theme);
+                Resources[markerKey] = true;
+
+                // Propaga anche a Application.Current se disponibile (così window
+                // fluttuanti/popup ereditano lo stile quando Application c'è).
+                var app = System.Windows.Application.Current;
+                if (app != null && !app.Resources.Contains(markerKey))
+                {
+                    app.Resources.MergedDictionaries.Add(theme);
+                    app.Resources[markerKey] = true;
+                }
+
+                Services.CrashLogger.Info($"QtoDockablePane: theme caricato nel UserControl ({theme.Count} risorse)");
+            }
+            catch (Exception ex)
+            {
+                Services.CrashLogger.WriteException("QtoDockablePane.EnsureThemeLoaded", ex);
+            }
+        }
+
         private void BuildSwitcher()
         {
+            // Difesa in profondità: TryFindResource ritorna null invece del
+            // NamedObject sentinel se la chiave non c'è, così il cast sicuro fallisce
+            // con messaggio utile invece di crash opaco.
+            var switcherStyle = TryFindResource("SwitcherButton") as Style;
+            if (switcherStyle == null)
+            {
+                Services.CrashLogger.Warn(
+                    "QtoDockablePane.BuildSwitcher: style 'SwitcherButton' non trovato. " +
+                    "Il tema QtoTheme.xaml non è stato caricato correttamente. " +
+                    "I bottoni dello switcher useranno lo stile default WPF.");
+            }
+
             foreach (var item in _vm.Views)
             {
                 var btn = new ToggleButton
                 {
                     Content = item.Label,
-                    Tag = item,
-                    Style = (Style)FindResource("SwitcherButton")
+                    Tag = item
                 };
+                if (switcherStyle != null) btn.Style = switcherStyle;
                 btn.Click += (_, _) => _vm.ActiveView = item;
                 SwitcherHost.Children.Add(btn);
                 _buttonCache[item.Key] = btn;
