@@ -14,6 +14,13 @@ namespace QtoRevitPlugin.Data
     /// </summary>
     internal static class DatabaseSchema
     {
+        // v11 (T3.1 — ListId→PublicId migration): aggiunge colonna
+        //   UserFavorites.PriceListPublicId TEXT (GUID stabile cross-machine
+        //   che riferisce PriceLists.PublicId, esistente da v3). Backfill
+        //   automatico via join su ListId. Necessario per sync multi-utente:
+        //   su macchine diverse PriceLists.Id (AUTOINCREMENT) può non coincidere,
+        //   mentre PublicId è identico. ListId NON viene rimosso in v11
+        //   (backward-compat con UI corrente — rimozione prevista in v12+).
         // v10 (Listino T1): UserFavorites + idx_favorites_code.
         // v9 (Infoproj v2): tabella comuni_italiani (ISTAT dataset, solo UserLibrary)
         //                + tabella RevitParamMapping (mapping parametri per-sessione, solo .cme).
@@ -33,7 +40,7 @@ namespace QtoRevitPlugin.Data
         // v3 (Sprint 4): aggiunta colonna PriceLists.PublicId GUID per riferimenti portabili
         //                nel DataStorage ES del .rvt (ProjectPriceListSnapshot futuro — Sprint 5).
         // v2 (Sprint 2): aggiunta virtual table PriceItems_FTS per ricerca full-text.
-        public const int CurrentVersion = 10;
+        public const int CurrentVersion = 11;
 
         /// <summary>Ordine di esecuzione degli statement per setup iniziale.</summary>
         public static readonly string[] InitialStatements =
@@ -59,7 +66,8 @@ namespace QtoRevitPlugin.Data
             ComuniItaliani,
             RevitParamMapping,
             UserFavorites,
-            UserFavoritesIndexCode
+            UserFavoritesIndexCode,
+            UserFavoritesIndexPublicId
         };
 
         /// <summary>
@@ -519,23 +527,36 @@ CREATE TABLE IF NOT EXISTS RevitParamMapping (
         // rimane con solo i dati storici (Code, Description, UnitPrice) per preservare
         // la visibilità all'utente ("questo item non è più nel listino, rimuovi?").
 
+        // NB v11: PriceListPublicId è l'identificatore stabile (GUID da
+        // PriceLists.PublicId). ListId resta per backward-compat UI e per
+        // il vincolo UNIQUE(Code, ListId) esistente. Un secondo UNIQUE
+        // partial su PriceListPublicId è coperto da idx_favorites_public
+        // (INDEX non UNIQUE per tollerare NULL durante il backfill di
+        // preferiti orfani o legacy senza ListId).
         public const string UserFavorites = @"
 CREATE TABLE IF NOT EXISTS UserFavorites (
-    Id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    PriceItemId  INTEGER NULL,
-    Code         TEXT NOT NULL,
-    Description  TEXT NOT NULL DEFAULT '',
-    Unit         TEXT NOT NULL DEFAULT '',
-    UnitPrice    REAL NOT NULL DEFAULT 0,
-    ListName     TEXT NOT NULL DEFAULT '',
-    ListId       INTEGER NULL,
-    AddedAt      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-    Note         TEXT NOT NULL DEFAULT '',
+    Id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    PriceItemId        INTEGER NULL,
+    Code               TEXT NOT NULL,
+    Description        TEXT NOT NULL DEFAULT '',
+    Unit               TEXT NOT NULL DEFAULT '',
+    UnitPrice          REAL NOT NULL DEFAULT 0,
+    ListName           TEXT NOT NULL DEFAULT '',
+    ListId             INTEGER NULL,
+    PriceListPublicId  TEXT NULL,
+    AddedAt            TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    Note               TEXT NOT NULL DEFAULT '',
     UNIQUE(Code, ListId)
 );";
 
         public const string UserFavoritesIndexCode =
             "CREATE INDEX IF NOT EXISTS idx_favorites_code ON UserFavorites(Code COLLATE NOCASE);";
+
+        // v11: index non-UNIQUE su PriceListPublicId per lookup rapidi.
+        // Non è UNIQUE perché il backfill può lasciare NULL (preferiti
+        // creati con ListId riferito a una PriceList senza PublicId seedato).
+        public const string UserFavoritesIndexPublicId =
+            "CREATE INDEX IF NOT EXISTS idx_favorites_public ON UserFavorites(PriceListPublicId);";
 
         // --- Migration v7 → v8 (Sprint 10 step 2) -----------------------------
 
@@ -592,5 +613,35 @@ CREATE TABLE IF NOT EXISTS UserFavorites (
 
         public const string MigrateV9ToV10_IndexFavoritesCode =
             "CREATE INDEX IF NOT EXISTS idx_favorites_code ON UserFavorites(Code COLLATE NOCASE);";
+
+        // --- Migration v10 → v11 (T3.1 ListId→PublicId) ------------------------
+        //
+        // Aggiunge colonna UserFavorites.PriceListPublicId TEXT + index non-UNIQUE.
+        // Backfill via UPDATE con subquery join su PriceLists.PublicId:
+        //   - solo per righe con ListId non-null + PublicId effettivamente popolato
+        //   - righe con ListId stale / PublicId null restano con PriceListPublicId NULL
+        //     (comportamento accettabile: UI continuerà a usare ListId come fallback)
+        //
+        // Idempotente: ALTER TABLE ha check ColumnExists in DatabaseInitializer;
+        // il CREATE INDEX è IF NOT EXISTS; l'UPDATE backfill è no-op se la colonna
+        // è già popolata (sotto SET … WHERE PriceListPublicId IS NULL).
+
+        public const string MigrateV10ToV11_AddPriceListPublicId =
+            "ALTER TABLE UserFavorites ADD COLUMN PriceListPublicId TEXT NULL;";
+
+        public const string MigrateV10ToV11_IndexPublicId =
+            "CREATE INDEX IF NOT EXISTS idx_favorites_public ON UserFavorites(PriceListPublicId);";
+
+        public const string MigrateV10ToV11_BackfillPublicId = @"
+UPDATE UserFavorites
+SET PriceListPublicId = (
+    SELECT pl.PublicId
+    FROM PriceLists pl
+    WHERE pl.Id = UserFavorites.ListId
+      AND pl.PublicId IS NOT NULL
+      AND pl.PublicId <> ''
+)
+WHERE PriceListPublicId IS NULL
+  AND ListId IS NOT NULL;";
     }
 }

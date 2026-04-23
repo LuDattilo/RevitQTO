@@ -17,6 +17,17 @@ namespace QtoRevitPlugin.Models
         public double UnitPrice { get; set; }
         public string ListName { get; set; } = "";
         public int? ListId { get; set; }
+
+        /// <summary>
+        /// GUID stabile del listino (copia di <c>PriceLists.PublicId</c>),
+        /// introdotto in schema v11 per abilitare sync cross-machine: su PC
+        /// diversi <see cref="ListId"/> (AUTOINCREMENT) può non coincidere,
+        /// mentre <see cref="PriceListPublicId"/> è identico nel file .cme
+        /// e nella UserLibrary. null se il preferito è stato creato prima
+        /// della migration e il listino non aveva un PublicId seedato.
+        /// </summary>
+        public string? PriceListPublicId { get; set; }
+
         public DateTime AddedAt { get; set; } = DateTime.UtcNow;
         public string Note { get; set; } = "";
     }
