@@ -31,18 +31,24 @@ namespace QtoRevitPlugin.UI.Panes
             _vm = vm;
             DataContext = _vm;
 
-            // BUGFIX #bug-invalidcast-style: `Application.Current` è null durante
-            // OnStartup di un plugin Revit (Revit non crea un WPF Application object).
-            // Il theme caricato in QtoApplication.LoadThemeIntoApplicationResources
-            // fa early-return se Application.Current è null → il DockablePane non
-            // trova "SwitcherButton" in FindResource e crasha con InvalidCastException
-            // (NamedObject sentinel → Style). Soluzione: merge del theme direttamente
-            // nelle Resources di QUESTO UserControl, prima di InitializeComponent.
+            // BUGFIX #bug-invalidcast-style:
+            // Il theme QtoTheme.xaml deve essere caricato nelle Resources di questo
+            // UserControl (non su Application.Current: in Revit è null durante OnStartup).
+            // Senza questo caricamento, FindResource("SwitcherButton") ritorna il
+            // sentinel MS.Internal.NamedObject e il cast a Style crasha.
             EnsureThemeLoaded();
 
             InitializeComponent();
 
-            BuildSwitcher();
+            // IMPORTANTE: BuildSwitcher() NON viene chiamato qui nel costruttore.
+            // FindResource può ancora restituire il sentinel durante la fase di
+            // costruzione (i ResourceDictionary MergedDictionaries sono aggiunti
+            // ma non ancora completamente risolti per la lookup). Lo spostiamo
+            // all'evento Loaded: a quel punto il controllo è agganciato all'albero
+            // visuale e le Resources sono garantite disponibili.
+            // NB: l'handler OnPaneLoaded già esiste (vedi sotto), agganciato via XAML
+            // Loaded="OnPaneLoaded".
+
             _vm.PropertyChanged += (_, e) =>
             {
                 if (e.PropertyName == nameof(DockablePaneViewModel.ActiveView))
@@ -51,12 +57,14 @@ namespace QtoRevitPlugin.UI.Panes
                     UpdateSessionMenuEnabled();
             };
 
-            UpdateActiveView();
-            UpdateSessionMenuEnabled();
+            // NB: UpdateActiveView/UpdateSessionMenuEnabled dipendono da _buttonCache
+            // popolato in BuildSwitcher → spostati anch'essi in OnPaneLoaded.
 
             // §I15: dimensioni e posizione sono gestite da DockablePaneState.FloatingRectangle
             // e dal MinWidth/MinHeight dello XAML. Niente logica custom qui.
         }
+
+        private bool _switcherBuilt;
 
         /// <summary>
         /// Safety net: se Revit restaura dimensioni stale da UIState.dat o se la reflection
@@ -66,6 +74,18 @@ namespace QtoRevitPlugin.UI.Panes
         /// </summary>
         private void OnPaneLoaded(object sender, RoutedEventArgs e)
         {
+            // BUGFIX: BuildSwitcher qui (non nel ctor): a questo punto le Resources
+            // MergedDictionaries sono sicuramente risolte e FindResource ritorna lo
+            // Style reale invece del sentinel NamedObject. Idempotente via _switcherBuilt.
+            if (!_switcherBuilt)
+            {
+                BuildSwitcher();
+                UpdateActiveView();
+                UpdateSessionMenuEnabled();
+                _switcherBuilt = true;
+            }
+
+            // Safety net min-size su floating window (logica originale §I15)
             var window = Window.GetWindow(this);
             if (window == null) return;
 
