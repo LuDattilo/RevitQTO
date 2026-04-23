@@ -1,0 +1,28 @@
+<UserControl x:Class="QtoRevitPlugin.UI.Views.NuoviPrezziView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid Background="{DynamicResource PanelBgBrush}">
+        <Border Style="{DynamicResource CardStyle}" Margin="16,16,16,16" VerticalAlignment="Top">
+            <StackPanel>
+                <TextBlock Text="NUOVI PREZZI (ANALISI PREZZI NP)"
+                           Style="{DynamicResource SectionLabelStyle}" />
+                <Border Background="{DynamicResource PanelSubBrush}"
+                        BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1"
+                        CornerRadius="3" Padding="20" Margin="0,10,0,0">
+                    <StackPanel>
+                        <TextBlock Text="Sezione in preparazione"
+                                   FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource InkDefaultBrush}" />
+                        <TextBlock Margin="0,6,0,0" FontSize="11" TextWrapping="Wrap" LineHeight="16"
+                                   Foreground="{DynamicResource InkMutedBrush}"
+                                   Text="L'analisi prezzi secondo D.Lgs. 36/2023 All. II.14 sarà abilitata in un prossimo rilascio. La tabella NuoviPrezzi nel database SQLite è già predisposta con i campi: Codice, Descrizione, Unità, PrezzoUnitario, Manodopera, Materiali, Noli, Trasporti, SpeseGenerali (15% default), UtileImpresa (10% default)." />
+                        <TextBlock Margin="0,12,0,0" FontSize="10" FontStyle="Italic"
+                                   Foreground="{DynamicResource InkMutedBrush}"
+                                   Text="Feature tracker: Sprint 11+" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

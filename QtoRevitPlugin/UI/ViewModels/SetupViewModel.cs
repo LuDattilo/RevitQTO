@@ -31,13 +31,9 @@ namespace QtoRevitPlugin.UI.ViewModels
         public ObservableCollection<PriceListRow> PriceLists { get; } = new();
         public ObservableCollection<PriceItemRow> SearchResults { get; } = new();
 
-        /// <summary>
-        /// ViewModel per la sezione "Informazioni Progetto" (Sprint 10) — bind
-        /// esposto per lo XAML della SetupView. Le 4 sezioni del Setup
-        /// (Progetto/Listino/Struttura/NP) condividono il DataContext principale
-        /// e ciascuna fa binding alla property corrispondente qui sotto.
-        /// </summary>
-        public ProjectInfoViewModel ProjectInfo { get; } = new ProjectInfoViewModel();
+        // Nota: ProjectInfo non è più esposto qui come property — Sprint 10 rev. B ha
+        // separato SetupView in 4 sub-tab UserControl indipendenti. ProjectInfoView
+        // istanzia la propria ProjectInfoViewModel direttamente nel proprio XAML.
 
         // ---------------------------------------------------------------------
         // Properties osservabili
