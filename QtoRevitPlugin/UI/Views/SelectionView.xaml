@@ -1,6 +1,7 @@
 <UserControl x:Class="QtoRevitPlugin.UI.Views.SelectionView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:QtoRevitPlugin.UI.ViewModels">
 
     <Grid Background="{DynamicResource PanelBgBrush}">
         <Grid.RowDefinitions>
@@ -35,7 +36,7 @@
                     ToolTip="Apre questa scheda in una finestra separata" />
         </Grid>
 
-        <!-- Filtro categoria + ricerca testuale -->
+        <!-- Filtro: fase + categoria + modalità -->
         <Border Grid.Row="1" Style="{DynamicResource CardStyle}" Margin="16,8,16,4">
             <Grid>
                 <Grid.RowDefinitions>
@@ -79,7 +80,6 @@
                     </StackPanel>
                 </Grid>
 
-                <!-- Categoria + ricerca -->
                 <Grid Grid.Row="3" Margin="0,10,0,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
