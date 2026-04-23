@@ -158,5 +158,62 @@ namespace QtoRevitPlugin.Tests.Listino
             var used = _repo.GetUsedEpCodes(sessionId: 99999);
             used.Should().BeEmpty();
         }
+
+        // ─── Test transazionalità AddFavorite (rev. fix race 2026-04-23) ───
+
+        [Fact]
+        public void AddFavorite_NewRow_ReturnsValidId()
+        {
+            var id = _repo.AddFavorite(new UserFavorite
+            {
+                Code = "A1", ListId = 1, Description = "x"
+            });
+            id.Should().BeGreaterThan(0, "una nuova riga deve avere un Id assegnato da AUTOINCREMENT");
+            _repo.GetFavorites().Single().Id.Should().Be(id);
+        }
+
+        [Fact]
+        public void AddFavorite_SameCodeAndListId_ReturnsStableId()
+        {
+            // Prima chiamata: nuova riga
+            var id1 = _repo.AddFavorite(new UserFavorite { Code = "A1", ListId = 1 });
+            // Seconda chiamata con stessa key: UNIQUE(Code, ListId) fa scattare IGNORE,
+            // ma l'Id ritornato deve essere quello della riga preesistente.
+            var id2 = _repo.AddFavorite(new UserFavorite { Code = "A1", ListId = 1 });
+
+            id2.Should().Be(id1, "la seconda chiamata deve risolvere l'Id esistente via SELECT");
+            _repo.GetFavorites().Should().HaveCount(1, "UNIQUE deve impedire duplicati");
+        }
+
+        [Fact]
+        public void AddFavorite_SameCodeWithNullListId_CreatesMultipleRows()
+        {
+            // Comportamento SQLite nativo: in un UNIQUE(Code, ListId), due righe con lo
+            // stesso Code e ListId=NULL NON sono considerate duplicate (NULL ≠ NULL nei
+            // UNIQUE constraint SQLite). Questo test DOCUMENTA il comportamento perché
+            // nell'UI reale ListId è sempre valorizzato (PriceItem.PriceListId è FK NOT
+            // NULL → int non nullable in PriceItemRow), quindi lo scenario non si
+            // presenta in produzione. Se un giorno avremo ItemId senza listino
+            // (es. voci manuali nei preferiti) dovremo rivedere lo schema con
+            // UNIQUE(Code, COALESCE(ListId, -1)) o simile.
+            var id1 = _repo.AddFavorite(new UserFavorite { Code = "FREE", ListId = null });
+            var id2 = _repo.AddFavorite(new UserFavorite { Code = "FREE", ListId = null });
+
+            id1.Should().NotBe(id2, "SQLite UNIQUE tratta NULL come distinct");
+            _repo.GetFavorites().Should().HaveCount(2);
+        }
+
+        [Fact]
+        public void AddFavorite_DifferentCodes_ReturnDistinctIds()
+        {
+            var id1 = _repo.AddFavorite(new UserFavorite { Code = "A1", ListId = 1 });
+            var id2 = _repo.AddFavorite(new UserFavorite { Code = "A2", ListId = 1 });
+            var id3 = _repo.AddFavorite(new UserFavorite { Code = "A1", ListId = 2 });
+
+            id1.Should().NotBe(id2);
+            id1.Should().NotBe(id3);
+            id2.Should().NotBe(id3);
+            _repo.GetFavorites().Should().HaveCount(3);
+        }
     }
 }

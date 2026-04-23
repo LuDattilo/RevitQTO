@@ -929,34 +929,70 @@ ORDER BY AddedAt DESC, Code";
         }
 
         /// <summary>
-        /// NOTE: not atomic between INSERT OR IGNORE and the subsequent SELECT.
-        /// Safe for the single-user UserLibrary.db use case. For multi-writer scenarios
-        /// wrap both in a transaction and use last_insert_rowid() when changes() > 0.
+        /// Aggiunge un preferito (INSERT OR IGNORE idempotente su UNIQUE(Code, ListId)) e
+        /// ritorna l'Id della riga risultante (nuova o preesistente).
+        ///
+        /// <para>
+        /// Atomicità (rev. 2026-04-23): INSERT + SELECT risoluzione Id sono wrappati in
+        /// una singola transazione. Se l'INSERT produce una nuova riga (<c>changes() &gt; 0</c>)
+        /// uso <c>last_insert_rowid()</c> (fast-path senza secondo SELECT); altrimenti
+        /// risolvo l'Id della riga preesistente con SELECT su (Code, ListId). Sicuro
+        /// anche se due popout multi-monitor chiamano AddFavorite sulla stessa voce.
+        /// </para>
         /// </summary>
         public int AddFavorite(UserFavorite fav)
         {
-            const string sql = @"
+            const string insertSql = @"
 INSERT OR IGNORE INTO UserFavorites
 (PriceItemId, Code, Description, Unit, UnitPrice, ListName, ListId, AddedAt, Note)
 VALUES (@PriceItemId, @Code, @Description, @Unit, @UnitPrice, @ListName, @ListId, @AddedAt, @Note);";
 
-            _conn.Execute(sql, new
+            // SELECT changes() immediatamente dopo INSERT restituisce 1 se la riga è stata
+            // inserita, 0 se la constraint UNIQUE(Code, ListId) ha scattato OR IGNORE.
+            // In SQLite, "SELECT changes()" deve essere eseguito sulla STESSA connessione
+            // dell'INSERT — garantito qui perché usiamo sempre _conn.
+            const string selectBySearchSql = @"
+SELECT Id FROM UserFavorites
+WHERE Code = @Code AND ListId IS @ListId LIMIT 1;";
+
+            using var tx = _conn.BeginTransaction();
+            try
             {
-                fav.PriceItemId,
-                fav.Code,
-                fav.Description,
-                fav.Unit,
-                fav.UnitPrice,
-                fav.ListName,
-                fav.ListId,
-                AddedAt = fav.AddedAt.ToString("o"),
-                fav.Note
-            });
+                var inserted = _conn.Execute(insertSql, new
+                {
+                    fav.PriceItemId,
+                    fav.Code,
+                    fav.Description,
+                    fav.Unit,
+                    fav.UnitPrice,
+                    fav.ListName,
+                    fav.ListId,
+                    AddedAt = fav.AddedAt.ToString("o"),
+                    fav.Note
+                }, transaction: tx);
 
-            const string selectSql = @"
-SELECT Id FROM UserFavorites WHERE Code = @Code AND ListId IS @ListId LIMIT 1";
+                int id;
+                if (inserted > 0)
+                {
+                    // Fast-path: nuova riga → last_insert_rowid() è il PK generato
+                    id = _conn.ExecuteScalar<int>("SELECT last_insert_rowid();", transaction: tx);
+                }
+                else
+                {
+                    // Riga esistente (constraint UNIQUE) → risolvi via SELECT
+                    id = _conn.ExecuteScalar<int>(selectBySearchSql,
+                        new { fav.Code, fav.ListId },
+                        transaction: tx);
+                }
 
-            return _conn.ExecuteScalar<int>(selectSql, new { fav.Code, fav.ListId });
+                tx.Commit();
+                return id;
+            }
+            catch
+            {
+                try { tx.Rollback(); } catch { /* best-effort */ }
+                throw;
+            }
         }
 
         public void RemoveFavorite(int id)
