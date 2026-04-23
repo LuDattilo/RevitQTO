@@ -31,6 +31,11 @@ namespace QtoRevitPlugin.Data
         // ProjectInfo (Sprint 10): metadati computo per intestazione export XPWE/PDF/Excel
         ProjectInfo? GetProjectInfo(int sessionId);
         void UpsertProjectInfo(ProjectInfo info);
+
+        // SoaCategory (Sprint 10 step 2 · v8): codici OG/OS normativi (read-only).
+        // Seedati al primo avvio da SoaCategorySeed. Utilizzati nel ComboBox della
+        // Struttura Computo per assegnare OG/OS ai nodi.
+        System.Collections.Generic.IReadOnlyList<SoaCategory> GetSoaCategories();
     }
 
     public interface IFavoritesRepository

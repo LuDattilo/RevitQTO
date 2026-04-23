@@ -15,6 +15,9 @@ namespace QtoRevitPlugin.Models
         public string Name { get; set; } = "";
         public int Level { get; set; }       // 1=Super, 2=Cat, 3=Sub
         public int SortOrder { get; set; }
+        /// <summary>FK verso <see cref="SoaCategory"/> (Sprint 10 step 2) — OG/OS
+        /// assegnato a questo nodo. Null = eredita dal parent (risoluzione lato VM).</summary>
+        public int? SoaCategoryId { get; set; }
         public DateTime CreatedAt { get; set; }
     }
 }

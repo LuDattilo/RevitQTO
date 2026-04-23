@@ -14,6 +14,10 @@ namespace QtoRevitPlugin.Data
     /// </summary>
     internal static class DatabaseSchema
     {
+        // v8 (Sprint 10 step 2): tabelle SoaCategories (seed OG 1..13 + OS 1..35 D.Lgs. 36/2023)
+        //                 + colonna ComputoChapters.SoaCategoryId FK nullable per
+        //                 assegnare OG/OS ai nodi della struttura computo. Eredità
+        //                 implicita risolta lato ViewModel (no denormalizzazione DB).
         // v7 (Sprint 10): tabella ProjectInfo per metadati computo conformi PriMus
         //                 (DenominazioneOpera, Committente, Impresa, RUP, DL, Luogo, Comune,
         //                 Provincia, DataComputo, DataPrezzi, RiferimentoPrezzario, CIG, CUP,
@@ -26,7 +30,7 @@ namespace QtoRevitPlugin.Data
         // v3 (Sprint 4): aggiunta colonna PriceLists.PublicId GUID per riferimenti portabili
         //                nel DataStorage ES del .rvt (ProjectPriceListSnapshot futuro — Sprint 5).
         // v2 (Sprint 2): aggiunta virtual table PriceItems_FTS per ricerca full-text.
-        public const int CurrentVersion = 7;
+        public const int CurrentVersion = 8;
 
         /// <summary>Ordine di esecuzione degli statement per setup iniziale.</summary>
         public static readonly string[] InitialStatements =
@@ -47,7 +51,8 @@ namespace QtoRevitPlugin.Data
             ElementSnapshots,
             EmbeddingCache,
             ComputoChapters,
-            ProjectInfo
+            ProjectInfo,
+            SoaCategories
         };
 
         /// <summary>
@@ -343,11 +348,13 @@ CREATE TABLE IF NOT EXISTS ComputoChapters (
     Name             TEXT NOT NULL,
     Level            INTEGER NOT NULL,
     SortOrder        INTEGER NOT NULL DEFAULT 0,
+    SoaCategoryId    INTEGER NULL REFERENCES SoaCategories(Id) ON DELETE SET NULL,
     CreatedAt        TEXT NOT NULL,
     UNIQUE(SessionId, Code)
 );
 CREATE INDEX IF NOT EXISTS IX_ComputoChapters_Session ON ComputoChapters(SessionId);
-CREATE INDEX IF NOT EXISTS IX_ComputoChapters_Parent ON ComputoChapters(ParentChapterId);";
+CREATE INDEX IF NOT EXISTS IX_ComputoChapters_Parent ON ComputoChapters(ParentChapterId);
+CREATE INDEX IF NOT EXISTS IX_ComputoChapters_Soa ON ComputoChapters(SoaCategoryId);";
 
         // --- Migration v4 → v5 (Sprint 9) --------------------------------------
 
@@ -448,5 +455,29 @@ CREATE TABLE IF NOT EXISTS ProjectInfo (
     UpdatedAt             TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS IX_ProjectInfo_Session ON ProjectInfo(SessionId);";
+
+        // --- SoaCategories (Sprint 10 step 2, schema v8) ----------------------
+        // Elenco normativo OG/OS (D.Lgs. 36/2023 All. II.12) — seedato al primo
+        // creation con i dati di <see cref="Models.SoaCategorySeed"/>. Read-only
+        // runtime (nessun CRUD utente).
+
+        public const string SoaCategories = @"
+CREATE TABLE IF NOT EXISTS SoaCategories (
+    Id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    Code         TEXT NOT NULL UNIQUE,
+    Description  TEXT NOT NULL DEFAULT '',
+    Type         TEXT NOT NULL CHECK (Type IN ('OG','OS')),
+    SortOrder    INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS IX_SoaCategories_Type ON SoaCategories(Type);
+CREATE INDEX IF NOT EXISTS IX_SoaCategories_SortOrder ON SoaCategories(SortOrder);";
+
+        // --- Migration v7 → v8 (Sprint 10 step 2) -----------------------------
+
+        public const string MigrateV7ToV8_AddSoaCategoryIdToChapters =
+            "ALTER TABLE ComputoChapters ADD COLUMN SoaCategoryId INTEGER NULL REFERENCES SoaCategories(Id) ON DELETE SET NULL;";
+
+        public const string MigrateV7ToV8_AddIndexOnSoaCategoryId =
+            "CREATE INDEX IF NOT EXISTS IX_ComputoChapters_Soa ON ComputoChapters(SoaCategoryId);";
     }
 }

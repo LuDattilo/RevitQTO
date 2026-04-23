@@ -677,12 +677,12 @@ namespace QtoRevitPlugin.Data
         public int InsertComputoChapter(ComputoChapter ch)
         {
             const string sql = @"
-INSERT INTO ComputoChapters (SessionId, ParentChapterId, Code, Name, Level, SortOrder, CreatedAt)
-VALUES (@SessionId, @ParentChapterId, @Code, @Name, @Level, @SortOrder, @CreatedAt);
+INSERT INTO ComputoChapters (SessionId, ParentChapterId, Code, Name, Level, SortOrder, SoaCategoryId, CreatedAt)
+VALUES (@SessionId, @ParentChapterId, @Code, @Name, @Level, @SortOrder, @SoaCategoryId, @CreatedAt);
 SELECT last_insert_rowid();";
             var id = _conn.ExecuteScalar<int>(sql, new
             {
-                ch.SessionId, ch.ParentChapterId, ch.Code, ch.Name, ch.Level, ch.SortOrder,
+                ch.SessionId, ch.ParentChapterId, ch.Code, ch.Name, ch.Level, ch.SortOrder, ch.SoaCategoryId,
                 CreatedAt = ch.CreatedAt.ToString("o", System.Globalization.CultureInfo.InvariantCulture)
             });
             ch.Id = id;
@@ -694,9 +694,9 @@ SELECT last_insert_rowid();";
             const string sql = @"
 UPDATE ComputoChapters
 SET ParentChapterId = @ParentChapterId, Code = @Code, Name = @Name,
-    Level = @Level, SortOrder = @SortOrder
+    Level = @Level, SortOrder = @SortOrder, SoaCategoryId = @SoaCategoryId
 WHERE Id = @Id;";
-            _conn.Execute(sql, new { ch.Id, ch.ParentChapterId, ch.Code, ch.Name, ch.Level, ch.SortOrder });
+            _conn.Execute(sql, new { ch.Id, ch.ParentChapterId, ch.Code, ch.Name, ch.Level, ch.SortOrder, ch.SoaCategoryId });
         }
 
         public void DeleteComputoChapter(int chapterId)
@@ -711,7 +711,7 @@ WHERE Id = @Id;";
         public IReadOnlyList<ComputoChapter> GetComputoChapters(int sessionId)
         {
             const string sql = @"
-SELECT Id, SessionId, ParentChapterId, Code, Name, Level, SortOrder, CreatedAt
+SELECT Id, SessionId, ParentChapterId, Code, Name, Level, SortOrder, SoaCategoryId, CreatedAt
 FROM ComputoChapters
 WHERE SessionId = @SessionId
 ORDER BY Level, SortOrder, Code;";
@@ -725,8 +725,27 @@ ORDER BY Level, SortOrder, Code;";
                     Name = (string)r.Name,
                     Level = (int)(long)r.Level,
                     SortOrder = (int)(long)r.SortOrder,
+                    SoaCategoryId = r.SoaCategoryId == null ? (int?)null : (int)(long)r.SoaCategoryId,
                     CreatedAt = System.DateTime.Parse((string)r.CreatedAt, System.Globalization.CultureInfo.InvariantCulture,
                         System.Globalization.DateTimeStyles.RoundtripKind)
+                })
+                .ToList();
+        }
+
+        public IReadOnlyList<SoaCategory> GetSoaCategories()
+        {
+            const string sql = @"
+SELECT Id, Code, Description, Type, SortOrder
+FROM SoaCategories
+ORDER BY SortOrder;";
+            return _conn.Query<dynamic>(sql)
+                .Select(r => new SoaCategory
+                {
+                    Id = (int)(long)r.Id,
+                    Code = (string)r.Code,
+                    Description = (string)r.Description,
+                    Type = (string)r.Type,
+                    SortOrder = (int)(long)r.SortOrder
                 })
                 .ToList();
         }

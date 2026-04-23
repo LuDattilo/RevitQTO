@@ -74,13 +74,16 @@ namespace QtoRevitPlugin.Data
             // (la colonna esiste già nel DDL QtoAssignments per nuovi DB)
             ExecuteStatement(conn, tx, DatabaseSchema.MigrateV4ToV5_AddIndexOnComputoChapterId);
 
+            // Sprint 10 step 2 (v8): seed OG/OS per DB nuovi
+            SeedSoaCategoriesIfEmpty(conn, tx);
+
             // Registra versione iniziale
             using (var versionCmd = conn.CreateCommand())
             {
                 versionCmd.Transaction = tx;
                 versionCmd.CommandText = "INSERT INTO SchemaInfo (Version, Notes) VALUES ($v, $n);";
                 versionCmd.Parameters.AddWithValue("$v", DatabaseSchema.CurrentVersion);
-                versionCmd.Parameters.AddWithValue("$n", "Schema iniziale Sprint 1-9");
+                versionCmd.Parameters.AddWithValue("$n", "Schema iniziale Sprint 1-10");
                 versionCmd.ExecuteNonQuery();
             }
 
@@ -173,6 +176,20 @@ namespace QtoRevitPlugin.Data
                 // InitialStatements (già eseguito nel loop v<5 sopra).
             }
 
+            // Colonna SoaCategoryId (v8) — guard difensivo: applicabile solo se la
+            // tabella ComputoChapters esiste e non ha già la colonna.
+            if (TableExists(conn, tx, "ComputoChapters") && !ColumnExists(conn, tx, "ComputoChapters", "SoaCategoryId"))
+            {
+                ExecuteStatement(conn, tx, DatabaseSchema.MigrateV7ToV8_AddSoaCategoryIdToChapters);
+            }
+            if (TableExists(conn, tx, "ComputoChapters"))
+            {
+                ExecuteStatement(conn, tx, DatabaseSchema.MigrateV7ToV8_AddIndexOnSoaCategoryId);
+            }
+
+            // Seed SoaCategories se la tabella è vuota (prima volta a v8)
+            SeedSoaCategoriesIfEmpty(conn, tx);
+
             using (var insert = conn.CreateCommand())
             {
                 insert.Transaction = tx;
@@ -183,6 +200,36 @@ namespace QtoRevitPlugin.Data
             }
 
             tx.Commit();
+        }
+
+        /// <summary>
+        /// Seed one-shot della tabella SoaCategories con i codici normativi OG/OS
+        /// D.Lgs. 36/2023 All. II.12. Idempotente: se la tabella è già popolata
+        /// (es. upgrade già avvenuto in altro avvio), no-op.
+        /// </summary>
+        private static void SeedSoaCategoriesIfEmpty(SqliteConnection conn, SqliteTransaction tx)
+        {
+            if (!TableExists(conn, tx, "SoaCategories")) return;
+
+            using (var countCmd = conn.CreateCommand())
+            {
+                countCmd.Transaction = tx;
+                countCmd.CommandText = "SELECT COUNT(*) FROM SoaCategories;";
+                var count = Convert.ToInt64(countCmd.ExecuteScalar()!);
+                if (count > 0) return;
+            }
+
+            foreach (var soa in QtoRevitPlugin.Models.SoaCategorySeed.All)
+            {
+                using var cmd = conn.CreateCommand();
+                cmd.Transaction = tx;
+                cmd.CommandText = "INSERT INTO SoaCategories (Code, Description, Type, SortOrder) VALUES ($c, $d, $t, $s);";
+                cmd.Parameters.AddWithValue("$c", soa.Code);
+                cmd.Parameters.AddWithValue("$d", soa.Description);
+                cmd.Parameters.AddWithValue("$t", soa.Type);
+                cmd.Parameters.AddWithValue("$s", soa.SortOrder);
+                cmd.ExecuteNonQuery();
+            }
         }
 
         private static void ExecuteStatement(SqliteConnection conn, SqliteTransaction tx, string sql)
