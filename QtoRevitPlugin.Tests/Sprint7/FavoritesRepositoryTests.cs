@@ -72,5 +72,47 @@ namespace QtoRevitPlugin.Tests.Sprint7
                 Directory.Delete(projectDir, recursive: true);
             }
         }
+
+        [Fact]
+        public void SaveForProject_StoresProjectFavoritesInProjectScopedFile()
+        {
+            var globalDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+            var projectDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+            Directory.CreateDirectory(globalDir);
+            Directory.CreateDirectory(projectDir);
+            var cmePath = Path.Combine(projectDir, "demo.cme");
+
+            try
+            {
+                var repo = new FileFavoritesRepository(globalDir);
+                repo.SaveForProject(cmePath, new FavoriteSet { Name = "Progetto" });
+
+                Assert.True(File.Exists(Path.Combine(projectDir, "favorites.project.json")));
+            }
+            finally
+            {
+                Directory.Delete(globalDir, recursive: true);
+                Directory.Delete(projectDir, recursive: true);
+            }
+        }
+
+        [Fact]
+        public void SaveGlobal_StoresPersonalFavoritesInPersonalFile()
+        {
+            var globalDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+            Directory.CreateDirectory(globalDir);
+
+            try
+            {
+                var repo = new FileFavoritesRepository(globalDir);
+                repo.SaveGlobal(new FavoriteSet { Name = "Personali" });
+
+                Assert.True(File.Exists(Path.Combine(globalDir, "favorites.personal.json")));
+            }
+            finally
+            {
+                Directory.Delete(globalDir, recursive: true);
+            }
+        }
     }
 }

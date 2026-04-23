@@ -17,6 +17,9 @@ namespace QtoRevitPlugin.Models
         /// <summary>Intervallo in minuti tra salvataggi automatici. Minimo 30 minuti.</summary>
         public int AutoSaveIntervalMinutes { get; set; } = DefaultAutoSaveIntervalMinutes;
 
+        /// <summary>Ultimo file .cme aperto o creato dall'utente, per il resume rapido dalla HomeView.</summary>
+        public string LastSessionFilePath { get; set; } = string.Empty;
+
         /// <summary>Normalizza il valore a un minimo accettabile.</summary>
         public int NormalizedAutoSaveIntervalMinutes =>
             Math.Max(MinAutoSaveIntervalMinutes, AutoSaveIntervalMinutes);
