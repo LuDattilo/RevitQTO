@@ -14,6 +14,10 @@ namespace QtoRevitPlugin.Data
     /// </summary>
     internal static class DatabaseSchema
     {
+        // v7 (Sprint 10): tabella ProjectInfo per metadati computo conformi PriMus
+        //                 (DenominazioneOpera, Committente, Impresa, RUP, DL, Luogo, Comune,
+        //                 Provincia, DataComputo, DataPrezzi, RiferimentoPrezzario, CIG, CUP,
+        //                 RibassoPercentuale, LogoPath). UNIQUE(SessionId).
         // v6 (Sprint 9 Task 5): QtoAssignments UNIQUE constraint aggiornato a (SessionId, UniqueId, EpCode, Version)
         //                per supportare il pattern Supersede che inserisce nuove versioni della stessa riga.
         // v5 (Sprint 9): ComputoChapters + QtoAssignments.ComputoChapterId + Sessions.LastUsedComputoChapterId
@@ -22,7 +26,7 @@ namespace QtoRevitPlugin.Data
         // v3 (Sprint 4): aggiunta colonna PriceLists.PublicId GUID per riferimenti portabili
         //                nel DataStorage ES del .rvt (ProjectPriceListSnapshot futuro — Sprint 5).
         // v2 (Sprint 2): aggiunta virtual table PriceItems_FTS per ricerca full-text.
-        public const int CurrentVersion = 6;
+        public const int CurrentVersion = 7;
 
         /// <summary>Ordine di esecuzione degli statement per setup iniziale.</summary>
         public static readonly string[] InitialStatements =
@@ -42,7 +46,8 @@ namespace QtoRevitPlugin.Data
             ChangeLog,
             ElementSnapshots,
             EmbeddingCache,
-            ComputoChapters
+            ComputoChapters,
+            ProjectInfo
         };
 
         /// <summary>
@@ -416,5 +421,32 @@ FROM QtoAssignments_v5_bak;";
 CREATE INDEX IF NOT EXISTS IX_QtoAssignments_Session_Unique ON QtoAssignments(SessionId, UniqueId);
 CREATE INDEX IF NOT EXISTS IX_QtoAssignments_EpCode ON QtoAssignments(EpCode);
 CREATE INDEX IF NOT EXISTS IX_QtoAssignments_Chapter ON QtoAssignments(ComputoChapterId);";
+
+        // --- ProjectInfo (Sprint 10, schema v7) -------------------------------
+        // Metadati di progetto per compatibilità PriMus / D.Lgs. 36/2023.
+        // UNIQUE(SessionId) → al massimo una riga ProjectInfo per computo.
+
+        public const string ProjectInfo = @"
+CREATE TABLE IF NOT EXISTS ProjectInfo (
+    Id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+    SessionId             INTEGER NOT NULL UNIQUE REFERENCES Sessions(Id) ON DELETE CASCADE,
+    DenominazioneOpera    TEXT NOT NULL DEFAULT '',
+    Committente           TEXT NOT NULL DEFAULT '',
+    Impresa               TEXT NOT NULL DEFAULT '',
+    RUP                   TEXT NOT NULL DEFAULT '',
+    DirettoreLavori       TEXT NOT NULL DEFAULT '',
+    Luogo                 TEXT NOT NULL DEFAULT '',
+    Comune                TEXT NOT NULL DEFAULT '',
+    Provincia             TEXT NOT NULL DEFAULT '',
+    DataComputo           TEXT,
+    DataPrezzi            TEXT,
+    RiferimentoPrezzario  TEXT NOT NULL DEFAULT '',
+    CIG                   TEXT NOT NULL DEFAULT '',
+    CUP                   TEXT NOT NULL DEFAULT '',
+    RibassoPercentuale    REAL NOT NULL DEFAULT 0,
+    LogoPath              TEXT NOT NULL DEFAULT '',
+    UpdatedAt             TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS IX_ProjectInfo_Session ON ProjectInfo(SessionId);";
     }
 }

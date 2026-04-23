@@ -776,6 +776,95 @@ ORDER BY Level, SortOrder, Code;";
         public SqliteTransaction BeginTransaction() => _conn.BeginTransaction();
 
         // =====================================================================
+        // ProjectInfo (Sprint 10 · schema v7)
+        // =====================================================================
+
+        public ProjectInfo? GetProjectInfo(int sessionId)
+        {
+            const string sql = @"
+SELECT Id, SessionId, DenominazioneOpera, Committente, Impresa, RUP, DirettoreLavori,
+       Luogo, Comune, Provincia, DataComputo, DataPrezzi, RiferimentoPrezzario,
+       CIG, CUP, RibassoPercentuale, LogoPath, UpdatedAt
+FROM ProjectInfo
+WHERE SessionId = @SessionId
+LIMIT 1;";
+            return _conn.Query<dynamic>(sql, new { SessionId = sessionId })
+                .Select(r => new ProjectInfo
+                {
+                    Id = (int)(long)r.Id,
+                    SessionId = (int)(long)r.SessionId,
+                    DenominazioneOpera = (string)r.DenominazioneOpera,
+                    Committente = (string)r.Committente,
+                    Impresa = (string)r.Impresa,
+                    RUP = (string)r.RUP,
+                    DirettoreLavori = (string)r.DirettoreLavori,
+                    Luogo = (string)r.Luogo,
+                    Comune = (string)r.Comune,
+                    Provincia = (string)r.Provincia,
+                    DataComputo = r.DataComputo == null ? (DateTime?)null : DateTime.Parse((string)r.DataComputo, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind),
+                    DataPrezzi = r.DataPrezzi == null ? (DateTime?)null : DateTime.Parse((string)r.DataPrezzi, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind),
+                    RiferimentoPrezzario = (string)r.RiferimentoPrezzario,
+                    CIG = (string)r.CIG,
+                    CUP = (string)r.CUP,
+                    RibassoPercentuale = Convert.ToDecimal(r.RibassoPercentuale),
+                    LogoPath = (string)r.LogoPath,
+                    UpdatedAt = DateTime.Parse((string)r.UpdatedAt, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind)
+                })
+                .FirstOrDefault();
+        }
+
+        public void UpsertProjectInfo(ProjectInfo info)
+        {
+            info.UpdatedAt = DateTime.UtcNow;
+            const string sql = @"
+INSERT INTO ProjectInfo
+    (SessionId, DenominazioneOpera, Committente, Impresa, RUP, DirettoreLavori,
+     Luogo, Comune, Provincia, DataComputo, DataPrezzi, RiferimentoPrezzario,
+     CIG, CUP, RibassoPercentuale, LogoPath, UpdatedAt)
+VALUES
+    (@SessionId, @DenominazioneOpera, @Committente, @Impresa, @RUP, @DirettoreLavori,
+     @Luogo, @Comune, @Provincia, @DataComputo, @DataPrezzi, @RiferimentoPrezzario,
+     @CIG, @CUP, @RibassoPercentuale, @LogoPath, @UpdatedAt)
+ON CONFLICT(SessionId) DO UPDATE SET
+    DenominazioneOpera = excluded.DenominazioneOpera,
+    Committente = excluded.Committente,
+    Impresa = excluded.Impresa,
+    RUP = excluded.RUP,
+    DirettoreLavori = excluded.DirettoreLavori,
+    Luogo = excluded.Luogo,
+    Comune = excluded.Comune,
+    Provincia = excluded.Provincia,
+    DataComputo = excluded.DataComputo,
+    DataPrezzi = excluded.DataPrezzi,
+    RiferimentoPrezzario = excluded.RiferimentoPrezzario,
+    CIG = excluded.CIG,
+    CUP = excluded.CUP,
+    RibassoPercentuale = excluded.RibassoPercentuale,
+    LogoPath = excluded.LogoPath,
+    UpdatedAt = excluded.UpdatedAt;";
+            _conn.Execute(sql, new
+            {
+                info.SessionId,
+                info.DenominazioneOpera,
+                info.Committente,
+                info.Impresa,
+                info.RUP,
+                info.DirettoreLavori,
+                info.Luogo,
+                info.Comune,
+                info.Provincia,
+                DataComputo = info.DataComputo?.ToString("o", System.Globalization.CultureInfo.InvariantCulture),
+                DataPrezzi = info.DataPrezzi?.ToString("o", System.Globalization.CultureInfo.InvariantCulture),
+                info.RiferimentoPrezzario,
+                info.CIG,
+                info.CUP,
+                info.RibassoPercentuale,
+                info.LogoPath,
+                UpdatedAt = info.UpdatedAt.ToString("o", System.Globalization.CultureInfo.InvariantCulture)
+            });
+        }
+
+        // =====================================================================
         // Conteggi (per RecoveryService · CRIT-2)
         // =====================================================================
 

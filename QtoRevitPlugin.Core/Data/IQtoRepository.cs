@@ -27,6 +27,10 @@ namespace QtoRevitPlugin.Data
 
         // Reconciliation batch (Sprint 9)
         void AcceptDiffBatch(System.Collections.Generic.IReadOnlyList<SupersedeOp> ops);
+
+        // ProjectInfo (Sprint 10): metadati computo per intestazione export XPWE/PDF/Excel
+        ProjectInfo? GetProjectInfo(int sessionId);
+        void UpsertProjectInfo(ProjectInfo info);
     }
 
     public interface IFavoritesRepository
