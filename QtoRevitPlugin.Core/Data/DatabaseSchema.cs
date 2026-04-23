@@ -14,6 +14,8 @@ namespace QtoRevitPlugin.Data
     /// </summary>
     internal static class DatabaseSchema
     {
+        // v9 (Infoproj v2): tabella comuni_italiani (ISTAT dataset, solo UserLibrary)
+        //                + tabella RevitParamMapping (mapping parametri per-sessione, solo .cme).
         // v8 (Sprint 10 step 2): tabelle SoaCategories (seed OG 1..13 + OS 1..35 D.Lgs. 36/2023)
         //                 + colonna ComputoChapters.SoaCategoryId FK nullable per
         //                 assegnare OG/OS ai nodi della struttura computo. Eredità
@@ -30,7 +32,7 @@ namespace QtoRevitPlugin.Data
         // v3 (Sprint 4): aggiunta colonna PriceLists.PublicId GUID per riferimenti portabili
         //                nel DataStorage ES del .rvt (ProjectPriceListSnapshot futuro — Sprint 5).
         // v2 (Sprint 2): aggiunta virtual table PriceItems_FTS per ricerca full-text.
-        public const int CurrentVersion = 8;
+        public const int CurrentVersion = 9;
 
         /// <summary>Ordine di esecuzione degli statement per setup iniziale.</summary>
         public static readonly string[] InitialStatements =
@@ -52,7 +54,9 @@ namespace QtoRevitPlugin.Data
             EmbeddingCache,
             ComputoChapters,
             ProjectInfo,
-            SoaCategories
+            SoaCategories,
+            ComuniItaliani,
+            RevitParamMapping
         };
 
         /// <summary>
@@ -472,6 +476,39 @@ CREATE TABLE IF NOT EXISTS SoaCategories (
 CREATE INDEX IF NOT EXISTS IX_SoaCategories_Type ON SoaCategories(Type);
 CREATE INDEX IF NOT EXISTS IX_SoaCategories_SortOrder ON SoaCategories(SortOrder);";
 
+        // --- comuni_italiani (Infoproj v2, schema v9) ----------------------
+        // Dataset ISTAT comuni per cascata Provincia → Comune.
+        // Tabella vive solo in UserLibrary.db (seed da CSV embedded).
+        // Nel .cme viene creata ma rimane vuota (useremo sempre UserLibrary).
+
+        public const string ComuniItaliani = @"
+CREATE TABLE IF NOT EXISTS comuni_italiani (
+    CodiceIstat     TEXT PRIMARY KEY,
+    Comune          TEXT NOT NULL,
+    ProvinciaSigla  TEXT NOT NULL,
+    ProvinciaNome   TEXT NOT NULL,
+    Regione         TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_comuni_prov ON comuni_italiani(ProvinciaSigla);
+CREATE INDEX IF NOT EXISTS idx_comuni_nome ON comuni_italiani(Comune COLLATE NOCASE);";
+
+        // --- RevitParamMapping (Infoproj v2, schema v9) ----------------------
+        // Mapping configurabile parametri Revit → campi Informazioni Progetto.
+        // SkipIfFilled persiste la preferenza della checkbox "Non sovrascrivere
+        // campi già compilati" (default 1 = ON). È per-riga per permettere
+        // override granulari in futuro.
+
+        public const string RevitParamMapping = @"
+CREATE TABLE IF NOT EXISTS RevitParamMapping (
+    Id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    SessionId       INTEGER NOT NULL REFERENCES Sessions(Id) ON DELETE CASCADE,
+    FieldKey        TEXT NOT NULL,
+    ParamName       TEXT,
+    IsBuiltIn       INTEGER NOT NULL DEFAULT 0,
+    SkipIfFilled    INTEGER NOT NULL DEFAULT 1,
+    UNIQUE(SessionId, FieldKey)
+);";
+
         // --- Migration v7 → v8 (Sprint 10 step 2) -----------------------------
 
         public const string MigrateV7ToV8_AddSoaCategoryIdToChapters =
@@ -479,5 +516,33 @@ CREATE INDEX IF NOT EXISTS IX_SoaCategories_SortOrder ON SoaCategories(SortOrder
 
         public const string MigrateV7ToV8_AddIndexOnSoaCategoryId =
             "CREATE INDEX IF NOT EXISTS IX_ComputoChapters_Soa ON ComputoChapters(SoaCategoryId);";
+
+        // --- Migration v8 → v9 (Infoproj v2) --------------------------------
+
+        public const string MigrateV8ToV9_CreateComuniItaliani =
+            @"CREATE TABLE IF NOT EXISTS comuni_italiani (
+                CodiceIstat     TEXT PRIMARY KEY,
+                Comune          TEXT NOT NULL,
+                ProvinciaSigla  TEXT NOT NULL,
+                ProvinciaNome   TEXT NOT NULL,
+                Regione         TEXT NOT NULL
+            );";
+
+        public const string MigrateV8ToV9_IndexComuniProv =
+            "CREATE INDEX IF NOT EXISTS idx_comuni_prov ON comuni_italiani(ProvinciaSigla);";
+
+        public const string MigrateV8ToV9_IndexComuniNome =
+            "CREATE INDEX IF NOT EXISTS idx_comuni_nome ON comuni_italiani(Comune COLLATE NOCASE);";
+
+        public const string MigrateV8ToV9_CreateRevitParamMapping =
+            @"CREATE TABLE IF NOT EXISTS RevitParamMapping (
+                Id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                SessionId       INTEGER NOT NULL REFERENCES Sessions(Id) ON DELETE CASCADE,
+                FieldKey        TEXT NOT NULL,
+                ParamName       TEXT,
+                IsBuiltIn       INTEGER NOT NULL DEFAULT 0,
+                SkipIfFilled    INTEGER NOT NULL DEFAULT 1,
+                UNIQUE(SessionId, FieldKey)
+            );";
     }
 }

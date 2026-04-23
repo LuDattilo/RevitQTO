@@ -27,6 +27,8 @@ namespace QtoRevitPlugin.Tests.Data
         [Fact]
         public void NewDatabase_HasCurrentSchemaVersion()
         {
+            // v9 introdotta in Infoproj v2: tabella comuni_italiani (ISTAT) + RevitParamMapping
+            // v8 introdotta in Sprint 10 step 2: tabella SoaCategories + SoaCategoryId su ComputoChapters
             // v7 introdotta in Sprint 10: tabella ProjectInfo per metadati computo
             //    (denominazione opera, committente, RUP, DL, luogo, date, CIG/CUP, ribasso)
             // v6 introdotta in Sprint 9 Task 5: UNIQUE constraint su QtoAssignments aggiornato
@@ -35,7 +37,7 @@ namespace QtoRevitPlugin.Tests.Data
             // v4 introdotta in Sprint 6 con ChangeLog + ElementSnapshots + audit fields
             // v3 introdotta in Sprint 4 con PriceLists.PublicId (GUID portabile per snapshot .rvt)
             // v2 introdotta in Sprint 2 con PriceItems_FTS
-            _repo.GetSchemaVersion().Should().Be(8);
+            _repo.GetSchemaVersion().Should().Be(9);
         }
 
         [Fact]

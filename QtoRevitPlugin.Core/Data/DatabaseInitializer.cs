@@ -190,6 +190,15 @@ namespace QtoRevitPlugin.Data
             // Seed SoaCategories se la tabella è vuota (prima volta a v8)
             SeedSoaCategoriesIfEmpty(conn, tx);
 
+            if (dbVersion < 9)
+            {
+                // v8→v9: comuni_italiani (popolata solo in UserLibrary) + RevitParamMapping (solo .cme)
+                ExecuteStatement(conn, tx, DatabaseSchema.MigrateV8ToV9_CreateComuniItaliani);
+                ExecuteStatement(conn, tx, DatabaseSchema.MigrateV8ToV9_IndexComuniProv);
+                ExecuteStatement(conn, tx, DatabaseSchema.MigrateV8ToV9_IndexComuniNome);
+                ExecuteStatement(conn, tx, DatabaseSchema.MigrateV8ToV9_CreateRevitParamMapping);
+            }
+
             using (var insert = conn.CreateCommand())
             {
                 insert.Transaction = tx;
