@@ -31,6 +31,14 @@ namespace QtoRevitPlugin.UI.ViewModels
         public ObservableCollection<PriceListRow> PriceLists { get; } = new();
         public ObservableCollection<PriceItemRow> SearchResults { get; } = new();
 
+        /// <summary>
+        /// ViewModel per la sezione "Informazioni Progetto" (Sprint 10) — bind
+        /// esposto per lo XAML della SetupView. Le 4 sezioni del Setup
+        /// (Progetto/Listino/Struttura/NP) condividono il DataContext principale
+        /// e ciascuna fa binding alla property corrispondente qui sotto.
+        /// </summary>
+        public ProjectInfoViewModel ProjectInfo { get; } = new ProjectInfoViewModel();
+
         // ---------------------------------------------------------------------
         // Properties osservabili
         // ---------------------------------------------------------------------
@@ -44,10 +52,12 @@ namespace QtoRevitPlugin.UI.ViewModels
         [ObservableProperty] private PriceItemRow? _selectedSearchResult;
 
         /// <summary>
-        /// True quando c'è una UserLibrary disponibile (sempre true se il plugin è avviato correttamente).
-        /// Mantenuto per UX check in altri punti della UI.
+        /// True quando la UserLibrary è disponibile (sempre true se il plugin è avviato correttamente).
+        /// Rinominato in Sprint 10 da <c>HasSessionActive</c> a <c>HasUserLibrary</c> (LOW-S1):
+        /// il nome precedente era fuorviante — non indica se c'è un computo aperto, solo
+        /// se la libreria listini è caricata.
         /// </summary>
-        public bool HasSessionActive => QtoApplication.Instance?.UserLibrary?.Library != null;
+        public bool HasUserLibrary => QtoApplication.Instance?.UserLibrary?.Library != null;
 
         // ---------------------------------------------------------------------
         // Ctor

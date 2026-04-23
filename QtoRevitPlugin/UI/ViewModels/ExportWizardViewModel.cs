@@ -25,6 +25,18 @@ namespace QtoRevitPlugin.UI.ViewModels
         [ObservableProperty] private string _titolo = "";
         [ObservableProperty] private string _committente = "";
         [ObservableProperty] private string _direttoreLavori = "";
+        // Sprint 10 (CRIT-E2): campi XPWE aggiuntivi caricati da ProjectInfo
+        [ObservableProperty] private string _impresa = "";
+        [ObservableProperty] private string _rup = "";
+        [ObservableProperty] private DateTime? _dataComputo;
+        [ObservableProperty] private DateTime? _dataPrezzi;
+        [ObservableProperty] private string _riferimentoPrezzario = "";
+        [ObservableProperty] private string _cig = "";
+        [ObservableProperty] private string _cup = "";
+        [ObservableProperty] private decimal _ribassoPercentuale;
+        [ObservableProperty] private string _luogo = "";
+        [ObservableProperty] private string _comune = "";
+        [ObservableProperty] private string _provincia = "";
         [ObservableProperty] private bool _includeAuditFields;
         [ObservableProperty] private bool _includeDeletedAndSuperseded;
         [ObservableProperty] private string _companyLogoPath = "";
@@ -36,10 +48,41 @@ namespace QtoRevitPlugin.UI.ViewModels
         public ExportWizardViewModel()
         {
             SelectedExporter = _exporters[0];
+
+            // Sprint 10 (CRIT-E1): pre-popola i campi intestazione leggendo
+            // ProjectInfo persistito nel .cme (se presente). Fallback ai valori
+            // derivati dalla sessione se l'utente non ha ancora compilato
+            // "Informazioni Progetto" nella SetupView.
             var session = QtoApplication.Instance?.SessionManager?.ActiveSession;
-            if (session != null)
+            var repo = QtoApplication.Instance?.SessionManager?.Repository;
+            if (session == null) return;
+
+            var info = repo?.GetProjectInfo(session.Id);
+            if (info != null)
+            {
+                Titolo = !string.IsNullOrWhiteSpace(info.DenominazioneOpera)
+                    ? info.DenominazioneOpera
+                    : session.SessionName ?? "Computo";
+                Committente = info.Committente;
+                DirettoreLavori = info.DirettoreLavori;
+                Impresa = info.Impresa;
+                Rup = info.RUP;
+                DataComputo = info.DataComputo;
+                DataPrezzi = info.DataPrezzi;
+                RiferimentoPrezzario = info.RiferimentoPrezzario;
+                Cig = info.CIG;
+                Cup = info.CUP;
+                RibassoPercentuale = info.RibassoPercentuale;
+                Luogo = info.Luogo;
+                Comune = info.Comune;
+                Provincia = info.Provincia;
+                CompanyLogoPath = info.LogoPath;
+                StatusMessage = "Intestazione caricata da Informazioni Progetto.";
+            }
+            else
             {
                 Titolo = session.SessionName ?? "Computo";
+                StatusMessage = "Compila Informazioni Progetto in Setup per pre-popolare l'intestazione.";
             }
         }
 
@@ -61,7 +104,12 @@ namespace QtoRevitPlugin.UI.ViewModels
             var session = QtoApplication.Instance?.SessionManager?.ActiveSession;
             if (repo == null || session == null)
             {
+                // MED-E1: feedback visivo forte (non solo StatusMessage silenzioso)
                 StatusMessage = "Nessun computo aperto.";
+                MessageBox.Show(
+                    "Nessun computo aperto.\n\nApri o crea un file .cme dal DockablePane prima di esportare.",
+                    "Export — computo mancante",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -81,6 +129,17 @@ namespace QtoRevitPlugin.UI.ViewModels
                     Titolo = Titolo,
                     Committente = Committente,
                     DirettoreLavori = DirettoreLavori,
+                    Impresa = Impresa,
+                    RUP = Rup,
+                    DataComputo = DataComputo,
+                    DataPrezzi = DataPrezzi,
+                    RiferimentoPrezzario = RiferimentoPrezzario,
+                    CIG = Cig,
+                    CUP = Cup,
+                    RibassoPercentuale = RibassoPercentuale,
+                    Luogo = Luogo,
+                    Comune = Comune,
+                    Provincia = Provincia,
                     IncludeAuditFields = IncludeAuditFields,
                     IncludeDeletedAndSuperseded = IncludeDeletedAndSuperseded,
                     CompanyLogoPath = string.IsNullOrWhiteSpace(CompanyLogoPath) ? null : CompanyLogoPath
@@ -102,7 +161,17 @@ namespace QtoRevitPlugin.UI.ViewModels
                 QtoRevitPlugin.Services.CrashLogger.WriteException("ExportAsync", ex);
                 StatusMessage = $"Errore: {ex.Message}";
                 // Cleanup file parziale
-                if (File.Exists(dlg.FileName)) try { File.Delete(dlg.FileName); } catch { }
+                // MED-E3: logga eventuale fallimento cleanup (file bloccato da altro processo
+                // es. Excel aperto). Il log non rilancia — l'eccezione principale è già gestita.
+                if (File.Exists(dlg.FileName))
+                {
+                    try { File.Delete(dlg.FileName); }
+                    catch (Exception cleanupEx)
+                    {
+                        QtoRevitPlugin.Services.CrashLogger.WriteException(
+                            "ExportAsync.CleanupPartialFile", cleanupEx);
+                    }
+                }
                 MessageBox.Show($"Errore durante l'export: {ex.Message}", "Errore",
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }

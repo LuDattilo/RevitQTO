@@ -33,18 +33,19 @@ namespace QtoRevitPlugin.UI.Views
         private void OnImportClick(object sender, RoutedEventArgs e)
         {
             // UserLibrary è sempre disponibile dopo OnStartup — nessun pre-requisito di computo aperto
-            if (!_vm.HasSessionActive)
+            if (!_vm.HasUserLibrary)
             {
                 TaskDialog.Show("CME – Setup",
                     "UserLibrary non inizializzata. Riavvia Revit.");
                 return;
             }
 
-            // Priorità formati (spec):
+            // Priorità formati (aggiornato Sprint 10 LOW-S2):
             //   1. XML (prezzari regionali open data, es. Regione Toscana EASY schema)
             //   2. XPWE (DEI, PriMus-net interscambio tra software professionali)
             //   3. Excel/CSV (import universale da qualsiasi fonte)
-            //   ❌ DCF binario ACCA proprietario: NON supportato. Warning guidato nel parser.
+            //   4. DCF ACCA (parser in QtoRevitPlugin.Core.Parsers.DcfParser — best effort,
+            //      warning su formati proprietari non riconosciuti)
             var dlg = new OpenFileDialog
             {
                 Title = "Importa listino prezzi",

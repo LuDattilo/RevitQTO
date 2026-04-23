@@ -34,7 +34,18 @@ namespace QtoRevitPlugin.Reports
                     Titolo = options.Titolo,
                     Committente = options.Committente,
                     DirettoreLavori = options.DirettoreLavori,
-                    DataCreazione = DateTime.Now
+                    DataCreazione = DateTime.Now,
+                    Impresa = options.Impresa,
+                    RUP = options.RUP,
+                    DataComputo = options.DataComputo,
+                    DataPrezzi = options.DataPrezzi,
+                    RiferimentoPrezzario = options.RiferimentoPrezzario,
+                    CIG = options.CIG,
+                    CUP = options.CUP,
+                    RibassoPercentuale = options.RibassoPercentuale,
+                    Luogo = options.Luogo,
+                    Comune = options.Comune,
+                    Provincia = options.Provincia
                 }
             };
 

@@ -42,8 +42,15 @@ namespace QtoRevitPlugin.UI.ViewModels
                 return;
             }
 
+            // MED-C2: nota — SQLite con singola SqliteConnection fornisce letture
+            // consistenti all'interno della stessa operazione (no MVCC gap). Un
+            // transaction esplicita per READ richiederebbe di esporre BeginTransaction
+            // sull'IQtoRepository con un tipo astratto (IDbTransaction) — non ne
+            // vale la pena finché il VM non ha scritture concorrenti reali.
+            // Le 2 query GetComputoChapters + GetAssignments sono sicure qui.
             var all = _repo.GetComputoChapters(_sessionId);
             var assignments = _repo.GetAssignments(_sessionId);
+
             var countByChapter = assignments
                 .Where(a => a.ComputoChapterId.HasValue && a.AuditStatus == AssignmentStatus.Active)
                 .GroupBy(a => a.ComputoChapterId!.Value)
@@ -124,12 +131,20 @@ namespace QtoRevitPlugin.UI.ViewModels
         private void Delete()
         {
             if (_repo == null || SelectedNode == null) return;
-            var msg = SelectedNode.TotalCount > 0
-                ? $"Il capitolo contiene {SelectedNode.TotalCount} voci che torneranno a '(senza capitolo)'. Continuare?"
-                : $"Eliminare '{SelectedNode.Model.Code} {SelectedNode.Model.Name}'?";
-            var result = System.Windows.MessageBox.Show(msg, "Elimina capitolo",
-                System.Windows.MessageBoxButton.OKCancel, System.Windows.MessageBoxImage.Question);
-            if (result != System.Windows.MessageBoxResult.OK) return;
+
+            // LOW-C1: usa TaskDialog Revit invece di MessageBox WPF per coerenza
+            // visuale con il resto del plugin (dark theme Revit 2024+).
+            var td = new Autodesk.Revit.UI.TaskDialog("Elimina capitolo")
+            {
+                MainInstruction = $"Eliminare '{SelectedNode.Model.Code} {SelectedNode.Model.Name}'?",
+                MainContent = SelectedNode.TotalCount > 0
+                    ? $"Il capitolo contiene {SelectedNode.TotalCount} voci che torneranno a '(senza capitolo)'. L'operazione preserva le voci ma rimuove il raggruppamento."
+                    : "Il capitolo è vuoto.",
+                CommonButtons = Autodesk.Revit.UI.TaskDialogCommonButtons.Yes
+                              | Autodesk.Revit.UI.TaskDialogCommonButtons.No,
+                DefaultButton = Autodesk.Revit.UI.TaskDialogResult.No
+            };
+            if (td.Show() != Autodesk.Revit.UI.TaskDialogResult.Yes) return;
 
             _repo.DeleteComputoChapter(SelectedNode.Model.Id);
             Reload();
@@ -158,7 +173,7 @@ namespace QtoRevitPlugin.UI.ViewModels
             var prefix = parentCode + ".";
             var nextIdx = siblings.Count + 1;
             return level == 2
-                ? $"{prefix}{(char)('A' + nextIdx - 1)}"
+                ? $"{prefix}{QtoRevitPlugin.Models.ChapterCodeHelper.ToAlpha(nextIdx)}"
                 : $"{prefix}{nextIdx:D2}";
         }
     }

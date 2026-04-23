@@ -118,16 +118,33 @@ namespace QtoRevitPlugin.Reports
         {
             writer.WriteStartElement("PweDatiGenerali");
 
-            // Progetto
+            // Progetto (Sprint 10: arricchito con campi ProjectInfo per compatibilità PriMus)
             writer.WriteStartElement("PweDGProgetto");
             writer.WriteStartElement("PweDGDatiGenerali");
-            writer.WriteElementString("PercPrezzi", "0");
-            writer.WriteElementString("Comune", "");
-            writer.WriteElementString("Provincia", "");
-            writer.WriteElementString("Oggetto", data.Header.Titolo);
+            writer.WriteElementString("PercPrezzi", data.Header.RibassoPercentuale.ToString("F2", System.Globalization.CultureInfo.InvariantCulture));
+            writer.WriteElementString("Comune", data.Header.Comune);
+            writer.WriteElementString("Provincia", data.Header.Provincia);
+            writer.WriteElementString("Oggetto", string.IsNullOrEmpty(data.Header.Titolo) ? "" : data.Header.Titolo);
             writer.WriteElementString("Committente", data.Header.Committente);
-            writer.WriteStartElement("Impresa"); writer.WriteEndElement();
+            writer.WriteElementString("Impresa", data.Header.Impresa);
             writer.WriteStartElement("ParteOpera"); writer.WriteEndElement();
+            // Campi PriMus-net extra — includiamo se valorizzati
+            if (!string.IsNullOrEmpty(data.Header.RUP))
+                writer.WriteElementString("RUP", data.Header.RUP);
+            if (!string.IsNullOrEmpty(data.Header.DirettoreLavori))
+                writer.WriteElementString("DirettoreLavori", data.Header.DirettoreLavori);
+            if (!string.IsNullOrEmpty(data.Header.CIG))
+                writer.WriteElementString("CIG", data.Header.CIG);
+            if (!string.IsNullOrEmpty(data.Header.CUP))
+                writer.WriteElementString("CUP", data.Header.CUP);
+            if (!string.IsNullOrEmpty(data.Header.Luogo))
+                writer.WriteElementString("Luogo", data.Header.Luogo);
+            if (data.Header.DataComputo.HasValue)
+                writer.WriteElementString("DataComputo", data.Header.DataComputo.Value.ToString("dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture));
+            if (data.Header.DataPrezzi.HasValue)
+                writer.WriteElementString("DataPrezzi", data.Header.DataPrezzi.Value.ToString("dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture));
+            if (!string.IsNullOrEmpty(data.Header.RiferimentoPrezzario))
+                writer.WriteElementString("RiferimentoPrezzario", data.Header.RiferimentoPrezzario);
             writer.WriteEndElement(); // PweDGDatiGenerali
             writer.WriteEndElement(); // PweDGProgetto
 
