@@ -38,11 +38,13 @@ namespace QtoRevitPlugin.Data
                 INSERT INTO Sessions
                     (ProjectPath, ProjectName, SessionName, Status,
                      ActivePhaseId, ActivePhaseName, TotalElements, TaggedElements,
-                     TotalAmount, LastEpCode, Notes, CreatedAt, LastSavedAt, ModelSnapshotDate)
+                     TotalAmount, LastEpCode, Notes, CreatedAt, LastSavedAt, ModelSnapshotDate,
+                     LastUsedComputoChapterId)
                 VALUES
                     (@ProjectPath, @ProjectName, @SessionName, @Status,
                      @ActivePhaseId, @ActivePhaseName, @TotalElements, @TaggedElements,
-                     @TotalAmount, @LastEpCode, @Notes, @CreatedAt, @LastSavedAt, @ModelSnapshotDate);
+                     @TotalAmount, @LastEpCode, @Notes, @CreatedAt, @LastSavedAt, @ModelSnapshotDate,
+                     @LastUsedComputoChapterId);
                 SELECT last_insert_rowid();";
 
             var id = _conn.ExecuteScalar<long>(sql, new
@@ -60,7 +62,8 @@ namespace QtoRevitPlugin.Data
                 session.Notes,
                 session.CreatedAt,
                 session.LastSavedAt,
-                session.ModelSnapshotDate
+                session.ModelSnapshotDate,
+                session.LastUsedComputoChapterId
             });
 
             session.Id = (int)id;
@@ -81,7 +84,8 @@ namespace QtoRevitPlugin.Data
                     LastEpCode = @LastEpCode,
                     Notes = @Notes,
                     LastSavedAt = @LastSavedAt,
-                    ModelSnapshotDate = @ModelSnapshotDate
+                    ModelSnapshotDate = @ModelSnapshotDate,
+                    LastUsedComputoChapterId = @LastUsedComputoChapterId
                 WHERE Id = @Id;";
 
             _conn.Execute(sql, new
@@ -97,7 +101,8 @@ namespace QtoRevitPlugin.Data
                 session.LastEpCode,
                 session.Notes,
                 session.LastSavedAt,
-                session.ModelSnapshotDate
+                session.ModelSnapshotDate,
+                session.LastUsedComputoChapterId
             });
         }
 
@@ -878,6 +883,7 @@ ORDER BY Level, SortOrder, Code;";
             public DateTime CreatedAt { get; set; }
             public DateTime? LastSavedAt { get; set; }
             public DateTime? ModelSnapshotDate { get; set; }
+            public int? LastUsedComputoChapterId { get; set; }
 
             public WorkSession ToWorkSession() => new()
             {
@@ -895,7 +901,8 @@ ORDER BY Level, SortOrder, Code;";
                 Notes = Notes ?? string.Empty,
                 CreatedAt = CreatedAt,
                 LastSavedAt = LastSavedAt,
-                ModelSnapshotDate = ModelSnapshotDate
+                ModelSnapshotDate = ModelSnapshotDate,
+                LastUsedComputoChapterId = LastUsedComputoChapterId
             };
         }
     }

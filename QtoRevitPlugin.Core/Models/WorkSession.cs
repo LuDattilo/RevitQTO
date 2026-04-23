@@ -33,5 +33,8 @@ namespace QtoRevitPlugin.Models
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? LastSavedAt { get; set; }
         public DateTime? ModelSnapshotDate { get; set; }
+
+        /// <summary>FK verso ComputoChapters (Sprint 9): memorizza l'ultimo capitolo selezionato per velocizzare assegnazioni massive.</summary>
+        public int? LastUsedComputoChapterId { get; set; }
     }
 }

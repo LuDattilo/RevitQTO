@@ -86,17 +86,30 @@
             </StackPanel>
         </GroupBox>
 
-        <!-- Parametro quantitativo + ASSEGNA -->
-        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="4,4,4,0">
-            <TextBlock Text="Param:" VerticalAlignment="Center" Margin="0,0,8,0"/>
-            <ComboBox ItemsSource="{Binding AllowedParams}"
-                      SelectedItem="{Binding SelectedQuantityParam}"
-                      Width="120"/>
+        <!-- Parametro quantitativo + Capitolo + ASSEGNA -->
+        <StackPanel Grid.Row="3" Margin="4,4,4,0">
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                <TextBlock Text="Param:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <ComboBox ItemsSource="{Binding AllowedParams}"
+                          SelectedItem="{Binding SelectedQuantityParam}"
+                          Width="120"/>
+            </StackPanel>
+            <Grid Margin="0,4,0,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="Capitolo:" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <ComboBox Grid.Column="1"
+                          ItemsSource="{Binding AvailableChapters}"
+                          SelectedItem="{Binding SelectedChapterOption, Mode=TwoWay}"
+                          DisplayMemberPath="DisplayPath"/>
+            </Grid>
             <Button Content="&#x2713; ASSEGNA AGLI ELEMENTI SELEZIONATI"
                     Command="{Binding AssignCommand}"
                     IsEnabled="{Binding CanAssign}"
                     Background="#1E6FD9" Foreground="White"
-                    FontWeight="Bold" Padding="8,4" Margin="8,0,0,0"/>
+                    FontWeight="Bold" Padding="8,4" Margin="0,0,0,0"/>
         </StackPanel>
 
         <!-- TreeView (left) + Detail panel (right) split -->

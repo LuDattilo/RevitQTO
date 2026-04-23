@@ -43,6 +43,15 @@ namespace QtoRevitPlugin.UI.ViewModels
         [ObservableProperty] private ObservableCollection<string> _allowedParams = new ObservableCollection<string> { "Area", "Volume", "Length", "Count" };
         [ObservableProperty] private bool _canAssign;
 
+        [ObservableProperty] private System.Collections.ObjectModel.ObservableCollection<ChapterOption> _availableChapters = new System.Collections.ObjectModel.ObservableCollection<ChapterOption>();
+        [ObservableProperty] private ChapterOption? _selectedChapterOption;
+
+        public class ChapterOption
+        {
+            public QtoRevitPlugin.Models.ComputoChapter? Chapter { get; set; }
+            public string DisplayPath { get; set; } = "";
+        }
+
         public CatalogBrowserViewModel()
         {
             _favoritesRepo = new FileFavoritesRepository(FileFavoritesRepository.GetDefaultGlobalDir());
@@ -51,6 +60,7 @@ namespace QtoRevitPlugin.UI.ViewModels
             _qtoRepository = QtoApplication.Instance?.SessionManager?.Repository;
             LoadAvailableLists();
             LoadFavorites();
+            LoadAvailableChapters();
         }
 
         public void LoadAvailableLists()
@@ -202,6 +212,42 @@ namespace QtoRevitPlugin.UI.ViewModels
             _favoritesRepo.SaveGlobal(set);
         }
 
+        private void LoadAvailableChapters()
+        {
+            AvailableChapters.Clear();
+            AvailableChapters.Add(new ChapterOption { Chapter = null, DisplayPath = "(senza capitolo)" });
+
+            _qtoRepository = QtoApplication.Instance?.SessionManager?.Repository;
+            var sessionId = QtoApplication.Instance?.SessionManager?.ActiveSession?.Id ?? 0;
+            if (_qtoRepository == null || sessionId == 0) return;
+
+            var all = _qtoRepository.GetComputoChapters(sessionId).ToList();
+            var byId = all.ToDictionary(c => c.Id, c => c);
+
+            foreach (var ch in all.OrderBy(c => c.Code))
+            {
+                var path = BuildPath(ch, byId);
+                AvailableChapters.Add(new ChapterOption { Chapter = ch, DisplayPath = path });
+            }
+
+            // Pre-seleziona LastUsed se disponibile
+            var lastUsed = QtoApplication.Instance?.SessionManager?.ActiveSession?.LastUsedComputoChapterId;
+            if (lastUsed.HasValue)
+                SelectedChapterOption = AvailableChapters.FirstOrDefault(o => o.Chapter?.Id == lastUsed.Value);
+        }
+
+        private static string BuildPath(QtoRevitPlugin.Models.ComputoChapter ch, System.Collections.Generic.Dictionary<int, QtoRevitPlugin.Models.ComputoChapter> byId)
+        {
+            var parts = new System.Collections.Generic.List<string> { $"{ch.Code} {ch.Name}" };
+            var current = ch;
+            while (current.ParentChapterId.HasValue && byId.TryGetValue(current.ParentChapterId.Value, out var parent))
+            {
+                parts.Insert(0, $"{parent.Code} {parent.Name}");
+                current = parent;
+            }
+            return string.Join(" / ", parts);
+        }
+
         public void OnRevitCategoryChanged(string revitCategoryOst)
         {
             var rule = _mappingRulesService.GetRule(revitCategoryOst);
@@ -296,7 +342,10 @@ namespace QtoRevitPlugin.UI.ViewModels
                         CreatedBy = userId,
                         CreatedAt = now,
                         AuditStatus = AssignmentStatus.Active,
-                        Version = 1
+                        Version = 1,
+                        ComputoChapterId = ActiveFavoriteItem != null && SelectedChapterOption?.Chapter != null
+                            ? SelectedChapterOption.Chapter.Id
+                            : (int?)null,
                     };
 
                     _qtoRepository.InsertAssignment(assignment);
@@ -339,6 +388,13 @@ namespace QtoRevitPlugin.UI.ViewModels
                     });
 
                     assigned++;
+                }
+
+                // Aggiorna LastUsed per velocizzare flussi massivi
+                if (SelectedChapterOption?.Chapter != null && QtoApplication.Instance?.SessionManager?.ActiveSession != null)
+                {
+                    QtoApplication.Instance.SessionManager.ActiveSession.LastUsedComputoChapterId = SelectedChapterOption.Chapter.Id;
+                    QtoApplication.Instance.SessionManager.Flush();
                 }
             });
 
