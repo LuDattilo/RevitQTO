@@ -75,10 +75,10 @@ namespace QtoRevitPlugin.Tests.Sprint9
                 }
                 SqliteConnection.ClearAllPools();
 
-                // Apri con QtoRepository → deve migrare fino a v9 (v5 + v6 + v7 + v8 + v9 in sequenza)
+                // Apri con QtoRepository → deve migrare fino a v10 (v5 + v6 + v7 + v8 + v9 + v10 in sequenza)
                 using (var repo = new QtoRepository(dbPath))
                 {
-                    repo.GetSchemaVersion().Should().Be(9);
+                    repo.GetSchemaVersion().Should().Be(10);
                 }
                 SqliteConnection.ClearAllPools();
 

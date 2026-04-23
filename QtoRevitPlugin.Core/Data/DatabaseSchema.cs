@@ -32,7 +32,7 @@ namespace QtoRevitPlugin.Data
         // v3 (Sprint 4): aggiunta colonna PriceLists.PublicId GUID per riferimenti portabili
         //                nel DataStorage ES del .rvt (ProjectPriceListSnapshot futuro — Sprint 5).
         // v2 (Sprint 2): aggiunta virtual table PriceItems_FTS per ricerca full-text.
-        public const int CurrentVersion = 9;
+        public const int CurrentVersion = 10;
 
         /// <summary>Ordine di esecuzione degli statement per setup iniziale.</summary>
         public static readonly string[] InitialStatements =
@@ -56,7 +56,9 @@ namespace QtoRevitPlugin.Data
             ProjectInfo,
             SoaCategories,
             ComuniItaliani,
-            RevitParamMapping
+            RevitParamMapping,
+            UserFavorites,
+            UserFavoritesIndexCode
         };
 
         /// <summary>
@@ -509,6 +511,31 @@ CREATE TABLE IF NOT EXISTS RevitParamMapping (
     UNIQUE(SessionId, FieldKey)
 );";
 
+        // --- UserFavorites (Listino preferiti, schema v10) ----------------------
+        // Lista preferiti utente in UserLibrary.db (globale per utente).
+        // Vive anche nel .cme ma rimane vuota (preferiti sono globali per utente).
+        // PriceItemId è NULL-able: se l'item viene cancellato dalla libreria, il preferito
+        // rimane con solo i dati storici (Code, Description, UnitPrice) per preservare
+        // la visibilità all'utente ("questo item non è più nel listino, rimuovi?").
+
+        public const string UserFavorites = @"
+CREATE TABLE IF NOT EXISTS UserFavorites (
+    Id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    PriceItemId  INTEGER NULL,
+    Code         TEXT NOT NULL,
+    Description  TEXT NOT NULL DEFAULT '',
+    Unit         TEXT NOT NULL DEFAULT '',
+    UnitPrice    REAL NOT NULL DEFAULT 0,
+    ListName     TEXT NOT NULL DEFAULT '',
+    ListId       INTEGER NULL,
+    AddedAt      TEXT NOT NULL,
+    Note         TEXT NOT NULL DEFAULT '',
+    UNIQUE(Code, ListId)
+);";
+
+        public const string UserFavoritesIndexCode =
+            "CREATE INDEX IF NOT EXISTS idx_favorites_code ON UserFavorites(Code COLLATE NOCASE);";
+
         // --- Migration v7 → v8 (Sprint 10 step 2) -----------------------------
 
         public const string MigrateV7ToV8_AddSoaCategoryIdToChapters =
@@ -544,5 +571,25 @@ CREATE TABLE IF NOT EXISTS RevitParamMapping (
                 SkipIfFilled    INTEGER NOT NULL DEFAULT 1,
                 UNIQUE(SessionId, FieldKey)
             );";
+
+        // --- Migration v9 → v10 (Listino preferiti) ----------------------------
+
+        public const string MigrateV9ToV10_CreateUserFavorites =
+            @"CREATE TABLE IF NOT EXISTS UserFavorites (
+                Id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                PriceItemId  INTEGER NULL,
+                Code         TEXT NOT NULL,
+                Description  TEXT NOT NULL DEFAULT '',
+                Unit         TEXT NOT NULL DEFAULT '',
+                UnitPrice    REAL NOT NULL DEFAULT 0,
+                ListName     TEXT NOT NULL DEFAULT '',
+                ListId       INTEGER NULL,
+                AddedAt      TEXT NOT NULL,
+                Note         TEXT NOT NULL DEFAULT '',
+                UNIQUE(Code, ListId)
+            );";
+
+        public const string MigrateV9ToV10_IndexFavoritesCode =
+            "CREATE INDEX IF NOT EXISTS idx_favorites_code ON UserFavorites(Code COLLATE NOCASE);";
     }
 }

@@ -199,6 +199,13 @@ namespace QtoRevitPlugin.Data
                 ExecuteStatement(conn, tx, DatabaseSchema.MigrateV8ToV9_CreateRevitParamMapping);
             }
 
+            if (dbVersion < 10)
+            {
+                // v9→v10: UserFavorites (popolata solo in UserLibrary).
+                ExecuteStatement(conn, tx, DatabaseSchema.MigrateV9ToV10_CreateUserFavorites);
+                ExecuteStatement(conn, tx, DatabaseSchema.MigrateV9ToV10_IndexFavoritesCode);
+            }
+
             using (var insert = conn.CreateCommand())
             {
                 insert.Transaction = tx;
