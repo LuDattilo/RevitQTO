@@ -14,6 +14,7 @@ namespace QtoRevitPlugin.Data
     /// </summary>
     internal static class DatabaseSchema
     {
+        // v10 (Listino T1): UserFavorites + idx_favorites_code.
         // v9 (Infoproj v2): tabella comuni_italiani (ISTAT dataset, solo UserLibrary)
         //                + tabella RevitParamMapping (mapping parametri per-sessione, solo .cme).
         // v8 (Sprint 10 step 2): tabelle SoaCategories (seed OG 1..13 + OS 1..35 D.Lgs. 36/2023)
@@ -528,7 +529,7 @@ CREATE TABLE IF NOT EXISTS UserFavorites (
     UnitPrice    REAL NOT NULL DEFAULT 0,
     ListName     TEXT NOT NULL DEFAULT '',
     ListId       INTEGER NULL,
-    AddedAt      TEXT NOT NULL,
+    AddedAt      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     Note         TEXT NOT NULL DEFAULT '',
     UNIQUE(Code, ListId)
 );";
@@ -584,7 +585,7 @@ CREATE TABLE IF NOT EXISTS UserFavorites (
                 UnitPrice    REAL NOT NULL DEFAULT 0,
                 ListName     TEXT NOT NULL DEFAULT '',
                 ListId       INTEGER NULL,
-                AddedAt      TEXT NOT NULL,
+                AddedAt      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
                 Note         TEXT NOT NULL DEFAULT '',
                 UNIQUE(Code, ListId)
             );";
