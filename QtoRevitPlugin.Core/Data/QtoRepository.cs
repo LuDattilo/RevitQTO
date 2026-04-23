@@ -1095,6 +1095,80 @@ ON CONFLICT(SessionId, FieldKey) DO UPDATE SET
         }
 
         // =====================================================================
+        // EmbeddingCache (AI — modulo opzionale)
+        // =====================================================================
+        //
+        // La tabella è sul .cme (popolata one-shot al caricamento del listino).
+        // Schema: UNIQUE(PriceItemId, ModelName) — un solo embedding per item
+        // per modello. Se l'utente cambia modello, invalidare via
+        // DeleteEmbeddingsForModel + ricalcolo batch dal service AI.
+
+        public bool HasEmbedding(int priceItemId, string modelName)
+        {
+            const string sql = @"
+SELECT COUNT(*) FROM EmbeddingCache
+WHERE PriceItemId = @PriceItemId AND ModelName = @ModelName";
+            return _conn.ExecuteScalar<int>(sql, new { PriceItemId = priceItemId, ModelName = modelName }) > 0;
+        }
+
+        public void UpsertEmbedding(int priceItemId, string modelName, byte[] vectorBlob)
+        {
+            if (vectorBlob == null) throw new ArgumentNullException(nameof(vectorBlob));
+            if (vectorBlob.Length == 0)
+                throw new ArgumentException("Vector blob vuoto.", nameof(vectorBlob));
+
+            const string sql = @"
+INSERT INTO EmbeddingCache (PriceItemId, ModelName, VectorBlob)
+VALUES (@PriceItemId, @ModelName, @VectorBlob)
+ON CONFLICT(PriceItemId, ModelName) DO UPDATE SET
+    VectorBlob = excluded.VectorBlob,
+    CreatedAt  = CURRENT_TIMESTAMP;";
+
+            _conn.Execute(sql, new
+            {
+                PriceItemId = priceItemId,
+                ModelName = modelName,
+                VectorBlob = vectorBlob
+            });
+        }
+
+        public IReadOnlyList<QtoRevitPlugin.AI.EmbeddingEntry> GetEmbeddings(
+            IReadOnlyList<int> priceItemIds,
+            string modelName)
+        {
+            if (priceItemIds == null || priceItemIds.Count == 0)
+                return new List<QtoRevitPlugin.AI.EmbeddingEntry>();
+
+            // Dapper gestisce IN con parametro IEnumerable automaticamente
+            const string sql = @"
+SELECT Id, PriceItemId, ModelName, VectorBlob, CreatedAt
+FROM EmbeddingCache
+WHERE ModelName = @ModelName AND PriceItemId IN @Ids;";
+
+            return _conn.Query<QtoRevitPlugin.AI.EmbeddingEntry>(sql, new
+            {
+                ModelName = modelName,
+                Ids = priceItemIds
+            }).ToList();
+        }
+
+        public int DeleteEmbeddingsForModel(string modelName)
+        {
+            if (string.IsNullOrWhiteSpace(modelName)) return 0;
+            const string sql = "DELETE FROM EmbeddingCache WHERE ModelName = @ModelName;";
+            return _conn.Execute(sql, new { ModelName = modelName });
+        }
+
+        public int DeleteEmbeddingsForPriceList(int priceListId)
+        {
+            // Join necessario perché EmbeddingCache riferisce PriceItems, non PriceLists
+            const string sql = @"
+DELETE FROM EmbeddingCache
+WHERE PriceItemId IN (SELECT Id FROM PriceItems WHERE PriceListId = @PriceListId);";
+            return _conn.Execute(sql, new { PriceListId = priceListId });
+        }
+
+        // =====================================================================
         // IDisposable
         // =====================================================================
 

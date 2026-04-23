@@ -63,6 +63,23 @@ namespace QtoRevitPlugin.Data
         System.Collections.Generic.IReadOnlyList<RevitParamMapping> GetRevitParamMappings(int sessionId);
         void UpsertRevitParamMapping(RevitParamMapping mapping);
         void DeleteRevitParamMapping(int sessionId, string fieldKey);
+
+        // EmbeddingCache (AI — modulo opzionale). Cache vettori per voci di listino,
+        // pre-calcolati al primo load e invalidati al cambio modello o listino.
+        /// <summary>True se esiste un embedding per (priceItemId, modelName).</summary>
+        bool HasEmbedding(int priceItemId, string modelName);
+        /// <summary>Insert o aggiorna (UNIQUE constraint UpSert) l'embedding per l'item.</summary>
+        void UpsertEmbedding(int priceItemId, string modelName, byte[] vectorBlob);
+        /// <summary>Legge gli embedding cached per una lista di PriceItemId + modello.
+        /// Ordine non garantito; il chiamante ricostruisce la mappa.</summary>
+        System.Collections.Generic.IReadOnlyList<QtoRevitPlugin.AI.EmbeddingEntry> GetEmbeddings(
+            System.Collections.Generic.IReadOnlyList<int> priceItemIds,
+            string modelName);
+        /// <summary>Bulk-delete embedding per un modello (es. l'utente ha cambiato modello).
+        /// Ritorna il numero di righe rimosse.</summary>
+        int DeleteEmbeddingsForModel(string modelName);
+        /// <summary>Bulk-delete embedding per un listino (es. re-import dopo versione cambiata).</summary>
+        int DeleteEmbeddingsForPriceList(int priceListId);
     }
 
     public interface IFavoritesRepository
