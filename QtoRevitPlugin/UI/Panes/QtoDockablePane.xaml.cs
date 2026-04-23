@@ -237,10 +237,9 @@ namespace QtoRevitPlugin.UI.Panes
                     "CME_Anomalie (grigio halftone). Applicabili a vista corrente, template o set di viste. " +
                     "Un singolo undo annulla l'intera operazione (TransactionGroup)."),
 
-                QtoViewKey.Health => new PlaceholderView("Health Check", item.Reference, item.AvailableInSprint,
-                    "Matrice 6 stati (Computato / Parziale / Non computato / Multi-EP / " +
-                    "Escluso manuale / Escluso filtro) + AnomalyDetector z-score. " +
-                    "Doppio click per navigare all'elemento critico in Revit."),
+                // UI-8: HealthView operativa con AnomalyDetector (z-score) +
+                // FindSemanticMismatchesAsync (AI) via HealthCheckGateway.
+                QtoViewKey.Health => new HealthView(),
 
                 QtoViewKey.Np => new PlaceholderView("Nuovo Prezzo", item.Reference, item.AvailableInSprint,
                     "Analisi prezzi strutturata secondo D.Lgs. 36/2023 All. II.14: " +

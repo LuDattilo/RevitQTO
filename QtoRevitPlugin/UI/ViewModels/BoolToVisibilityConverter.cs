@@ -44,4 +44,20 @@ namespace QtoRevitPlugin.UI.ViewModels
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
             => throw new NotSupportedException();
     }
+
+    /// <summary>
+    /// Converter WPF: int &gt; 0 → Visible, 0/negativo → Collapsed.
+    /// Usato per sezioni "mostra solo se ci sono N elementi" (es. tabella anomalie
+    /// visibile solo se AnomaliesCount &gt; 0).
+    /// </summary>
+    public class IntToVisibilityConverter : IValueConverter
+    {
+        public static readonly IntToVisibilityConverter Instance = new IntToVisibilityConverter();
+
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+            => value is int i && i > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => throw new NotSupportedException();
+    }
 }
