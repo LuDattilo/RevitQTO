@@ -140,6 +140,7 @@
                         <DataGrid x:Name="FavoritesGrid"
                                   ItemsSource="{Binding Favorites}"
                                   SelectedItem="{Binding SelectedFavorite, Mode=TwoWay}"
+                                  Tag="{Binding}"
                                   AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
                                   HeadersVisibility="Column" FontSize="11"
                                   MaxHeight="160" GridLinesVisibility="None"
@@ -152,23 +153,25 @@
                                 <DataGridTextColumn Header="Listino"     Binding="{Binding ListName}"           Width="110" FontSize="10"/>
                                 <DataGridTextColumn Header="Aggiunto"    Binding="{Binding AddedAtShort}"       Width="115" FontSize="10"/>
                             </DataGrid.Columns>
-                            <DataGrid.RowStyle>
-                                <Style TargetType="DataGridRow">
-                                    <Setter Property="ContextMenu">
-                                        <Setter.Value>
-                                            <ContextMenu>
-                                                <MenuItem Header="Usa nella ricerca"
-                                                          Command="{Binding DataContext.UseFavoriteInSearchCommand,
-                                                              Source={x:Reference FavoritesGrid}}"/>
-                                                <MenuItem Header="Rimuovi dai preferiti"
-                                                          Command="{Binding DataContext.RemoveFavoriteCommand,
-                                                              Source={x:Reference FavoritesGrid}}"
-                                                          CommandParameter="{Binding}"/>
-                                            </ContextMenu>
-                                        </Setter.Value>
-                                    </Setter>
-                                </Style>
-                            </DataGrid.RowStyle>
+                            <!--
+                                Pattern ContextMenu sulla DataGrid (non sul RowStyle) per evitare la dipendenza
+                                ciclica XAML che fa crashare InitializeComponent di SetupView.
+                                La ContextMenu è attached alla DataGrid stessa; DataContextSelector="Row" fa sì che
+                                MenuItem abbiano come DataContext la riga cliccata (per il CommandParameter),
+                                mentre il Command legge dal Tag della DataGrid che punta al SetupViewModel.
+                            -->
+                            <DataGrid.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Usa nella ricerca"
+                                              Command="{Binding PlacementTarget.Tag.UseFavoriteInSearchCommand,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                    <MenuItem Header="Rimuovi dai preferiti"
+                                              Command="{Binding PlacementTarget.Tag.RemoveFavoriteCommand,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                              CommandParameter="{Binding PlacementTarget.SelectedItem,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                </ContextMenu>
+                            </DataGrid.ContextMenu>
                         </DataGrid>
                     </Expander>
 
