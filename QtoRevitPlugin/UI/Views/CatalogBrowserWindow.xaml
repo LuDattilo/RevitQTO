@@ -1,20 +1,25 @@
 <Window x:Class="QtoRevitPlugin.UI.Views.CatalogBrowserWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="clr-namespace:QtoRevitPlugin.UI.ViewModels"
-        Title="CME · Browser Listino"
-        Width="1000" Height="720"
-        MinWidth="700" MinHeight="500"
+        xmlns:views="clr-namespace:QtoRevitPlugin.UI.Views"
+        Title="CME · Sfoglia Listino"
+        Width="1100" Height="780"
+        MinWidth="800" MinHeight="520"
         WindowStartupLocation="CenterScreen"
         ShowInTaskbar="True"
         Background="{DynamicResource PanelBgBrush}">
 
     <!--
-      BUGFIX: le Window in contesto Revit non ereditano automaticamente le Resources
-      di Application.Current (spesso null o popolata in ritardo). I DynamicResource
-      fallivano silenziosamente → tutti i brush cadevano sul default nero WPF.
-      Merge esplicito del theme in Window.Resources garantisce risoluzione corretta
-      indipendentemente dallo stato di Application.
+        Pannello "Sfoglia Listino" — rev.5 (feedback utente 2026-04-23):
+        "copia layout listino dal pannello principale adattando per sfoglia listino".
+
+        Il Browser ora NON ridisegna una UI diversa: embed SetupListinoView, la stessa
+        UserControl della scheda Listino del pane principale. Così l'UX è identica:
+        stessa DataGrid con colonna "Preferiti", stesso SearchBox, stesso dettaglio,
+        stesso Expander "I Miei Preferiti" in basso, stessi context menu e drag&drop.
+
+        Il SetupViewModel è condiviso con il pane principale (singleton via SetupView),
+        quindi i preferiti aggiunti qui appaiono anche nel pane e viceversa.
     -->
     <Window.Resources>
         <ResourceDictionary>
@@ -27,296 +32,33 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Header scuro -->
+        <!-- Header scuro di contesto -->
         <Border Grid.Row="0" Background="{DynamicResource ChromeBgBrush}" Padding="16,10">
             <StackPanel>
-                <TextBlock Text="BROWSER LISTINO PREZZI"
+                <TextBlock Text="SFOGLIA LISTINO"
                            Foreground="{DynamicResource ChromeTextBrush}"
                            FontFamily="{DynamicResource FontMono}" FontSize="11" FontWeight="Bold" />
-                <TextBlock Text="Anteprima gerarchica Capitolo › Categoria › Voce — selezione listino + filtro testo"
+                <TextBlock Text="Finestra dedicata a ricerca voci, preferiti e dettaglio — sincronizzata col pannello principale"
                            Foreground="{DynamicResource ChromeTextDimBrush}"
                            FontSize="11" Margin="0,2,0,0" />
             </StackPanel>
         </Border>
 
-        <!-- Toolbar: select listino + filtro -->
-        <Border Grid.Row="1" Background="White"
-                BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="0,0,0,1"
-                Padding="16,10">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="280" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
+        <!-- Contenuto: stessa SetupListinoView del pane principale (VM condiviso) -->
+        <views:SetupListinoView x:Name="EmbeddedSetupListino" Grid.Row="1" />
 
-                <TextBlock Grid.Column="0" Text="Listino:" Margin="0,0,8,0"
-                           VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" />
-                <ComboBox Grid.Column="1"
-                          ItemsSource="{Binding AvailableLists}"
-                          SelectedItem="{Binding SelectedList, Mode=TwoWay}"
-                          DisplayMemberPath="Name"
-                          FontSize="11" Padding="8,4" />
-
-                <TextBlock Grid.Column="2" Text="Filtro:" Margin="16,0,8,0"
-                           VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" />
-                <TextBox Grid.Column="3"
-                         Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
-                         FontSize="11" Padding="6,4"
-                         Background="White"
-                         BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1"
-                         ToolTip="Filtra voci visibili per codice o descrizione" />
-            </Grid>
-        </Border>
-
-        <!-- Sezione Preferiti -->
-        <GroupBox Grid.Row="2" Header="&#x2B50; Preferiti" Margin="4,4,4,4">
-            <StackPanel>
-                <ListBox ItemsSource="{Binding Favorites}"
-                         SelectedItem="{Binding ActiveFavoriteItem}"
-                         MaxHeight="120">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="{Binding Code}" FontWeight="Bold" Width="80" Margin="0,0,4,0"/>
-                                <TextBlock Text="{Binding ShortDesc}" Width="150" Margin="0,0,4,0"/>
-                                <TextBlock Text="{Binding UnitPrice, StringFormat='&#x20AC; {0:N2}'}" Width="70"/>
-                                <TextBlock Text="{Binding Unit}" Foreground="Gray"/>
-                            </StackPanel>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
-                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                    <Button Content="Rimuovi" Command="{Binding RemoveFavoriteCommand}" Margin="0,0,4,0"/>
-                </StackPanel>
-            </StackPanel>
-        </GroupBox>
-
-        <!-- Parametro quantitativo + Capitolo + ASSEGNA -->
-        <StackPanel Grid.Row="3" Margin="4,4,4,0">
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                <TextBlock Text="Param:" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                <ComboBox ItemsSource="{Binding AllowedParams}"
-                          SelectedItem="{Binding SelectedQuantityParam}"
-                          Width="120"/>
-            </StackPanel>
-            <Grid Margin="0,4,0,4">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="Capitolo:" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                <ComboBox Grid.Column="1"
-                          ItemsSource="{Binding AvailableChapters}"
-                          SelectedItem="{Binding SelectedChapterOption, Mode=TwoWay}"
-                          DisplayMemberPath="DisplayPath"/>
-            </Grid>
-            <Button Content="&#x2713; ASSEGNA AGLI ELEMENTI SELEZIONATI"
-                    Command="{Binding AssignCommand}"
-                    IsEnabled="{Binding CanAssign}"
-                    Background="#1E6FD9" Foreground="White"
-                    FontWeight="Bold" Padding="8,4" Margin="0,0,0,0"/>
-        </StackPanel>
-
-        <!-- TreeView (left) + Detail panel (right) split -->
-        <Grid Grid.Row="4">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="3*" MinWidth="300" />
-                <ColumnDefinition Width="3" />
-                <ColumnDefinition Width="2*" MinWidth="240" />
-            </Grid.ColumnDefinitions>
-
-            <!-- TreeView gerarchico -->
-            <TreeView Grid.Column="0"
-                      x:Name="TreeCatalog"
-                      ItemsSource="{Binding Tree}"
-                      SelectedItemChanged="OnTreeSelectedItemChanged"
-                      Background="White"
-                      BorderThickness="0,0,0,0"
-                      FontSize="11"
-                      VirtualizingStackPanel.IsVirtualizing="True"
-                      VirtualizingStackPanel.VirtualizationMode="Recycling">
-
-                <TreeView.ItemContainerStyle>
-                    <Style TargetType="TreeViewItem">
-                        <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsVisible}" Value="False">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </TreeView.ItemContainerStyle>
-
-                <TreeView.Resources>
-                    <HierarchicalDataTemplate DataType="{x:Type vm:CatalogNode}" ItemsSource="{Binding Children}">
-                        <Grid ToolTip="{Binding Tooltip}">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0"
-                                       Text="{Binding Label}"
-                                       TextTrimming="CharacterEllipsis"
-                                       VerticalAlignment="Center" />
-                            <Border Grid.Column="1" Margin="8,0,0,0" Padding="5,1"
-                                    Background="{DynamicResource BrandAccentSoftBrush}"
-                                    CornerRadius="2"
-                                    VerticalAlignment="Center">
-                                <TextBlock Text="{Binding CountLabel}"
-                                           FontFamily="{DynamicResource FontMono}" FontSize="9"
-                                           FontWeight="SemiBold"
-                                           Foreground="{DynamicResource BrandAccentDeepBrush}" />
-                            </Border>
-                        </Grid>
-                    </HierarchicalDataTemplate>
-                </TreeView.Resources>
-            </TreeView>
-
-            <!-- Splitter vertical -->
-            <GridSplitter Grid.Column="1"
-                          Width="3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                          Background="{DynamicResource EdgeLightBrush}"
-                          ShowsPreview="False"
-                          Cursor="SizeWE" />
-
-            <!-- Detail panel della voce selezionata -->
-            <Border Grid.Column="2"
-                    Background="{DynamicResource PanelSubBrush}"
-                    BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="0">
-                <Grid>
-                    <!-- Placeholder quando niente selezionato o nodo gruppo -->
-                    <TextBlock Text="Seleziona una voce (nodo foglia) per vedere i dettagli"
-                               FontSize="11" FontStyle="Italic"
-                               Foreground="{DynamicResource InkMutedBrush}"
-                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                               TextAlignment="Center" Padding="20">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Visibility" Value="Visible" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding SelectedNode.IsGroup}" Value="False">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-
-                    <!-- Detail voce selezionata -->
-                    <ScrollViewer Padding="14,12" VerticalScrollBarVisibility="Auto">
-                        <ScrollViewer.Style>
-                            <Style TargetType="ScrollViewer">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding SelectedNode.IsGroup}" Value="False">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </ScrollViewer.Style>
-                        <StackPanel DataContext="{Binding SelectedNode.Leaf}">
-                            <!-- Codice -->
-                            <TextBlock Text="CODICE"
-                                       Style="{DynamicResource SectionLabelStyle}" />
-                            <TextBlock Text="{Binding Code}"
-                                       FontFamily="Consolas" FontSize="14" FontWeight="Bold"
-                                       Foreground="{DynamicResource BrandAccentDeepBrush}"
-                                       Margin="0,2,0,0" />
-
-                            <!-- UM + Prezzo -->
-                            <Grid Margin="0,14,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock Text="UNITÀ DI MISURA"
-                                               Style="{DynamicResource SectionLabelStyle}" />
-                                    <TextBlock Text="{Binding Unit}"
-                                               FontSize="13" FontWeight="SemiBold"
-                                               Margin="0,2,0,0" />
-                                </StackPanel>
-                                <StackPanel Grid.Column="1">
-                                    <TextBlock Text="PREZZO UNITARIO"
-                                               Style="{DynamicResource SectionLabelStyle}" />
-                                    <TextBlock Text="{Binding UnitPrice, StringFormat='€ {0:N5}'}"
-                                               FontFamily="{DynamicResource FontMono}" FontSize="13" FontWeight="Bold"
-                                               Foreground="{DynamicResource BrandAccentDeepBrush}"
-                                               Margin="0,2,0,0" />
-                                </StackPanel>
-                            </Grid>
-
-                            <!-- Capitoli -->
-                            <TextBlock Text="GERARCHIA"
-                                       Style="{DynamicResource SectionLabelStyle}"
-                                       Margin="0,14,0,0" />
-                            <TextBlock Text="{Binding SuperChapter}"
-                                       FontSize="11" Foreground="{DynamicResource InkDefaultBrush}"
-                                       TextWrapping="Wrap"
-                                       Margin="0,2,0,0" />
-                            <TextBlock Text="{Binding Chapter, StringFormat='  › {0}'}"
-                                       FontSize="11" Foreground="{DynamicResource InkDefaultBrush}"
-                                       TextWrapping="Wrap" />
-                            <TextBlock Text="{Binding SubChapter, StringFormat='      › {0}'}"
-                                       FontSize="11" Foreground="{DynamicResource InkMutedBrush}"
-                                       TextWrapping="Wrap" />
-
-                            <!-- Descrizione full -->
-                            <TextBlock Text="DESCRIZIONE"
-                                       Style="{DynamicResource SectionLabelStyle}"
-                                       Margin="0,14,0,0" />
-                            <TextBlock Text="{Binding Description}"
-                                       FontSize="11"
-                                       TextWrapping="Wrap"
-                                       LineHeight="16"
-                                       Margin="0,4,0,0" />
-
-                            <!-- Listino -->
-                            <TextBlock Text="LISTINO DI PROVENIENZA"
-                                       Style="{DynamicResource SectionLabelStyle}"
-                                       Margin="0,14,0,0" />
-                            <TextBlock Text="{Binding ListName}"
-                                       FontSize="11" Margin="0,2,0,0" />
-                        </StackPanel>
-                    </ScrollViewer>
-                </Grid>
-            </Border>
-        </Grid>
-
-        <!-- Status bar -->
-        <Border Grid.Row="5"
-                Background="{DynamicResource PanelSubBrush}"
-                BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="0,1,0,0"
-                Padding="16,6">
-            <TextBlock Text="{Binding StatusMessage}"
-                       FontSize="11" FontStyle="Italic"
-                       Foreground="{DynamicResource InkMutedBrush}" />
-        </Border>
-
-        <!-- Footer: chiudi -->
-        <Border Grid.Row="6" Background="White"
+        <!-- Footer chiudi -->
+        <Border Grid.Row="2" Background="White"
                 BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="0,1,0,0"
                 Padding="16,8">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Click="OnCopyCodeClick"
-                        Content="Copia codice"
-                        Padding="10,4" FontSize="11"
-                        Background="Transparent" Foreground="{DynamicResource InkDefaultBrush}"
-                        BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1"
-                        Cursor="Hand" />
                 <Button Click="OnCloseClick"
                         Content="Chiudi"
-                        Margin="6,0,0,0" Padding="14,4" FontSize="11" FontWeight="SemiBold"
+                        Padding="14,4" FontSize="11" FontWeight="SemiBold"
                         Background="{DynamicResource BrandAccentBrush}" Foreground="White"
                         BorderThickness="0" Cursor="Hand" />
             </StackPanel>
