@@ -501,6 +501,103 @@ namespace QtoRevitPlugin.UI.ViewModels
         private void RefreshFavoritesUsageFromUi() => RefreshFavoritesUsage();
 
         // ---------------------------------------------------------------------
+        // Commands per ContextMenu (Listini + Risultati ricerca)
+        // ---------------------------------------------------------------------
+
+        /// <summary>Toggle IsActive su un listino (ContextMenu → "Attiva/Disattiva listino").</summary>
+        [RelayCommand]
+        private void TogglePriceListActive(PriceListRow? row)
+        {
+            if (row == null) return;
+            // Il setter IsActive invoca OnIsActiveChanged → OnPriceListActiveToggled
+            // che persiste nel DB e rilancia la ricerca.
+            row.IsActive = !row.IsActive;
+        }
+
+        /// <summary>Apre il CatalogBrowser sul listino selezionato (ContextMenu).</summary>
+        [RelayCommand]
+        private void BrowsePriceList()
+        {
+            // La finestra CatalogBrowser è orchestrata dal codebehind della view
+            // (dipende da window owner/owner lifetime). Qui impostiamo solo una
+            // flag e deleghiamo via evento.
+            BrowseRequested?.Invoke(this, System.EventArgs.Empty);
+        }
+
+        /// <summary>Evento raised dal VM quando l'utente chiede di aprire CatalogBrowser.</summary>
+        public event System.EventHandler? BrowseRequested;
+
+        /// <summary>Elimina il listino selezionato dalla libreria (ContextMenu → delega al view).</summary>
+        [RelayCommand]
+        private void DeleteSelectedPriceList()
+        {
+            DeleteRequested?.Invoke(this, System.EventArgs.Empty);
+        }
+
+        /// <summary>Evento raised dal VM quando l'utente chiede la conferma di eliminazione.
+        /// La view mostra il TaskDialog e invoca DeleteSelected() se confermato.</summary>
+        public event System.EventHandler? DeleteRequested;
+
+        /// <summary>Copia il codice EP di una riga risultati negli appunti.</summary>
+        [RelayCommand]
+        private void CopyCodeToClipboard(PriceItemRow? row)
+        {
+            if (row == null || string.IsNullOrEmpty(row.Code)) return;
+            try
+            {
+                System.Windows.Clipboard.SetText(row.Code);
+                SearchStatus = $"Copiato: {row.Code}";
+            }
+            catch (System.Exception ex)
+            {
+                CrashLogger.WriteException("SetupViewModel.CopyCodeToClipboard", ex);
+            }
+        }
+
+        /// <summary>
+        /// Aggiunge un PriceItemRow ai preferiti solo se NON già presente.
+        /// Usato dal drop handler: il drag&drop "aggiunge" sempre, non toggla,
+        /// per evitare che l'utente rilasciando per sbaglio rimuova una voce.
+        /// </summary>
+        public void AddFavoriteFromDrop(PriceItemRow row)
+        {
+            if (row == null) return;
+            var repo = GetActiveRepo();
+            if (repo == null) return;
+
+            // Se già preferita, no-op (il drag&drop non deve mai rimuovere)
+            var alreadyFav = Favorites.Any(f => f.Code == row.Code && f.Model.ListId == (int?)row.ListId);
+            if (alreadyFav) return;
+
+            try
+            {
+                var fav = new UserFavorite
+                {
+                    PriceItemId = row.Id,
+                    Code = row.Code,
+                    Description = row.Description,
+                    Unit = row.Unit,
+                    UnitPrice = row.UnitPrice,
+                    ListName = row.ListName,
+                    ListId = row.ListId,
+                    AddedAt = DateTime.UtcNow
+                };
+                fav.Id = repo.AddFavorite(fav);
+                Favorites.Insert(0, new FavoriteRowVm(fav));
+                row.IsFavoriteInLibrary = true;
+
+                RefreshIsSelectedResultFavorite();
+                RefreshFavoritesHeader();
+                RefreshFavoritesUsage();
+                SyncFavoriteFlagsOnSearchResults();
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.WriteException("SetupViewModel.AddFavoriteFromDrop", ex);
+            }
+        }
+
+        // ---------------------------------------------------------------------
         // Helpers
         // ---------------------------------------------------------------------
 
@@ -604,6 +701,14 @@ namespace QtoRevitPlugin.UI.ViewModels
         public string ListName { get; }
 
         [ObservableProperty] private bool _isFavoriteInLibrary;
+
+        /// <summary>Label del MenuItem "toggle preferiti" nel context menu dei risultati ricerca.
+        /// Cambia dinamicamente: "★ Aggiungi ai preferiti" o "★ Rimuovi dai preferiti".</summary>
+        public string FavoriteMenuLabel => IsFavoriteInLibrary
+            ? "★ Rimuovi dai preferiti"
+            : "★ Aggiungi ai preferiti";
+
+        partial void OnIsFavoriteInLibraryChanged(bool value) => OnPropertyChanged(nameof(FavoriteMenuLabel));
 
         public string ShortDescTrimmed =>
             string.IsNullOrEmpty(ShortDesc) ? "" :

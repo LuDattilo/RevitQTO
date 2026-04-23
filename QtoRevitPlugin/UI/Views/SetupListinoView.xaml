@@ -72,9 +72,15 @@
                     </StackPanel>
                 </Grid>
 
-                <DataGrid Grid.Row="1" Margin="0,8,0,0" Height="140"
+                <!--
+                    DataGrid Listini (B1): ContextMenu minimale per tasto destro su un listino.
+                    Tag="{Binding}" espone SetupViewModel via PlacementTarget.Tag nel menu.
+                -->
+                <DataGrid x:Name="PriceListsGrid"
+                          Grid.Row="1" Margin="0,8,0,0" Height="140"
                           ItemsSource="{Binding PriceLists}"
                           SelectedItem="{Binding SelectedPriceList, Mode=TwoWay}"
+                          Tag="{Binding}"
                           AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
                           HeadersVisibility="Column" GridLinesVisibility="None" RowHeight="24"
                           FontSize="11" Background="White" BorderThickness="1"
@@ -88,6 +94,22 @@
                         <DataGridTextColumn Header="Prio"     Binding="{Binding Priority}"       Width="40" />
                         <DataGridTextColumn Header="Importato" Binding="{Binding ImportedAtShort}" Width="90" />
                     </DataGrid.Columns>
+                    <DataGrid.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="Attiva/Disattiva listino"
+                                      Command="{Binding PlacementTarget.Tag.TogglePriceListActiveCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                      CommandParameter="{Binding PlacementTarget.SelectedItem,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                            <MenuItem Header="Sfoglia voci del listino…"
+                                      Command="{Binding PlacementTarget.Tag.BrowsePriceListCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                            <Separator/>
+                            <MenuItem Header="🗑 Elimina dalla libreria…"
+                                      Command="{Binding PlacementTarget.Tag.DeleteSelectedPriceListCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                        </ContextMenu>
+                    </DataGrid.ContextMenu>
                 </DataGrid>
 
                 <TextBlock Grid.Row="2" Margin="0,6,0,8"
@@ -101,14 +123,26 @@
                            Text="RICERCA VOCI (CODICE ESATTO → FTS5 → FUZZY)"
                            Style="{DynamicResource SectionLabelStyle}" />
 
+                <!--
+                    Layout sezione Ricerca (richiesta utente 2026-04-23):
+                      Row 0  TextBox ricerca + badge FTS
+                      Row 1  DataGrid Risultati (area primaria, flessibile)
+                      Row 2  GridSplitter
+                      Row 3  Pannello Dettaglio voce selezionata
+                      Row 4  Expander "★ I Miei Preferiti" (sotto il dettaglio, come richiesto)
+                      Row 5  Status bar
+                    I preferiti stanno sotto perché sono destinazione drag&drop dai
+                    risultati, e logicamente sono un sottosistema secondario rispetto
+                    alla ricerca principale.
+                -->
                 <Grid Grid.Row="5" Margin="0,6,0,0">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" MinHeight="120" />
-                        <RowDefinition Height="3" />
-                        <RowDefinition Height="Auto" MinHeight="100" />
-                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />    <!-- 0 SearchBox -->
+                        <RowDefinition Height="*" MinHeight="120" />  <!-- 1 Risultati -->
+                        <RowDefinition Height="3" />       <!-- 2 Splitter -->
+                        <RowDefinition Height="Auto" MinHeight="100" /> <!-- 3 Dettaglio -->
+                        <RowDefinition Height="Auto" />    <!-- 4 Expander Preferiti -->
+                        <RowDefinition Height="Auto" />    <!-- 5 Status -->
                     </Grid.RowDefinitions>
 
                     <Grid Grid.Row="0">
@@ -133,10 +167,16 @@
                         </Border>
                     </Grid>
 
-                    <Expander Grid.Row="1" IsExpanded="True"
+                    <Expander x:Name="FavoritesExpander"
+                              Grid.Row="4" IsExpanded="True"
                               Margin="0,6,0,0"
                               Background="{DynamicResource PanelSubBrush}"
-                              BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1">
+                              BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1"
+                              AllowDrop="True"
+                              DragEnter="OnFavoritesDragEnter"
+                              DragOver="OnFavoritesDragOver"
+                              DragLeave="OnFavoritesDragLeave"
+                              Drop="OnFavoritesDrop">
                         <Expander.Header>
                             <Grid HorizontalAlignment="Stretch" Width="Auto">
                                 <Grid.ColumnDefinitions>
@@ -286,7 +326,7 @@
                         Tag="{Binding}" sulla DataGrid espone il SetupViewModel via PlacementTarget.
                     -->
                     <DataGrid x:Name="SearchResultsGrid"
-                              Grid.Row="2" Margin="0,8,0,0"
+                              Grid.Row="1" Margin="0,8,0,0"
                               ItemsSource="{Binding SearchResults}"
                               SelectedItem="{Binding SelectedSearchResult, Mode=TwoWay}"
                               Tag="{Binding}"
@@ -294,10 +334,12 @@
                               HeadersVisibility="Column" GridLinesVisibility="Horizontal" RowHeight="24"
                               FontSize="11" Background="White" BorderThickness="1"
                               BorderBrush="{DynamicResource EdgeLightBrush}"
-                              MouseDoubleClick="OnSearchResultDoubleClick">
+                              MouseDoubleClick="OnSearchResultDoubleClick"
+                              PreviewMouseLeftButtonDown="OnSearchResultMouseDown"
+                              MouseMove="OnSearchResultMouseMove">
                         <DataGrid.Columns>
                             <!-- Bottone per toggle preferito: "★" se preferita, "+" se non preferita -->
-                            <DataGridTemplateColumn Header="" Width="36" IsReadOnly="True" SortMemberPath="IsFavoriteInLibrary">
+                            <DataGridTemplateColumn Header="Preferiti" Width="62" IsReadOnly="True" SortMemberPath="IsFavoriteInLibrary">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <Button HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -334,23 +376,53 @@
                             <DataGridTextColumn Header="Prezzo"      Binding="{Binding UnitPriceFormatted}" Width="80" />
                             <DataGridTextColumn Header="Listino"     Binding="{Binding ListName}"          Width="100" FontSize="10" />
                         </DataGrid.Columns>
+                        <!--
+                            ContextMenu minimale sui risultati ricerca: toggle preferito
+                            (stessa azione del bottone cella e del doppio click) + copia
+                            codice negli appunti (use case frequente per incollare in altro tool).
+                        -->
+                        <DataGrid.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="{Binding PlacementTarget.SelectedItem.FavoriteMenuLabel,
+                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                          Command="{Binding PlacementTarget.Tag.ToggleFavoriteForRowCommand,
+                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                          CommandParameter="{Binding PlacementTarget.SelectedItem,
+                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                <Separator/>
+                                <MenuItem Header="Copia codice"
+                                          Command="{Binding PlacementTarget.Tag.CopyCodeToClipboardCommand,
+                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                          CommandParameter="{Binding PlacementTarget.SelectedItem,
+                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                            </ContextMenu>
+                        </DataGrid.ContextMenu>
                     </DataGrid>
 
-                    <GridSplitter Grid.Row="3" Height="3" HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                    <GridSplitter Grid.Row="2" Height="3" HorizontalAlignment="Stretch" VerticalAlignment="Center"
                                   Background="{DynamicResource EdgeLightBrush}" ShowsPreview="False" Cursor="SizeNS" />
 
-                    <Border Grid.Row="4"
+                    <Border Grid.Row="3"
                             Background="{DynamicResource PanelSubBrush}"
                             BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1"
                             Margin="0,4,0,0"
                             DataContext="{Binding SelectedSearchResult}">
                         <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="10,8">
                             <StackPanel>
+                                <!--
+                                    Header del dettaglio: Codice · ListName · Prezzo.
+                                    Il bottone preferito è stato RIMOSSO dal dettaglio (feedback utente:
+                                    "non chiaro, non immediato"). I modi per aggiungere/rimuovere una
+                                    voce dai preferiti sono:
+                                      1) Bottone "+" / "★" nella prima cella della riga risultati
+                                      2) Doppio click sulla riga risultati
+                                      3) Tasto destro → "Aggiungi/Rimuovi dai preferiti" (contextmenu)
+                                      4) Drag & drop della riga nell'expander Preferiti
+                                -->
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="{Binding Code}"
@@ -363,43 +435,6 @@
                                                Text="{Binding UnitPriceFormatted}"
                                                FontFamily="{DynamicResource FontMono}" FontSize="12" FontWeight="SemiBold"
                                                Foreground="{DynamicResource BrandAccentDeepBrush}" />
-                                    <!--
-                                        Bottone preferito con label testuale esplicita, invece di una
-                                        semplice stella piccola. UX feedback utente: il bottone minuto
-                                        in basso a destra era poco scopribile. Ora mostra:
-                                        - "+ Aggiungi ai preferiti" (grigio, border chiaro) quando NON preferita
-                                        - "★ Preferita — Rimuovi" (dorato pieno) quando preferita
-                                        Più largo, più leggibile, action verbale esplicita.
-                                    -->
-                                    <Button Grid.Column="3"
-                                            Padding="10,5" Margin="10,0,0,0"
-                                            FontSize="11" FontWeight="SemiBold"
-                                            Cursor="Hand"
-                                            Command="{Binding DataContext.ToggleFavoriteCommand,
-                                                      RelativeSource={RelativeSource AncestorType=UserControl}}">
-                                        <Button.Style>
-                                            <Style TargetType="Button">
-                                                <Setter Property="Content" Value="+ Aggiungi ai preferiti"/>
-                                                <Setter Property="Background" Value="Transparent"/>
-                                                <Setter Property="Foreground" Value="{DynamicResource InkDefaultBrush}"/>
-                                                <Setter Property="BorderBrush" Value="{DynamicResource EdgeLightBrush}"/>
-                                                <Setter Property="BorderThickness" Value="1"/>
-                                                <Setter Property="ToolTip" Value="Salva questa voce nei preferiti"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger
-                                                        Binding="{Binding DataContext.IsSelectedResultFavorite,
-                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                        Value="True">
-                                                        <Setter Property="Content" Value="★ Preferita — Rimuovi"/>
-                                                        <Setter Property="Background" Value="#FFF4D6"/>
-                                                        <Setter Property="Foreground" Value="#8B6914"/>
-                                                        <Setter Property="BorderBrush" Value="Goldenrod"/>
-                                                        <Setter Property="ToolTip" Value="Rimuovi questa voce dai preferiti"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Button.Style>
-                                    </Button>
                                 </Grid>
                                 <TextBlock Text="{Binding HierarchyPath}" Margin="0,4,0,0"
                                            FontSize="10" Foreground="{DynamicResource InkMutedBrush}"

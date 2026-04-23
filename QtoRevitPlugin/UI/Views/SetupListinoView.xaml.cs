@@ -31,6 +31,113 @@ namespace QtoRevitPlugin.UI.Views
             DataContext = viewModel ?? new SetupViewModel();
             InitializeComponent();
             BtnPopout.Visibility = showPopoutButton ? Visibility.Visible : Visibility.Collapsed;
+
+            // Connetti eventi VM → handlers view (per ContextMenu B1: Browse + Delete
+            // richiedono interazione con dialog WPF/Revit che vivono nella view).
+            Vm.BrowseRequested += (_, _) => OnBrowseCatalogClick(this, new RoutedEventArgs());
+            Vm.DeleteRequested += (_, _) => OnDeleteClick(this, new RoutedEventArgs());
+        }
+
+        // =====================================================================
+        // Drag & drop: trascina una voce dai risultati ricerca all'Expander
+        // "I Miei Preferiti" per aggiungerla ai preferiti.
+        // =====================================================================
+
+        /// <summary>Formato dati usato per serializzare l'oggetto trascinato.</summary>
+        private const string DragFormatPriceItemRow = "QtoRevitPlugin.PriceItemRow";
+
+        /// <summary>Posizione del mouse al click — per calcolare soglia drag (SystemParameters).</summary>
+        private System.Windows.Point? _dragStartPoint;
+
+        private void OnSearchResultMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            // Registra la posizione, ma NON iniziare il drag qui — altrimenti blocchiamo
+            // il click singolo (selezione riga) e il doppio click (toggle).
+            _dragStartPoint = e.GetPosition(null);
+        }
+
+        private void OnSearchResultMouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.LeftButton != MouseButtonState.Pressed || _dragStartPoint == null) return;
+            if (!(sender is DataGrid grid)) return;
+
+            var pos = e.GetPosition(null);
+            var dx = System.Math.Abs(pos.X - _dragStartPoint.Value.X);
+            var dy = System.Math.Abs(pos.Y - _dragStartPoint.Value.Y);
+            if (dx < SystemParameters.MinimumHorizontalDragDistance &&
+                dy < SystemParameters.MinimumVerticalDragDistance) return;
+
+            if (grid.SelectedItem is not ViewModels.PriceItemRow row) return;
+
+            // Guardia: non avviare drag su header
+            var source = e.OriginalSource as DependencyObject;
+            while (source != null && source != grid)
+            {
+                if (source is System.Windows.Controls.Primitives.DataGridColumnHeader) return;
+                source = System.Windows.Media.VisualTreeHelper.GetParent(source);
+            }
+
+            try
+            {
+                var data = new DataObject(DragFormatPriceItemRow, row);
+                DragDrop.DoDragDrop(grid, data, DragDropEffects.Copy);
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.WriteException("SetupListinoView.OnSearchResultMouseMove", ex);
+            }
+            finally
+            {
+                _dragStartPoint = null;
+            }
+        }
+
+        private void OnFavoritesDragEnter(object sender, DragEventArgs e)
+        {
+            e.Effects = e.Data.GetDataPresent(DragFormatPriceItemRow)
+                ? DragDropEffects.Copy
+                : DragDropEffects.None;
+            // Feedback visivo: bordo dorato + sfondo leggermente giallo mentre il drag sorvola
+            if (sender is Expander exp && e.Effects == DragDropEffects.Copy)
+            {
+                exp.BorderBrush = System.Windows.Media.Brushes.Goldenrod;
+                exp.BorderThickness = new Thickness(2);
+            }
+            e.Handled = true;
+        }
+
+        private void OnFavoritesDragOver(object sender, DragEventArgs e)
+        {
+            e.Effects = e.Data.GetDataPresent(DragFormatPriceItemRow)
+                ? DragDropEffects.Copy
+                : DragDropEffects.None;
+            e.Handled = true;
+        }
+
+        private void OnFavoritesDragLeave(object sender, DragEventArgs e)
+        {
+            if (sender is Expander exp)
+            {
+                // Ripristina stile originale dell'Expander
+                exp.ClearValue(Expander.BorderBrushProperty);
+                exp.ClearValue(Expander.BorderThicknessProperty);
+            }
+            e.Handled = true;
+        }
+
+        private void OnFavoritesDrop(object sender, DragEventArgs e)
+        {
+            if (sender is Expander exp)
+            {
+                exp.ClearValue(Expander.BorderBrushProperty);
+                exp.ClearValue(Expander.BorderThicknessProperty);
+            }
+
+            if (!e.Data.GetDataPresent(DragFormatPriceItemRow)) return;
+            if (e.Data.GetData(DragFormatPriceItemRow) is not ViewModels.PriceItemRow row) return;
+
+            Vm.AddFavoriteFromDrop(row);
+            e.Handled = true;
         }
 
         private void OnImportClick(object sender, RoutedEventArgs e)
