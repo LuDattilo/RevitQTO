@@ -408,6 +408,23 @@ namespace QtoRevitPlugin.UI.ViewModels
             SearchQuery = SelectedFavorite.Code;
         }
 
+        /// <summary>
+        /// Variante di ToggleFavorite che opera su una riga specifica passata come
+        /// parametro, invece di SelectedSearchResult. Usata da:
+        /// - Bottone "+/★" della prima colonna DataGrid risultati
+        /// - Doppio click su una riga dei risultati
+        /// Seleziona la riga prima di togliare così il pannello dettaglio e il flag
+        /// IsSelectedResultFavorite restano in sync col cambio.
+        /// </summary>
+        [RelayCommand]
+        private void ToggleFavoriteForRow(PriceItemRow? row)
+        {
+            if (row == null) return;
+            // Forza la selezione così che la UI (bottone dettaglio, badge) si aggiorni di riflesso
+            SelectedSearchResult = row;
+            ToggleFavorite();
+        }
+
         [RelayCommand]
         private void RemoveFavorite(FavoriteRowVm row)
         {

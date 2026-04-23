@@ -171,5 +171,27 @@ namespace QtoRevitPlugin.UI.Views
                 TaskDialog.Show("CME – Errore eliminazione", ex.Message);
             }
         }
+
+        /// <summary>
+        /// Doppio click su una riga della DataGrid risultati ricerca → toggle preferito.
+        /// UX shortcut richiesto dall'utente per evitare il click sul bottone ★ piccolo.
+        /// Guardia: ignoriamo click sull'header (OriginalSource risale a DataGridColumnHeader)
+        /// e click su celle vuote dopo l'ultimo risultato.
+        /// </summary>
+        private void OnSearchResultDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (!(sender is DataGrid grid)) return;
+            if (grid.SelectedItem is not PriceItemRow row) return;
+
+            // Click sull'header non deve fare toggle
+            var source = e.OriginalSource as DependencyObject;
+            while (source != null && source != grid)
+            {
+                if (source is System.Windows.Controls.Primitives.DataGridColumnHeader) return;
+                source = System.Windows.Media.VisualTreeHelper.GetParent(source);
+            }
+
+            Vm.ToggleFavoriteForRowCommand.Execute(row);
+        }
     }
 }
