@@ -1,8 +1,14 @@
+using Microsoft.Win32;
 using QtoRevitPlugin.Application;
+using QtoRevitPlugin.Data;
 using QtoRevitPlugin.UI.ViewModels;
+using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using TaskDialog = Autodesk.Revit.UI.TaskDialog;
+using TaskDialogCommonButtons = Autodesk.Revit.UI.TaskDialogCommonButtons;
+using TaskDialogResult = Autodesk.Revit.UI.TaskDialogResult;
 
 namespace QtoRevitPlugin.UI.Views
 {
@@ -93,6 +99,140 @@ namespace QtoRevitPlugin.UI.Views
                 QtoRevitPlugin.Services.CrashLogger.WriteException("ProjectInfoView.OnImportFromRevit", ex);
                 TaskDialog.Show("CME – Errore", $"Errore durante l'import da Revit: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Copia le Informazioni Progetto da un altro file .cme di progetto.
+        /// Utile per duplicare l'intestazione tra computi simili (es. fasi diverse
+        /// dello stesso progetto, o computi template). NON sovrascrive campi
+        /// già compilati nel VM corrente (pattern "merge non invasivo" come Eredita).
+        /// </summary>
+        private void OnCopyFromOtherCmeClick(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is not ProjectInfoViewModel vm)
+            {
+                TaskDialog.Show("CME – Informazioni Progetto", "ViewModel non disponibile.");
+                return;
+            }
+
+            var dlg = new OpenFileDialog
+            {
+                Title = "Copia Informazioni Progetto da un altro .cme",
+                Filter = "File CME (*.cme)|*.cme|Tutti i file (*.*)|*.*",
+                CheckFileExists = true
+            };
+            if (dlg.ShowDialog() != true) return;
+
+            var sourcePath = dlg.FileName;
+
+            // Evita di copiare dallo stesso file attualmente aperto
+            var activeRepo = QtoApplication.Instance?.SessionManager?.Repository;
+            var activeDbPath = activeRepo?.DatabasePath;
+            if (!string.IsNullOrEmpty(activeDbPath) &&
+                string.Equals(Path.GetFullPath(sourcePath), Path.GetFullPath(activeDbPath!),
+                    System.StringComparison.OrdinalIgnoreCase))
+            {
+                TaskDialog.Show("CME – Copia Informazioni Progetto",
+                    "Hai selezionato lo stesso file attualmente aperto. Scegli un .cme diverso.");
+                return;
+            }
+
+            try
+            {
+                using var srcRepo = new QtoRepository(sourcePath);
+
+                // Prendi la prima sessione del DB sorgente (tipicamente c'è una sola
+                // sessione attiva per file). Se ci sono più sessioni, usiamo la prima
+                // con ProjectInfo valorizzato.
+                QtoRevitPlugin.Models.ProjectInfo? srcInfo = null;
+                using (var conn = new Microsoft.Data.Sqlite.SqliteConnection(
+                    $"Data Source={sourcePath};Mode=ReadOnly;Pooling=False"))
+                {
+                    conn.Open();
+                    using var cmd = conn.CreateCommand();
+                    cmd.CommandText = "SELECT SessionId FROM ProjectInfo LIMIT 1";
+                    var sid = cmd.ExecuteScalar();
+                    if (sid != null && sid != System.DBNull.Value)
+                        srcInfo = srcRepo.GetProjectInfo(System.Convert.ToInt32(sid));
+                }
+
+                if (srcInfo == null)
+                {
+                    TaskDialog.Show("CME – Copia Informazioni Progetto",
+                        "Il file selezionato non contiene Informazioni Progetto da copiare.\n\n" +
+                        "Probabilmente è un .cme creato prima dell'introduzione della scheda\n" +
+                        "Informazioni Progetto, oppure non è mai stata salvata.");
+                    return;
+                }
+
+                // Preview + conferma (10 campi principali)
+                var preview = BuildPreviewText(srcInfo);
+                var td = new TaskDialog("Copia Informazioni Progetto")
+                {
+                    MainInstruction = $"Copiare le informazioni da «{Path.GetFileName(sourcePath)}»?",
+                    MainContent = preview +
+                        "\n\nI campi già compilati nel .cme corrente NON saranno sovrascritti.",
+                    CommonButtons = TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No,
+                    DefaultButton = TaskDialogResult.Yes
+                };
+                if (td.Show() != TaskDialogResult.Yes) return;
+
+                // Merge non invasivo — solo campi vuoti del VM corrente
+                int copied = 0;
+                copied += CopyIfEmpty(srcInfo.DenominazioneOpera, vm.DenominazioneOpera, v => vm.DenominazioneOpera = v);
+                copied += CopyIfEmpty(srcInfo.Committente, vm.Committente, v => vm.Committente = v);
+                copied += CopyIfEmpty(srcInfo.Impresa, vm.Impresa, v => vm.Impresa = v);
+                copied += CopyIfEmpty(srcInfo.RUP, vm.Rup, v => vm.Rup = v);
+                copied += CopyIfEmpty(srcInfo.DirettoreLavori, vm.DirettoreLavori, v => vm.DirettoreLavori = v);
+                copied += CopyIfEmpty(srcInfo.Luogo, vm.Luogo, v => vm.Luogo = v);
+                copied += CopyIfEmpty(srcInfo.Comune, vm.Comune, v => vm.Comune = v);
+                copied += CopyIfEmpty(srcInfo.Provincia, vm.Provincia, v => vm.Provincia = v);
+                copied += CopyIfEmpty(srcInfo.CIG, vm.Cig, v => vm.Cig = v);
+                copied += CopyIfEmpty(srcInfo.CUP, vm.Cup, v => vm.Cup = v);
+                copied += CopyIfEmpty(srcInfo.RiferimentoPrezzario, vm.RiferimentoPrezzario, v => vm.RiferimentoPrezzario = v);
+
+                vm.StatusMessage = copied == 0
+                    ? "Nessun campo copiato (tutti quelli di origine erano vuoti o già presenti qui)."
+                    : $"Copiati {copied} camp{(copied == 1 ? "o" : "i")} da «{Path.GetFileName(sourcePath)}». Verifica e salva.";
+            }
+            catch (System.Exception ex)
+            {
+                QtoRevitPlugin.Services.CrashLogger.WriteException("ProjectInfoView.OnCopyFromOtherCme", ex);
+                TaskDialog.Show("CME – Errore",
+                    $"Impossibile leggere il file .cme selezionato:\n{ex.Message}");
+            }
+        }
+
+        /// <summary>Copia il valore solo se il campo destinazione è vuoto/whitespace. Ritorna 1 se ha copiato, 0 altrimenti.</summary>
+        private static int CopyIfEmpty(string source, string current, System.Action<string> apply)
+        {
+            if (string.IsNullOrWhiteSpace(source)) return 0;
+            if (!string.IsNullOrWhiteSpace(current)) return 0;
+            apply(source);
+            return 1;
+        }
+
+        /// <summary>Formatta le prime righe di anteprima per il TaskDialog di conferma.</summary>
+        private static string BuildPreviewText(QtoRevitPlugin.Models.ProjectInfo info)
+        {
+            var rows = new System.Collections.Generic.List<string>();
+            void Add(string label, string val)
+            {
+                if (!string.IsNullOrWhiteSpace(val)) rows.Add($"  • {label}: {val}");
+            }
+            Add("Denominazione", info.DenominazioneOpera);
+            Add("Committente", info.Committente);
+            Add("Impresa", info.Impresa);
+            Add("RUP", info.RUP);
+            Add("DL", info.DirettoreLavori);
+            Add("Luogo", info.Luogo);
+            Add("Comune", info.Comune);
+            Add("CIG", info.CIG);
+            Add("CUP", info.CUP);
+
+            return rows.Count == 0
+                ? "Il file sorgente ha i campi Informazioni Progetto vuoti."
+                : "Campi disponibili nel file sorgente:\n" + string.Join("\n", rows);
         }
 
         /// <summary>

@@ -1,43 +1,86 @@
 <!--
-    QTO design tokens — stile semplificato dal mockup HTML, senza Google Fonts.
-    Segoe UI nativo Windows / Revit. Palette stati: §I5 QTO-Implementazioni-v3.md.
+    QTO design tokens — RevitCortex-inspired palette (Opzione 3 — 2026-04-23).
+
+    Identità visiva rifatta sul tema RevitCortex (github.com/LuDattilo/RevitCortex):
+    - Brand accent: teal-cyan scuro (#00838F) invece di arancione (#EA580C)
+    - Neutral ink Material-like (#212121/#555/#666/#888)
+    - Chrome: teal-slate morbido (#37474F/#455A64) invece di nero profondo
+    - State semantici (Computato/Mancante/Parziale/MultiEP/Added/Escluso)
+      INVARIATI perché veicolano significato semantico (verde=OK, rosso=errore)
+    - Nomi dei brush MANTENUTI identici per backward-compat con 16 XAML esistenti.
 -->
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- Colori brand -->
-    <Color x:Key="BrandPrimary">#1F4E79</Color>
-    <Color x:Key="BrandAccent">#EA580C</Color>
-    <Color x:Key="BrandAccentDeep">#9A3412</Color>
-    <Color x:Key="BrandAccentSoft">#FED7AA</Color>
-    <Color x:Key="BrandCool">#075985</Color>
+    <!-- ============================================================
+         BRAND — teal-cyan RevitCortex
+         ============================================================ -->
+    <!-- Primary: variante blu scuro del teal per headline / bordi strong -->
+    <Color x:Key="BrandPrimary">#006064</Color>
+    <!-- Accent: colore ufficiale RevitCortex (#00838F) -->
+    <Color x:Key="BrandAccent">#00838F</Color>
+    <!-- Deep: hover/pressed su bottoni primari, titoli di dettaglio -->
+    <Color x:Key="BrandAccentDeep">#006064</Color>
+    <!-- Soft: sfondo chip / badge info -->
+    <Color x:Key="BrandAccentSoft">#B2EBF2</Color>
+    <!-- Cool: variante più desaturata per secondary accent -->
+    <Color x:Key="BrandCool">#0277BD</Color>
 
-    <!-- Stati QTO (allineati a StateColors.cs Core) -->
+    <!-- ============================================================
+         STATES — semantici, invariati (§I5 QTO-Implementazioni-v3.md)
+         Non cambio i valori perché verde=OK, rosso=errore sono universali.
+         ============================================================ -->
     <Color x:Key="StateComputato">#16A34A</Color>
     <Color x:Key="StateMancante">#DC2626</Color>
     <Color x:Key="StateParziale">#CA8A04</Color>
     <Color x:Key="StateMultiEP">#2563EB</Color>
-    <Color x:Key="StateAdded">#EA580C</Color>
+    <Color x:Key="StateAdded">#00838F</Color>
+    <!-- prima era arancione EA580C: ora uso il brand teal per consistenza -->
     <Color x:Key="StateEscluso">#78716C</Color>
 
-    <!-- Neutrali / chrome -->
-    <Color x:Key="PanelBg">#FAFAF9</Color>
-    <Color x:Key="PanelSub">#F5F5F4</Color>
-    <Color x:Key="EdgeLight">#E7E5E4</Color>
-    <Color x:Key="EdgeMedium">#D6D3D1</Color>
-    <Color x:Key="EdgeStrong">#A8A29E</Color>
-    <Color x:Key="InkDefault">#0C0A09</Color>
-    <Color x:Key="InkDim">#57534E</Color>
-    <Color x:Key="InkMuted">#78716C</Color>
+    <!-- ============================================================
+         NEUTRAL — ink Material-like (RevitCortex palette)
+         ============================================================ -->
+    <!-- Background del pannello principale: bianco pulito -->
+    <Color x:Key="PanelBg">#FFFFFF</Color>
+    <!-- Background sub-sezioni / navigation bar / bottoni secondari -->
+    <Color x:Key="PanelSub">#F5F5F5</Color>
+    <!-- Bordo chip / input / separator leggero -->
+    <Color x:Key="EdgeLight">#E0E0E0</Color>
+    <!-- Bordo hover / focus -->
+    <Color x:Key="EdgeMedium">#BDBDBD</Color>
+    <!-- Bordo forte / disabled button -->
+    <Color x:Key="EdgeStrong">#9E9E9E</Color>
+    <!-- Ink default (testo principale) -->
+    <Color x:Key="InkDefault">#212121</Color>
+    <!-- Ink dim (labels / badge secondari) -->
+    <Color x:Key="InkDim">#555555</Color>
+    <!-- Ink muted (helper text, caption, descrizioni) -->
+    <Color x:Key="InkMuted">#666666</Color>
 
-    <!-- Chrome scuro (header + switcher) -->
-    <Color x:Key="ChromeBg">#0C0A09</Color>
-    <Color x:Key="ChromeBgSub">#1C1917</Color>
-    <Color x:Key="ChromeEdge">#3A3936</Color>
-    <Color x:Key="ChromeText">#E7E5E4</Color>
-    <Color x:Key="ChromeTextDim">#A8A29E</Color>
+    <!-- ============================================================
+         CHROME — teal-slate morbido (invece del nero profondo Stone-950)
+         Usato per l'header del DockablePane e i tab switcher.
+         ============================================================ -->
+    <Color x:Key="ChromeBg">#37474F</Color>
+    <Color x:Key="ChromeBgSub">#455A64</Color>
+    <Color x:Key="ChromeEdge">#546E7A</Color>
+    <Color x:Key="ChromeText">#ECEFF1</Color>
+    <Color x:Key="ChromeTextDim">#B0BEC5</Color>
 
-    <!-- Brushes -->
+    <!-- ============================================================
+         BANNER / FEEDBACK — tokens NUOVI derivati da RevitCortex
+         (prima non esistevano; aggiunti additivamente)
+         ============================================================ -->
+    <Color x:Key="BannerWarnBg">#FFF8E1</Color>
+    <Color x:Key="BannerWarnBorder">#FFB300</Color>
+    <Color x:Key="BannerWarnText">#FF8F00</Color>
+    <Color x:Key="InfoAccent">#1976D2</Color>
+    <Color x:Key="Placeholder">#AAAAAA</Color>
+
+    <!-- ============================================================
+         BRUSHES — generati dai Color sopra. Nomi INVARIATI.
+         ============================================================ -->
     <SolidColorBrush x:Key="BrandPrimaryBrush" Color="{StaticResource BrandPrimary}" />
     <SolidColorBrush x:Key="BrandAccentBrush" Color="{StaticResource BrandAccent}" />
     <SolidColorBrush x:Key="BrandAccentDeepBrush" Color="{StaticResource BrandAccentDeep}" />
@@ -66,22 +109,41 @@
     <SolidColorBrush x:Key="ChromeTextBrush" Color="{StaticResource ChromeText}" />
     <SolidColorBrush x:Key="ChromeTextDimBrush" Color="{StaticResource ChromeTextDim}" />
 
-    <!-- Tipografia -->
+    <!-- Nuovi brush banner / feedback -->
+    <SolidColorBrush x:Key="BannerWarnBgBrush" Color="{StaticResource BannerWarnBg}" />
+    <SolidColorBrush x:Key="BannerWarnBorderBrush" Color="{StaticResource BannerWarnBorder}" />
+    <SolidColorBrush x:Key="BannerWarnTextBrush" Color="{StaticResource BannerWarnText}" />
+    <SolidColorBrush x:Key="InfoAccentBrush" Color="{StaticResource InfoAccent}" />
+    <SolidColorBrush x:Key="PlaceholderBrush" Color="{StaticResource Placeholder}" />
+
+    <!-- ============================================================
+         TYPOGRAPHY — Segoe UI (native Revit/Windows)
+         Font-size scale aggiornata ala RevitCortex:
+            22  titolo pagina (h1)
+            15  brand / sub-titolo
+            14  labels primarie / input / campi
+            13  bottoni / descriptions primarie
+            11  caption / helper / badge
+            10  uppercase section label
+         ============================================================ -->
     <FontFamily x:Key="FontBody">Segoe UI</FontFamily>
     <FontFamily x:Key="FontDisplay">Segoe UI Semibold</FontFamily>
     <FontFamily x:Key="FontMono">Consolas, Cascadia Mono, Courier New</FontFamily>
 
-    <!-- Stili base -->
+    <!-- ============================================================
+         BASE STYLES
+         ============================================================ -->
 
-    <!-- Sezione titolo (uppercase small-caps) -->
+    <!-- Sezione titolo uppercase (small-caps) -->
     <Style x:Key="SectionLabelStyle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontBody}" />
-        <Setter Property="FontSize" Value="10" />
+        <Setter Property="FontSize" Value="11" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{StaticResource InkMutedBrush}" />
         <Setter Property="Margin" Value="0,0,0,6" />
     </Style>
 
+    <!-- View title (h1 della scheda) -->
     <Style x:Key="ViewTitleStyle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontDisplay}" />
         <Setter Property="FontSize" Value="15" />
@@ -89,27 +151,32 @@
         <Setter Property="Margin" Value="0,0,0,10" />
     </Style>
 
+    <!-- KPI (card stato con numero grande) -->
     <Style x:Key="KpiValueStyle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontMono}" />
         <Setter Property="FontSize" Value="22" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{StaticResource InkDefaultBrush}" />
     </Style>
-
     <Style x:Key="KpiLabelStyle" TargetType="TextBlock">
         <Setter Property="FontSize" Value="11" />
         <Setter Property="Foreground" Value="{StaticResource InkMutedBrush}" />
     </Style>
 
-    <!-- Bottone primario (accento arancione) -->
+    <!-- ============================================================
+         BUTTONS
+         Stile RevitCortex: corner radius 4, padding generoso, hover deep.
+         ============================================================ -->
+
+    <!-- Bottone primario (teal accento brand) -->
     <Style x:Key="BtnPrimary" TargetType="Button">
         <Setter Property="Background" Value="{StaticResource BrandAccentBrush}" />
         <Setter Property="Foreground" Value="White" />
-        <Setter Property="BorderBrush" Value="{StaticResource BrandAccentBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource BrandAccentDeepBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Padding" Value="14,7" />
+        <Setter Property="Padding" Value="20,8" />
         <Setter Property="FontFamily" Value="{StaticResource FontBody}" />
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontSize" Value="13" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Template">
@@ -118,7 +185,7 @@
                     <Border Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="3">
+                            CornerRadius="4">
                         <ContentPresenter HorizontalAlignment="Center"
                                           VerticalAlignment="Center"
                                           Margin="{TemplateBinding Padding}" />
@@ -129,7 +196,7 @@
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
                 <Setter Property="Background" Value="{StaticResource BrandAccentDeepBrush}" />
-                <Setter Property="BorderBrush" Value="{StaticResource BrandAccentDeepBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource BrandPrimaryBrush}" />
             </Trigger>
             <Trigger Property="IsEnabled" Value="False">
                 <Setter Property="Opacity" Value="0.5" />
@@ -137,16 +204,17 @@
         </Style.Triggers>
     </Style>
 
-    <!-- Bottone secondario (outline neutro) -->
+    <!-- Bottone secondario (panel sub grigio neutro) -->
     <Style x:Key="BtnSecondary" TargetType="Button" BasedOn="{StaticResource BtnPrimary}">
-        <Setter Property="Background" Value="White" />
+        <Setter Property="Background" Value="{StaticResource PanelSubBrush}" />
         <Setter Property="Foreground" Value="{StaticResource InkDefaultBrush}" />
-        <Setter Property="BorderBrush" Value="{StaticResource EdgeMediumBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource EdgeLightBrush}" />
+        <Setter Property="Padding" Value="15,8" />
         <Setter Property="FontWeight" Value="Normal" />
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Background" Value="{StaticResource PanelSubBrush}" />
-                <Setter Property="BorderBrush" Value="{StaticResource EdgeStrongBrush}" />
+                <Setter Property="Background" Value="White" />
+                <Setter Property="BorderBrush" Value="{StaticResource EdgeMediumBrush}" />
             </Trigger>
             <Trigger Property="IsEnabled" Value="False">
                 <Setter Property="Opacity" Value="0.5" />
@@ -154,7 +222,10 @@
         </Style.Triggers>
     </Style>
 
-    <!-- Toggle button — switcher dark del DockablePane (stile "chrome engineering") -->
+    <!-- ============================================================
+         SWITCHER — ToggleButton per il DockablePane
+         Chrome teal-slate invece del nero profondo precedente.
+         ============================================================ -->
     <Style x:Key="SwitcherButton" TargetType="ToggleButton">
         <Setter Property="Background" Value="{StaticResource ChromeBgSubBrush}" />
         <Setter Property="Foreground" Value="{StaticResource ChromeTextBrush}" />
@@ -172,7 +243,7 @@
                     <Border Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="2">
+                            CornerRadius="3">
                         <ContentPresenter HorizontalAlignment="Center"
                                           VerticalAlignment="Center"
                                           Margin="{TemplateBinding Padding}" />
@@ -182,25 +253,47 @@
         </Setter>
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Background" Value="#2B2724" />
-                <Setter Property="BorderBrush" Value="#54504B" />
+                <Setter Property="Background" Value="#546E7A" />
+                <Setter Property="BorderBrush" Value="#78909C" />
             </Trigger>
             <Trigger Property="IsChecked" Value="True">
                 <Setter Property="Background" Value="{StaticResource BrandAccentBrush}" />
                 <Setter Property="Foreground" Value="White" />
-                <Setter Property="BorderBrush" Value="{StaticResource BrandAccentBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource BrandAccentDeepBrush}" />
             </Trigger>
         </Style.Triggers>
     </Style>
 
-    <!-- Card container -->
+    <!-- ============================================================
+         CARDS / CONTAINERS
+         ============================================================ -->
+
+    <!-- Card principale (sfondo bianco, bordo sottile) -->
     <Style x:Key="CardStyle" TargetType="Border">
         <Setter Property="Background" Value="White" />
         <Setter Property="BorderBrush" Value="{StaticResource EdgeLightBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="3" />
-        <Setter Property="Padding" Value="12" />
+        <Setter Property="CornerRadius" Value="4" />
+        <Setter Property="Padding" Value="14" />
         <Setter Property="SnapsToDevicePixels" Value="True" />
+    </Style>
+
+    <!-- Banner informativo (warning/update) stile RevitCortex -->
+    <Style x:Key="BannerWarnStyle" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource BannerWarnBgBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource BannerWarnBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Padding" Value="14,10" />
+    </Style>
+
+    <!-- Banner info neutro (status bar) -->
+    <Style x:Key="StatusBannerStyle" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource PanelSubBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource EdgeLightBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Padding" Value="14,10" />
     </Style>
 
 </ResourceDictionary>

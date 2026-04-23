@@ -12,8 +12,12 @@ namespace QtoRevitPlugin.UI
     /// </summary>
     internal static class IconFactory
     {
-        private static readonly Brush BrandPrimary = new SolidColorBrush(Color.FromRgb(0x1F, 0x4E, 0x79));
-        private static readonly Brush BrandAccent = new SolidColorBrush(Color.FromRgb(0xFF, 0xC0, 0x00));
+        // Palette allineata al QtoTheme.xaml post-rebrand RevitCortex (2026-04-23):
+        // - BrandPrimary = teal scuro #006064
+        // - BrandAccent  = teal brand #00838F (era giallo FFC000, ora coerente col tema)
+        // - HealthGreen  = invariato (state semantico)
+        private static readonly Brush BrandPrimary = new SolidColorBrush(Color.FromRgb(0x00, 0x60, 0x64));
+        private static readonly Brush BrandAccent = new SolidColorBrush(Color.FromRgb(0x00, 0x83, 0x8F));
         private static readonly Brush HealthGreen = new SolidColorBrush(Color.FromRgb(0x3C, 0xAA, 0x4B));
         private static readonly Brush White = Brushes.White;
 

@@ -148,10 +148,11 @@
                         </StackPanel>
                     </Grid>
 
-                    <!-- Footer: Save + status -->
+                    <!-- Footer: Save + status + import actions -->
                     <Grid Margin="0,14,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
@@ -170,6 +171,15 @@
                                 Margin="0,0,6,0" Cursor="Hand"
                                 ToolTip="Importa i campi disponibili dai Project Information e dai parametri di progetto del modello Revit attivo" />
                         <Button Grid.Column="2"
+                                Content="📋 Copia da altro CME…"
+                                Click="OnCopyFromOtherCmeClick"
+                                Padding="10,4" FontSize="11"
+                                Background="Transparent"
+                                Foreground="{DynamicResource InkDefaultBrush}"
+                                BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1"
+                                Margin="0,0,6,0" Cursor="Hand"
+                                ToolTip="Apre un altro file .cme e copia le informazioni di progetto nei campi attuali (non sovrascrive i campi già compilati)" />
+                        <Button Grid.Column="3"
                                 Content="💾 Salva"
                                 Command="{Binding SaveCommand}"
                                 Padding="12,4" FontSize="11" FontWeight="SemiBold"
