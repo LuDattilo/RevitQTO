@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using QtoRevitPlugin.Application;
 using QtoRevitPlugin.Models;
+using QtoRevitPlugin.Services;
 
 namespace QtoRevitPlugin.UI.Views
 {
@@ -21,16 +22,50 @@ namespace QtoRevitPlugin.UI.Views
     {
         private readonly List<PriceListRow> _lists = new();
         private List<EpPickRow> _allItems = new();
+        private string? _categoryOstCode;
+        private int _targetInstanceCount;
+        private Func<QuantityMode, (double totQty, double avgQty)>? _quantityProbe;
+        private bool _isInitializingRadios;
 
         /// <summary>
         /// Voce selezionata (non-null solo se DialogResult == true).
         /// </summary>
         public EpPickRow? SelectedItem { get; private set; }
 
+        /// <summary>
+        /// Modalità quantità scelta dall'utente (default Count, override via radio).
+        /// Valido solo se <c>DialogResult == true</c>.
+        /// </summary>
+        public QuantityMode QuantityMode { get; private set; } = QuantityMode.Count;
+
         public PickEpDialog()
         {
             InitializeComponent();
             Loaded += OnDialogLoaded;
+        }
+
+        /// <summary>
+        /// Inietta il contesto del batch per abilitare:
+        /// - Preselezione radio tramite <see cref="QuantityModeDefaults.GetDefault"/>
+        /// - Anteprima totale preventivo: richiede un probe che dato il mode
+        ///   scelto calcoli <c>totQty</c> sommando e <c>avgQty</c> media per
+        ///   <paramref name="instanceCount"/> elementi.
+        /// </summary>
+        /// <param name="ostCode">Es. "OST_Walls" — language-independent.</param>
+        /// <param name="instanceCount">Numero di istanze target.</param>
+        /// <param name="probe">
+        /// Funzione chiamata quando l'utente cambia radio: riceve il mode
+        /// scelto, restituisce (sommaQuantità, quantitàMedia) su quelle istanze.
+        /// Se null, la preview mostra solo il prezzo × count.
+        /// </param>
+        public void SetQuantityContext(
+            string? ostCode,
+            int instanceCount,
+            Func<QuantityMode, (double totQty, double avgQty)>? probe)
+        {
+            _categoryOstCode = ostCode;
+            _targetInstanceCount = instanceCount;
+            _quantityProbe = probe;
         }
 
         /// <summary>
@@ -45,7 +80,102 @@ namespace QtoRevitPlugin.UI.Views
         private void OnDialogLoaded(object? sender, RoutedEventArgs e)
         {
             LoadLists();
+            InitializeQuantityRadios();
+            UpdatePreview();
             SearchBox.Focus();
+        }
+
+        /// <summary>
+        /// Preseleziona il radio in base al default-per-categoria (se il caller
+        /// ha passato l'OstCode via <see cref="SetQuantityContext"/>).
+        /// Aggiorna l'hint testuale ("default per Walls: Area").
+        /// </summary>
+        private void InitializeQuantityRadios()
+        {
+            _isInitializingRadios = true;
+            try
+            {
+                var defaultMode = QuantityModeDefaults.GetDefault(_categoryOstCode);
+                QuantityMode = defaultMode;
+
+                RadioCount.IsChecked = defaultMode == QuantityMode.Count;
+                RadioArea.IsChecked = defaultMode == QuantityMode.Area;
+                RadioVolume.IsChecked = defaultMode == QuantityMode.Volume;
+                RadioLength.IsChecked = defaultMode == QuantityMode.Length;
+
+                if (!string.IsNullOrWhiteSpace(_categoryOstCode))
+                {
+                    var shortCat = _categoryOstCode!.StartsWith("OST_")
+                        ? _categoryOstCode.Substring(4)
+                        : _categoryOstCode;
+                    CategoryHintBlock.Text = $"(default per {shortCat}: {QuantityModeDefaults.DisplayLabel(defaultMode)})";
+                }
+                else
+                {
+                    CategoryHintBlock.Text = string.Empty;
+                }
+            }
+            finally
+            {
+                _isInitializingRadios = false;
+            }
+        }
+
+        private void OnQtyModeChanged(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializingRadios) return;
+            if (!(sender is RadioButton rb) || rb.IsChecked != true) return;
+
+            QuantityMode = rb.Name switch
+            {
+                nameof(RadioArea) => QuantityMode.Area,
+                nameof(RadioVolume) => QuantityMode.Volume,
+                nameof(RadioLength) => QuantityMode.Length,
+                _ => QuantityMode.Count,
+            };
+
+            UpdatePreview();
+        }
+
+        /// <summary>
+        /// Aggiorna l'anteprima totale preventivo combinando il QuantityMode
+        /// scelto (che pesa sul quantità) e la voce attualmente selezionata
+        /// nella ListView (che fornisce il prezzo unitario).
+        /// </summary>
+        private void UpdatePreview()
+        {
+            double totQty = _targetInstanceCount; // fallback se probe assente → Count equivalente
+            double avgQty = 1.0;
+            if (_quantityProbe != null)
+            {
+                try
+                {
+                    var result = _quantityProbe.Invoke(QuantityMode);
+                    totQty = result.totQty;
+                    avgQty = result.avgQty;
+                }
+                catch
+                {
+                    // Probe errato (es. parametro non disponibile): fallback safe.
+                    totQty = _targetInstanceCount;
+                    avgQty = 1.0;
+                }
+            }
+
+            var unit = QuantityModeDefaults.UnitAbbrev(QuantityMode);
+            double unitPrice = 0.0;
+            string epHint = "—";
+            if (ItemsList?.SelectedItem is EpPickRow row)
+            {
+                unitPrice = row.UnitPrice;
+                epHint = row.Code;
+            }
+
+            var amount = totQty * unitPrice;
+            PreviewQuantityBlock.Text = _targetInstanceCount > 0
+                ? $"{_targetInstanceCount} istanza/e · media {avgQty:0.##} {unit} · tot {totQty:0.##} {unit}"
+                : "Seleziona una voce per vedere l'anteprima";
+            PreviewAmountBlock.Text = $"€ {amount:N2}";
         }
 
         private void LoadLists()
@@ -109,8 +239,13 @@ namespace QtoRevitPlugin.UI.Views
 
             // OK abilitato solo se c'è selezione
             OkButton.IsEnabled = filtered.Count > 0 && ItemsList.SelectedItem is EpPickRow;
-            ItemsList.SelectionChanged += (_, __) =>
-                OkButton.IsEnabled = ItemsList.SelectedItem is EpPickRow;
+            UpdatePreview();
+        }
+
+        private void OnItemsListSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            OkButton.IsEnabled = ItemsList.SelectedItem is EpPickRow;
+            UpdatePreview();
         }
 
         private void OnItemDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)

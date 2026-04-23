@@ -75,24 +75,52 @@ namespace QtoRevitPlugin.Services
                 return new RunResult { Cancelled = true, UserMessage = "Nessuna istanza" };
             }
 
-            // 2. Apri dialog scelta EP
+            // 2. Apri dialog scelta EP + quantità
             var dialog = new PickEpDialog();
             dialog.SetSubtitle($"{instances.Count} istanza/e di «{familyName} · {typeName}»"
                 + (session.ActivePhaseId > 0 ? $" · fase «{session.ActivePhaseName}»" : ""));
 
-            // Owner: la MainWindow di Revit. Se non disponibile, parentless ma modale.
+            // Preview probe: richiamato dal dialog ad ogni cambio QuantityMode.
+            // Estraggo le quantità reali dalle istanze per fornire totale e media;
+            // se l'extractor fallisce per un param non disponibile, fallback a
+            // Count (1.0 per istanza) — consistente con l'extractor stesso.
+            var extractor = new QuantityExtractor();
+            (double totQty, double avgQty) ProbeQuantity(QuantityMode mode)
+            {
+                var key = QuantityModeDefaults.ExtractorKey(mode);
+                double sum = 0.0;
+                int counted = 0;
+                foreach (var el in instances)
+                {
+                    var q = extractor.Extract(el, key, out _);
+                    sum += q;
+                    counted++;
+                }
+                var avg = counted > 0 ? sum / counted : 0.0;
+                return (sum, avg);
+            }
+
+            dialog.SetQuantityContext(
+                ostCode: category.ToString(), // BuiltInCategory.ToString() → "OST_Walls"
+                instanceCount: instances.Count,
+                probe: ProbeQuantity);
+
             var ok = dialog.ShowDialog();
             if (ok != true || dialog.SelectedItem == null)
                 return new RunResult { Cancelled = true, UserMessage = "Annullato" };
 
             var picked = dialog.SelectedItem;
+            var chosenMode = dialog.QuantityMode;
+            var extractorKey = QuantityModeDefaults.ExtractorKey(chosenMode);
 
-            // 3. Estrae quantità (v1: Count = 1.0 per istanza)
-            var extractor = new QuantityExtractor();
+            // 3. Estrae quantità secondo il mode scelto dall'utente
             var targets = new List<AssignmentTarget>(instances.Count);
+            int extractionFailures = 0;
             foreach (var el in instances)
             {
-                var qty = extractor.Extract(el, "Count", out _);
+                var qty = extractor.Extract(el, extractorKey, out var extractErr);
+                if (extractErr != null) extractionFailures++;
+
                 var phaseCreated = el.get_Parameter(BuiltInParameter.PHASE_CREATED)?.AsValueString() ?? string.Empty;
                 var phaseDemolished = el.get_Parameter(BuiltInParameter.PHASE_DEMOLISHED)?.AsValueString() ?? string.Empty;
                 targets.Add(new AssignmentTarget(
@@ -116,6 +144,9 @@ namespace QtoRevitPlugin.Services
                 UnitPrice = picked.UnitPrice,
                 PriceListId = picked.PriceListId,
                 CreatedBy = Environment.UserName,
+                // Tracciamo nel RuleApplied la modalità quantità usata; utile per
+                // auditing ed export che mostri "da che parametro arriva la qty".
+                RuleApplied = $"Manuale · Qty={QuantityModeDefaults.DisplayLabel(chosenMode)}",
             };
             foreach (var t in targets) request.Targets.Add(t);
 
@@ -129,6 +160,10 @@ namespace QtoRevitPlugin.Services
             if (outcome.IsFirstUseOfEp)
                 PromptSaveFavorite(picked, outcome);
 
+            var qtyNote = extractionFailures > 0
+                ? $" [⚠ {extractionFailures} istanza/e senza parametro {QuantityModeDefaults.DisplayLabel(chosenMode)}]"
+                : string.Empty;
+
             return new RunResult
             {
                 Cancelled = false,
@@ -137,6 +172,7 @@ namespace QtoRevitPlugin.Services
                 TotalAmount = outcome.TotalAmount,
                 UserMessage = $"Assegnate {outcome.InsertedCount} istanza/e a «{picked.Code}»" +
                               (outcome.SkippedCount > 0 ? $" ({outcome.SkippedCount} ignorate)" : "") +
+                              qtyNote +
                               $" — € {outcome.TotalAmount:N2}"
             };
         }

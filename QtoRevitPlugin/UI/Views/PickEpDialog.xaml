@@ -22,6 +22,8 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- Header -->
@@ -73,7 +75,8 @@
                       BorderThickness="0"
                       FontSize="11"
                       SelectionMode="Single"
-                      MouseDoubleClick="OnItemDoubleClick">
+                      MouseDoubleClick="OnItemDoubleClick"
+                      SelectionChanged="OnItemsListSelectionChanged">
                 <ListView.View>
                     <GridView>
                         <GridView.ColumnHeaderContainerStyle>
@@ -93,8 +96,87 @@
             </ListView>
         </Border>
 
+        <!-- Sezione Quantità (radio + etichetta categoria) -->
+        <Border Grid.Row="3" Margin="0,12,0,0"
+                Padding="10,8"
+                Background="{DynamicResource PanelSubBrush}"
+                BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1"
+                CornerRadius="4">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="QUANTITÀ PER ISTANZA"
+                               FontFamily="{DynamicResource FontMono}"
+                               FontSize="9" FontWeight="Bold"
+                               Foreground="{DynamicResource ChromeTextDimBrush}"
+                               VerticalAlignment="Center" />
+                    <TextBlock x:Name="CategoryHintBlock"
+                               Margin="8,0,0,0"
+                               FontSize="10" FontStyle="Italic"
+                               Foreground="{DynamicResource ChromeTextDimBrush}"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                    <RadioButton x:Name="RadioCount" GroupName="QtyMode"
+                                 Content="Conteggio (cad.)"
+                                 Checked="OnQtyModeChanged"
+                                 Margin="0,0,14,0" FontSize="11"
+                                 Foreground="{DynamicResource ChromeTextBrush}" />
+                    <RadioButton x:Name="RadioArea" GroupName="QtyMode"
+                                 Content="Area (m²)"
+                                 Checked="OnQtyModeChanged"
+                                 Margin="0,0,14,0" FontSize="11"
+                                 Foreground="{DynamicResource ChromeTextBrush}" />
+                    <RadioButton x:Name="RadioVolume" GroupName="QtyMode"
+                                 Content="Volume (m³)"
+                                 Checked="OnQtyModeChanged"
+                                 Margin="0,0,14,0" FontSize="11"
+                                 Foreground="{DynamicResource ChromeTextBrush}" />
+                    <RadioButton x:Name="RadioLength" GroupName="QtyMode"
+                                 Content="Lunghezza (m)"
+                                 Checked="OnQtyModeChanged"
+                                 FontSize="11"
+                                 Foreground="{DynamicResource ChromeTextBrush}" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Anteprima totale preventivo -->
+        <Border Grid.Row="4" Margin="0,8,0,0"
+                Padding="10,8"
+                Background="{DynamicResource BrandAccentSoftBrush}"
+                BorderBrush="{DynamicResource BrandAccentBrush}" BorderThickness="1"
+                CornerRadius="4">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0"
+                           Text="ANTEPRIMA"
+                           FontFamily="{DynamicResource FontMono}"
+                           FontSize="9" FontWeight="Bold"
+                           Foreground="{DynamicResource ChromeTextDimBrush}"
+                           VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1"
+                           x:Name="PreviewQuantityBlock"
+                           Margin="8,0,0,0"
+                           FontSize="11"
+                           Foreground="{DynamicResource ChromeTextBrush}"
+                           VerticalAlignment="Center"
+                           Text="—" />
+                <TextBlock Grid.Column="2"
+                           x:Name="PreviewAmountBlock"
+                           FontFamily="{DynamicResource FontDisplay}"
+                           FontSize="14" FontWeight="SemiBold"
+                           Foreground="{DynamicResource ChromeTextBrush}"
+                           VerticalAlignment="Center"
+                           Text="€ 0,00" />
+            </Grid>
+        </Border>
+
         <!-- Footer: OK / Annulla -->
-        <StackPanel Grid.Row="3" Orientation="Horizontal"
+        <StackPanel Grid.Row="5" Orientation="Horizontal"
                     HorizontalAlignment="Right" Margin="0,12,0,0">
             <TextBlock x:Name="FooterStatus"
                        VerticalAlignment="Center" Margin="0,0,16,0"
