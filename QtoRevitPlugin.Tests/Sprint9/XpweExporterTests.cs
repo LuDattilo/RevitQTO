@@ -10,8 +10,9 @@ using Xunit;
 namespace QtoRevitPlugin.Tests.Sprint9
 {
     /// <summary>
-    /// Smoke test per il nuovo XpweExporter conforme allo schema ACCA.
-    /// Validazione completa (round-trip PriMus) è manuale — vedi docs/superpowers/specs.
+    /// Test per XpweExporter conforme allo schema ACCA PriMus validato contro
+    /// CME_Sample.xpwe (computo Lupi Student Hall). Verifica struttura attesa da
+    /// import PriMus: root, header, tabelle Categorie, EPItem, VCItem con RGItem.
     /// </summary>
     public class XpweExporterTests
     {
@@ -39,7 +40,7 @@ namespace QtoRevitPlugin.Tests.Sprint9
                 Session = new WorkSession { Id = 1, ProjectName = "Test", SessionName = "Computo test" },
                 Header = new ReportHeader
                 {
-                    Titolo = "Computo test", Committente = "Cliente", DirettoreLavori = "DL",
+                    Titolo = "Computo test", Committente = "Cliente Test", DirettoreLavori = "DL Test",
                     DataCreazione = new DateTime(2026, 4, 23, 10, 0, 0)
                 },
                 GrandTotal = 1066.25m
@@ -51,7 +52,7 @@ namespace QtoRevitPlugin.Tests.Sprint9
         [Fact]
         public void Export_RootIsPweDocumento_NoNamespace()
         {
-            var path = Path.Combine(Path.GetTempPath(), $"xpwe_new_{Guid.NewGuid()}.xml");
+            var path = Path.Combine(Path.GetTempPath(), $"xpwe_{Guid.NewGuid()}.xpwe");
             try
             {
                 new XpweExporter().Export(MakeDataset(), path, new ReportExportOptions());
@@ -59,85 +60,153 @@ namespace QtoRevitPlugin.Tests.Sprint9
 
                 var doc = XDocument.Load(path);
                 doc.Root!.Name.LocalName.Should().Be("PweDocumento");
-                // ACCA XPWE non usa namespaces XML
                 doc.Root.Name.NamespaceName.Should().BeEmpty();
             }
             finally { if (File.Exists(path)) File.Delete(path); }
         }
 
         [Fact]
-        public void Export_HasAccaHeader()
+        public void Export_HasMsoApplicationProcessingInstruction()
         {
-            var path = Path.Combine(Path.GetTempPath(), $"xpwe_hdr_{Guid.NewGuid()}.xml");
+            var path = Path.Combine(Path.GetTempPath(), $"xpwe_pi_{Guid.NewGuid()}.xpwe");
+            try
+            {
+                new XpweExporter().Export(MakeDataset(), path, new ReportExportOptions());
+                var doc = XDocument.Load(path);
+                var pi = doc.Nodes().OfType<XProcessingInstruction>().FirstOrDefault();
+                pi.Should().NotBeNull();
+                pi!.Target.Should().Be("mso-application");
+                pi.Data.Should().Contain("PriMus.Document.XPWE");
+            }
+            finally { if (File.Exists(path)) File.Delete(path); }
+        }
+
+        [Fact]
+        public void Export_HasAccaHeaderFields()
+        {
+            var path = Path.Combine(Path.GetTempPath(), $"xpwe_hdr_{Guid.NewGuid()}.xpwe");
             try
             {
                 new XpweExporter().Export(MakeDataset(), path, new ReportExportOptions());
                 var doc = XDocument.Load(path);
                 var root = doc.Root!;
                 root.Element("CopyRight")!.Value.Should().Contain("ACCA software");
+                root.Element("TipoDocumento")!.Value.Should().Be("1");   // 1 = Computo
                 root.Element("TipoFormato")!.Value.Should().Be("XMLPwe");
-                root.Element("Versione")!.Value.Should().Be("5.01");
-                root.Element("Fgs").Should().NotBeNull();
+                root.Element("Versione")!.Value.Should().Be("5.04");
+                root.Element("FileNameDocumento").Should().NotBeNull();
             }
             finally { if (File.Exists(path)) File.Delete(path); }
         }
 
         [Fact]
-        public void Export_ChaptersAreFlat_WithForeignKeys()
+        public void Export_DatiGenerali_HasProjectInfo()
         {
-            var path = Path.Combine(Path.GetTempPath(), $"xpwe_flat_{Guid.NewGuid()}.xml");
+            var path = Path.Combine(Path.GetTempPath(), $"xpwe_proj_{Guid.NewGuid()}.xpwe");
             try
             {
                 new XpweExporter().Export(MakeDataset(), path, new ReportExportOptions());
                 var doc = XDocument.Load(path);
-                var capCats = doc.Descendants("PweDGCapitoliCategorie").Single();
-
-                // 1 SuperCapitolo, 1 Capitolo, 1 SubCapitolo (struttura flat, non annidata)
-                capCats.Descendants("DGSuperCapitoliItem").Should().HaveCount(1);
-                capCats.Descendants("DGCapitoliItem").Should().HaveCount(1);
-                capCats.Descendants("DGSubCapitoliItem").Should().HaveCount(1);
-
-                // Ogni item ha attributo ID
-                capCats.Descendants("DGSuperCapitoliItem").Single().Attribute("ID").Should().NotBeNull();
-                // Capitolo ha IDPadre che punta al SuperCapitolo
-                var capItem = capCats.Descendants("DGCapitoliItem").Single();
-                capItem.Element("IDPadre").Should().NotBeNull();
+                var dg = doc.Descendants("PweDGDatiGenerali").Single();
+                dg.Element("Oggetto")!.Value.Should().Be("Computo test");
+                dg.Element("Committente")!.Value.Should().Be("Cliente Test");
+                dg.Element("Impresa").Should().NotBeNull();
+                dg.Element("PercPrezzi").Should().NotBeNull();
             }
             finally { if (File.Exists(path)) File.Delete(path); }
         }
 
         [Fact]
-        public void Export_EPItem_HasAccaFieldsInOrder()
+        public void Export_ChaptersAreOnCategorieAxis_NotCapitoli()
         {
-            var path = Path.Combine(Path.GetTempPath(), $"xpwe_ep_{Guid.NewGuid()}.xml");
+            var path = Path.Combine(Path.GetTempPath(), $"xpwe_cat_{Guid.NewGuid()}.xpwe");
+            try
+            {
+                new XpweExporter().Export(MakeDataset(), path, new ReportExportOptions());
+                var doc = XDocument.Load(path);
+
+                // I nostri ComputoChapter vanno sulle Categorie PriMus, NON sui Capitoli.
+                doc.Descendants("DGSuperCategorieItem").Should().HaveCount(1);
+                doc.Descendants("DGCategorieItem").Should().HaveCount(1);
+                doc.Descendants("DGSubCategorieItem").Should().HaveCount(1);
+
+                // I Capitoli hanno solo un SuperCapitolo placeholder (documento sorgente)
+                doc.Descendants("DGSuperCapitoliItem").Should().HaveCount(1);
+                doc.Descendants("DGCapitoliItem").Should().BeEmpty();
+                doc.Descendants("DGSubCapitoliItem").Should().BeEmpty();
+            }
+            finally { if (File.Exists(path)) File.Delete(path); }
+        }
+
+        [Fact]
+        public void Export_EPItem_HasAccaFields()
+        {
+            var path = Path.Combine(Path.GetTempPath(), $"xpwe_ep_{Guid.NewGuid()}.xpwe");
             try
             {
                 new XpweExporter().Export(MakeDataset(), path, new ReportExportOptions());
                 var doc = XDocument.Load(path);
                 var epItem = doc.Descendants("EPItem").Single();
 
+                epItem.Attribute("ID").Should().NotBeNull();
+                epItem.Element("TipoEP")!.Value.Should().Be("0");
                 epItem.Element("Tariffa")!.Value.Should().Be("TOS25.A03.001");
+                epItem.Element("Articolo")!.Value.Should().Be("TOS25.A03.001");
                 epItem.Element("UnMisura")!.Value.Should().Be("m³");
                 epItem.Element("Prezzo1")!.Value.Should().Contain("85.30");
-                epItem.Element("Prezzo2").Should().NotBeNull();  // Campo obbligatorio ACCA
-                epItem.Element("IDSpCap").Should().NotBeNull();  // FK SuperCapitolo
-                epItem.Element("Flags").Should().NotBeNull();
+                epItem.Element("Prezzo2")!.Value.Should().Be("0");
+                epItem.Element("IDSpCap").Should().NotBeNull();
+                epItem.Element("IncSIC").Should().NotBeNull();
+                epItem.Element("TagBIM").Should().NotBeNull();
+                epItem.Element("PweEPAnalisi").Should().NotBeNull();
             }
             finally { if (File.Exists(path)) File.Delete(path); }
         }
 
         [Fact]
-        public void Export_GeneratesVCItemForEachEntry()
+        public void Export_VCItem_ReferencesEPItemViaIDEP_AndHasRGMisura()
         {
-            var path = Path.Combine(Path.GetTempPath(), $"xpwe_vc_{Guid.NewGuid()}.xml");
+            var path = Path.Combine(Path.GetTempPath(), $"xpwe_vc_{Guid.NewGuid()}.xpwe");
             try
             {
                 new XpweExporter().Export(MakeDataset(), path, new ReportExportOptions());
                 var doc = XDocument.Load(path);
-                var vcItems = doc.Descendants("VCItem").ToList();
-                vcItems.Should().HaveCount(1);
-                vcItems[0].Element("IDEP").Should().NotBeNull();
-                vcItems[0].Element("Quantita")!.Value.Should().Contain("12.5");
+
+                // Schema VCItem reale: FK a EPItem + misurazioni annidate in PweVCMisure
+                var vcItem = doc.Descendants("VCItem").Single();
+                vcItem.Attribute("ID").Should().NotBeNull();
+                vcItem.Element("IDEP").Should().NotBeNull();  // FK a EPItem
+                vcItem.Element("Quantita")!.Value.Should().Contain("12.5");
+                vcItem.Element("DataMis").Should().NotBeNull();
+
+                // Category FK (asse Categorie, non Capitoli)
+                vcItem.Element("IDSpCat").Should().NotBeNull();
+                vcItem.Element("IDCat").Should().NotBeNull();
+                vcItem.Element("IDSbCat").Should().NotBeNull();
+
+                // PweVCMisure contiene RGItem (riga misurazione)
+                var rg = vcItem.Descendants("RGItem").Single();
+                rg.Element("IDVV")!.Value.Should().Be("-2");
+                rg.Element("PartiUguali")!.Value.Should().Contain("12.5");
+                rg.Element("Quantita")!.Value.Should().Contain("12.5");
+            }
+            finally { if (File.Exists(path)) File.Delete(path); }
+        }
+
+        [Fact]
+        public void Export_VCItem_IDCategoriesMatchIndexedValues()
+        {
+            var path = Path.Combine(Path.GetTempPath(), $"xpwe_fk_{Guid.NewGuid()}.xpwe");
+            try
+            {
+                new XpweExporter().Export(MakeDataset(), path, new ReportExportOptions());
+                var doc = XDocument.Load(path);
+
+                // La voce è in SubCat dentro Cat dentro Super → dovrebbe avere tutti i 3 FK
+                var vcItem = doc.Descendants("VCItem").Single();
+                int.Parse(vcItem.Element("IDSpCat")!.Value).Should().Be(1);
+                int.Parse(vcItem.Element("IDCat")!.Value).Should().Be(1);
+                int.Parse(vcItem.Element("IDSbCat")!.Value).Should().Be(1);
             }
             finally { if (File.Exists(path)) File.Delete(path); }
         }

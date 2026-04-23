@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Text;
 using System.Xml;
 
@@ -7,64 +8,91 @@ namespace QtoRevitPlugin.Reports
 {
     /// <summary>
     /// Esporta il computo in formato XPWE (XML PriMus-WEB) conforme al dialetto
-    /// usato da ACCA PriMus.
+    /// ACCA PriMus, validato contro file reale <c>CME_Sample.xpwe</c>.
     ///
-    /// Schema reale (da file `test.XPWE` fornito da PriMus):
-    /// - Root: &lt;PweDocumento&gt; (NO namespace xmlns)
-    /// - Header: CopyRight, TipoDocumento, TipoFormato="XMLPwe", Versione="5.01",
-    ///   SourceVersione, SourceNome, Fgs
-    /// - &lt;PweDatiGenerali&gt; con sotto-tabelle:
-    ///   - PweDGProgetto/PweDGDatiGenerali/DesTarif (titolo documento)
-    ///   - PweDGCapitoliCategorie con 6 tabelle flat: SuperCapitoli, Capitoli,
-    ///     SubCapitoli, SuperCategorie, Categorie, SubCategorie
-    /// - &lt;PweMisurazioni&gt;
-    ///   - PweElencoPrezzi con EPItem: Tariffa, Articolo, DesRidotta, DesEstesa,
-    ///     UnMisura, Prezzo1..Prezzo5, CnfQt, IDSpCap (FK), IDCap (FK), IDSbCap (FK),
-    ///     Data, DesBreve, IncMDO, IncMAT, IncSIC, TipoRisorsa, Flags, AdrInternet
-    ///   - PweVociComputo con VCItem (schema voci computo da validare con file reale)
+    /// <para><b>Struttura</b> (file PriMus v5.04):</para>
+    /// <list type="bullet">
+    ///   <item>Processing instruction <c>&lt;?mso-application progid="PriMus.Document.XPWE"?&gt;</c></item>
+    ///   <item>Root <c>&lt;PweDocumento&gt;</c> (NO namespace xmlns)</item>
+    ///   <item>Header: CopyRight, TipoDocumento=1 (Computo), TipoFormato=XMLPwe,
+    ///     Versione=5.04, SourceVersione, SourceNome, FileNameDocumento</item>
+    ///   <item><c>&lt;PweDatiGenerali&gt;</c>:
+    ///     <list type="bullet">
+    ///       <item>PweDGProgetto/PweDGDatiGenerali con Comune, Provincia, Oggetto, Committente, Impresa, ParteOpera, PercPrezzi</item>
+    ///       <item>PweDGCapitoliCategorie con 6 tabelle flat:
+    ///         <b>PweDGSuperCapitoli</b>/PweDGCapitoli/PweDGSubCapitoli (assi listini)
+    ///         + <b>PweDGSuperCategorie</b>/PweDGCategorie/PweDGSubCategorie (assi categorie computo)</item>
+    ///       <item>PweDGWBS/PweDGWBSCAP (disattivate)</item>
+    ///       <item>PweDGModuli/PweDGAnalisi (SpeseUtili, SpeseGenerali, UtiliImpresa, ConfQuantita)</item>
+    ///       <item>PweDGConfigurazione/PweDGConfigNumeri (formattazione numeri: Divisa, fattori conversione, precisioni)</item>
+    ///     </list>
+    ///   </item>
+    ///   <item><c>&lt;PweMisurazioni&gt;</c>:
+    ///     <list type="bullet">
+    ///       <item>PweElencoPrezzi → EPItem con TipoEP, Tariffa, Articolo, DesRidotta, DesEstesa,
+    ///         UnMisura, Prezzo1..5, IDSpCap FK, IDCap FK, IDSbCap FK, IncSIC, IncMDO, IncMAT, IncATTR, TagBIM, PweEPAnalisi</item>
+    ///       <item>PweVociComputo → VCItem con IDEP FK, Quantita, DataMis, IDSpCat FK, IDCat FK, IDSbCat FK
+    ///         + PweVCMisure/RGItem (riga misurazione: Descrizione, PartiUguali, Lunghezza, Larghezza, HPeso, Quantita)</item>
+    ///     </list>
+    ///   </item>
+    /// </list>
     ///
-    /// <b>Nota schema computo</b>: il file di test fornito è un listino (PweVociComputo
-    /// contiene solo &lt;VCItem/&gt; vuoto). I campi di VCItem effettivo (tariffa, dimensioni,
-    /// formula, quantità, capitolo FK) sono ipotizzati dallo stile ACCA e da validare
-    /// contro un file XPWE computo reale — vedi <see cref="XpweExporterLegacy"/> per la
-    /// versione annidata non conforme, mantenuta solo a fini storici.
+    /// <para><b>Mapping dal nostro data model</b>:</para>
+    /// <list type="bullet">
+    ///   <item>I nostri <c>ComputoChapter</c> (3 livelli Super/Cat/Sub) sono mappati
+    ///     sulle <b>Categorie PriMus</b> (SuperCategorie/Categorie/SubCategorie) — non sui Capitoli.
+    ///     Questo rispecchia la semantica reale: le nostre "Demolizioni / Strutturali / SOLAI"
+    ///     sono tagging analitici, non chapters di listino.</item>
+    ///   <item>Un singolo <c>&lt;DGSuperCapitoliItem&gt;</c> "placeholder" viene inserito per il computo
+    ///     con descrizione = titolo progetto (PriMus lo usa come "documento sorgente prezzi").</item>
+    ///   <item>Ogni <c>ReportEntry</c> genera un <c>&lt;EPItem&gt;</c> + un <c>&lt;VCItem&gt;</c>.
+    ///     PartiUguali = Quantity, Lunghezza/Larghezza/HPeso vuoti.</item>
+    /// </list>
     /// </summary>
     public class XpweExporter : IReportExporter
     {
-        // Costanti header ACCA
+        // Costanti header ACCA (valori da CME_Sample.xpwe)
         private const string CopyRight = "Copyright ACCA software S.p.A.";
         private const string TipoFormato = "XMLPwe";
-        private const string Versione = "5.01";
+        private const string Versione = "5.04";
+        private const string TipoDocumentoComputo = "1";  // 1 = Computo (osservato)
         private const string SourceNome = "RevitQTO-CME";
-        private const string SourceVersione = "1.0";
-        // TipoDocumento: 0 = Generico/Listino, 1 = Computo (valore ipotizzato — verificare).
-        private const string TipoDocumentoComputo = "1";
-        // Fgs: flag interno PriMus — replichiamo il valore del file di riferimento.
-        private const string Fgs = "2147614720";
+        private const string SourceVersione = "RevitQTO 1.0";
 
-        // Placeholder "data vuota" usato da PriMus per campi DateTime non valorizzati.
+        // Placeholder "data vuota" usato da PriMus per campi DateTime non valorizzati
         private const string EmptyDate = "30/12/1899";
 
+        // Processing instruction richiesta da PriMus per aprire il file con associazione
+        private const string PiTarget = "mso-application";
+        private const string PiData = "progid=\"PriMus.Document.XPWE\"";
+
         public string FormatName => "XPWE";
-        public string FileExtension => ".xml";
-        public string FileFilter => "PriMus XPWE (*.xml;*.XPWE)|*.xml;*.XPWE|Tutti i file (*.*)|*.*";
+        public string FileExtension => ".xpwe";
+        public string FileFilter => "PriMus XPWE (*.xpwe;*.xml)|*.xpwe;*.xml|Tutti i file (*.*)|*.*";
         public ReportExportOptions DefaultOptions => new ReportExportOptions();
 
         public void Export(ReportDataSet data, string outputPath, ReportExportOptions options)
         {
+            // Indicizzazione chapters su asse Categorie (SuperCat/Cat/SubCat)
+            var catIndex = new CategoryIndex();
+            catIndex.Build(data);
+
+            // Write su StringBuilder prima di salvare su file (così possiamo
+            // controllare esattamente formattazione minima — PriMus salva tutto
+            // su singola riga senza indentazione).
             var settings = new XmlWriterSettings
             {
                 Encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
-                Indent = false,              // PriMus salva tutto su singola riga
-                OmitXmlDeclaration = true    // il file di riferimento NON ha <?xml ... ?>
+                Indent = false,
+                OmitXmlDeclaration = true  // PriMus non emette <?xml ... ?>
             };
 
-            // Indicizzazione capitoli (3 livelli ACCA: SuperCapitolo, Capitolo, SubCapitolo)
-            // con ID sequenziali a partire da 1 — pattern ACCA.
-            var chapterIndex = new ChapterIndex();
-            chapterIndex.Build(data);
+            using var stream = new FileStream(outputPath, FileMode.Create, FileAccess.Write);
+            using var writer = XmlWriter.Create(stream, settings);
 
-            using var writer = XmlWriter.Create(outputPath, settings);
+            // Processing instruction mso-application (richiesta da PriMus)
+            writer.WriteProcessingInstruction(PiTarget, PiData);
+
             writer.WriteStartElement("PweDocumento");
 
             // Header documento
@@ -74,178 +102,239 @@ namespace QtoRevitPlugin.Reports
             writer.WriteElementString("Versione", Versione);
             writer.WriteElementString("SourceVersione", SourceVersione);
             writer.WriteElementString("SourceNome", SourceNome);
-            writer.WriteElementString("Fgs", Fgs);
+            writer.WriteElementString("FileNameDocumento", data.Session?.SessionName ?? "computo.dcf");
 
-            // PweDatiGenerali
-            writer.WriteStartElement("PweDatiGenerali");
-
-            writer.WriteStartElement("PweDGProgetto");
-            writer.WriteStartElement("PweDGDatiGenerali");
-            writer.WriteElementString("DesTarif", data.Header.Titolo);
-            writer.WriteEndElement(); // PweDGDatiGenerali
-            writer.WriteEndElement(); // PweDGProgetto
-
-            writer.WriteStartElement("PweDGConfigurazione");
-            writer.WriteStartElement("PweDGConfigNumeri");
-            writer.WriteEndElement();
-            writer.WriteEndElement();
-
-            writer.WriteStartElement("PweDGModuli");
-            writer.WriteStartElement("PweDGAnalisi");
-            writer.WriteElementString("SpeseUtili", "-1");
-            writer.WriteEndElement();
-            writer.WriteEndElement();
-
-            // Tabelle Capitoli (flat, con FK)
-            writer.WriteStartElement("PweDGCapitoliCategorie");
-
-            // SuperCapitoli (livello 1 — nostri root)
-            writer.WriteStartElement("PweDGSuperCapitoli");
-            foreach (var sc in chapterIndex.SuperCapitoli)
-                WriteDGChapterItem(writer, "DGSuperCapitoliItem", sc);
-            writer.WriteEndElement();
-
-            // Capitoli (livello 2)
-            writer.WriteStartElement("PweDGCapitoli");
-            foreach (var c in chapterIndex.Capitoli)
-                WriteDGChapterItem(writer, "DGCapitoliItem", c);
-            writer.WriteEndElement();
-
-            // SubCapitoli (livello 3)
-            writer.WriteStartElement("PweDGSubCapitoli");
-            foreach (var sb in chapterIndex.SubCapitoli)
-                WriteDGChapterItem(writer, "DGSubCapitoliItem", sb);
-            writer.WriteEndElement();
-
-            // Tabelle Categorie — non usate (vuote): l'asse "Categorie" ACCA è ortogonale
-            // ai Capitoli e nel nostro modello non è mappato. Gli export valgono comunque.
-            writer.WriteStartElement("PweDGSuperCategorie"); writer.WriteEndElement();
-            writer.WriteStartElement("PweDGCategorie"); writer.WriteEndElement();
-            writer.WriteStartElement("PweDGSubCategorie"); writer.WriteEndElement();
-
-            writer.WriteEndElement(); // PweDGCapitoliCategorie
-
-            // WBS non usate
-            writer.WriteStartElement("PweDGWBSCAP"); writer.WriteEndElement();
-            writer.WriteStartElement("PweDGWBS"); writer.WriteEndElement();
-
-            writer.WriteEndElement(); // PweDatiGenerali
-
-            // PweMisurazioni: ElencoPrezzi (voci EP con FK a capitoli) + VociComputo
-            writer.WriteStartElement("PweMisurazioni");
-
-            // ElencoPrezzi: una riga EPItem per ciascuna voce del report
-            writer.WriteStartElement("PweElencoPrezzi");
-            int epId = chapterIndex.NextAvailableId;
-            var epIdByOrder = new Dictionary<int, int>();
-            foreach (var (entry, chapterChain) in chapterIndex.EnumerateEntries(data))
-            {
-                epIdByOrder[entry.OrderIndex] = epId;
-                WriteEPItem(writer, entry, chapterChain, epId);
-                epId++;
-            }
-            writer.WriteEndElement(); // PweElencoPrezzi
-
-            // VociComputo: una riga VCItem per ogni misurazione
-            // Schema VCItem da validare con file computo reale — per ora generiamo
-            // un riferimento minimale (IDEP = ID elenco prezzi) con quantità.
-            writer.WriteStartElement("PweVociComputo");
-            int vcId = 1;
-            foreach (var (entry, _) in chapterIndex.EnumerateEntries(data))
-            {
-                WriteVCItem(writer, entry, epIdByOrder[entry.OrderIndex], vcId);
-                vcId++;
-            }
-            writer.WriteEndElement(); // PweVociComputo
-
-            writer.WriteEndElement(); // PweMisurazioni
+            WriteDatiGenerali(writer, data, catIndex);
+            WriteMisurazioni(writer, data, catIndex);
 
             writer.WriteEndElement(); // PweDocumento
         }
 
-        private static void WriteDGChapterItem(XmlWriter writer, string itemName, IndexedChapter ch)
+        // =====================================================================
+        // PweDatiGenerali
+        // =====================================================================
+
+        private static void WriteDatiGenerali(XmlWriter writer, ReportDataSet data, CategoryIndex catIndex)
+        {
+            writer.WriteStartElement("PweDatiGenerali");
+
+            // Progetto
+            writer.WriteStartElement("PweDGProgetto");
+            writer.WriteStartElement("PweDGDatiGenerali");
+            writer.WriteElementString("PercPrezzi", "0");
+            writer.WriteElementString("Comune", "");
+            writer.WriteElementString("Provincia", "");
+            writer.WriteElementString("Oggetto", data.Header.Titolo);
+            writer.WriteElementString("Committente", data.Header.Committente);
+            writer.WriteStartElement("Impresa"); writer.WriteEndElement();
+            writer.WriteStartElement("ParteOpera"); writer.WriteEndElement();
+            writer.WriteEndElement(); // PweDGDatiGenerali
+            writer.WriteEndElement(); // PweDGProgetto
+
+            // Capitoli/Categorie
+            writer.WriteStartElement("PweDGCapitoliCategorie");
+
+            // SuperCapitoli: un solo item placeholder (= "documento sorgente prezzi")
+            writer.WriteStartElement("PweDGSuperCapitoli");
+            WriteDgItem(writer, "DGSuperCapitoliItem", id: 1,
+                desSintetica: data.Header.Titolo.Length > 0 ? data.Header.Titolo : "Computo",
+                codice: "");
+            writer.WriteEndElement();
+
+            // Capitoli e SubCapitoli vuoti (i nostri ComputoChapter vanno su Categorie)
+            writer.WriteStartElement("PweDGCapitoli"); writer.WriteEndElement();
+            writer.WriteStartElement("PweDGSubCapitoli"); writer.WriteEndElement();
+
+            // SuperCategorie (nostro livello 1)
+            writer.WriteStartElement("PweDGSuperCategorie");
+            foreach (var ic in catIndex.Super)
+                WriteDgItem(writer, "DGSuperCategorieItem", ic.PwId, ic.Name, ic.Code);
+            writer.WriteEndElement();
+
+            // Categorie (nostro livello 2)
+            writer.WriteStartElement("PweDGCategorie");
+            foreach (var ic in catIndex.Cat)
+                WriteDgItem(writer, "DGCategorieItem", ic.PwId, ic.Name, ic.Code);
+            writer.WriteEndElement();
+
+            // SubCategorie (nostro livello 3)
+            writer.WriteStartElement("PweDGSubCategorie");
+            foreach (var ic in catIndex.Sub)
+                WriteDgItem(writer, "DGSubCategorieItem", ic.PwId, ic.Name, ic.Code);
+            writer.WriteEndElement();
+
+            writer.WriteEndElement(); // PweDGCapitoliCategorie
+
+            // WBS disattivate (vuote)
+            writer.WriteStartElement("PweDGWBS");
+            writer.WriteElementString("DGWBSAttiva", "0");
+            writer.WriteEndElement();
+
+            writer.WriteStartElement("PweDGWBSCAP");
+            writer.WriteElementString("DGWBSCAPAttiva", "0");
+            writer.WriteEndElement();
+
+            // Moduli analisi (valori osservati in CME_Sample.xpwe)
+            writer.WriteStartElement("PweDGModuli");
+            writer.WriteStartElement("PweDGAnalisi");
+            writer.WriteElementString("SpeseUtili", "-1");
+            writer.WriteElementString("SpeseGenerali", "16");
+            writer.WriteElementString("UtiliImpresa", "10");
+            writer.WriteElementString("OneriAccessoriSc", "0");
+            writer.WriteElementString("ConfQuantita", "11.3|1");
+            writer.WriteElementString("OneriSociali", "0");
+            writer.WriteEndElement();
+            writer.WriteEndElement();
+
+            // Configurazione numeri (default euro + precisioni italiane)
+            writer.WriteStartElement("PweDGConfigurazione");
+            writer.WriteStartElement("PweDGConfigNumeri");
+            writer.WriteElementString("Divisa", "euro");
+            writer.WriteElementString("ConversioniIN", "lire");
+            writer.WriteElementString("FattoreConversione", "1936.27");
+            writer.WriteElementString("Cambio", "1");
+            writer.WriteElementString("PartiUguali", "8.2|0");
+            writer.WriteElementString("Lunghezza", "8.2|0");
+            writer.WriteElementString("Larghezza", "9.3|0");
+            writer.WriteElementString("HPeso", "9.3|0");
+            writer.WriteElementString("Quantita", "10.2|1");
+            writer.WriteElementString("Prezzi", "10.2|1");
+            writer.WriteElementString("PrezziTotale", "14.2|1");
+            writer.WriteElementString("ConvPrezzi", "11.0|1");
+            writer.WriteElementString("ConvPrezziTotale", "15.0|1");
+            writer.WriteElementString("IncidenzaPercentuale", "7.3|0");
+            writer.WriteElementString("Aliquote", "7.3|0");
+            writer.WriteEndElement();
+            writer.WriteEndElement();
+
+            writer.WriteEndElement(); // PweDatiGenerali
+        }
+
+        private static void WriteDgItem(XmlWriter writer, string itemName, int id, string desSintetica, string codice)
         {
             writer.WriteStartElement(itemName);
-            writer.WriteAttributeString("ID", ch.Id.ToString(CultureInfo.InvariantCulture));
-            writer.WriteElementString("Codice", ch.Code);
-            writer.WriteElementString("DesEstesa", ch.Name);
-            writer.WriteElementString("DesSintetica", ch.Name);
-            writer.WriteElementString("DataInit", "");
-            // FK a parent (solo per Capitoli e SubCapitoli)
-            if (ch.ParentId.HasValue)
-                writer.WriteElementString("IDPadre", ch.ParentId.Value.ToString(CultureInfo.InvariantCulture));
+            writer.WriteAttributeString("ID", id.ToString(CultureInfo.InvariantCulture));
+            writer.WriteElementString("DesSintetica", desSintetica);
+            writer.WriteStartElement("DesEstesa"); writer.WriteEndElement();
+            writer.WriteElementString("DataInit", EmptyDate);
+            writer.WriteElementString("Durata", "0");
+            writer.WriteStartElement("CodFase"); writer.WriteEndElement();
+            writer.WriteElementString("Percentuale", "0");
+            writer.WriteElementString("Codice", codice);
             writer.WriteEndElement();
         }
 
-        private static void WriteEPItem(XmlWriter writer, ReportEntry entry, ChapterChain chain, int id)
+        // =====================================================================
+        // PweMisurazioni
+        // =====================================================================
+
+        private static void WriteMisurazioni(XmlWriter writer, ReportDataSet data, CategoryIndex catIndex)
+        {
+            writer.WriteStartElement("PweMisurazioni");
+
+            // ElencoPrezzi: una voce EPItem per ogni riga del report (anche duplicati EpCode
+            // vengono distinti da ID crescente — PriMus tollera più EPItem con stesso Tariffa
+            // se ID diverso, ma de-duplicare è cleaner).
+            writer.WriteStartElement("PweElencoPrezzi");
+            var epByCode = new Dictionary<string, int>(System.StringComparer.Ordinal);
+            int epIdSeq = 1;
+            foreach (var entry in EnumerateEntries(data))
+            {
+                if (epByCode.ContainsKey(entry.Entry.EpCode)) continue;
+                var epId = epIdSeq++;
+                epByCode[entry.Entry.EpCode] = epId;
+                WriteEPItem(writer, entry.Entry, epId);
+            }
+            writer.WriteEndElement(); // PweElencoPrezzi
+
+            // VociComputo: una VCItem per riga entry (più righe possono condividere stesso EP)
+            writer.WriteStartElement("PweVociComputo");
+            int vcIdSeq = 100;   // PriMus usa ID >= 100 per VCItem (osservato)
+            int rgIdSeq = 2;     // RGItem ID sequenziale interno
+            foreach (var (entry, chain) in EnumerateEntriesWithChain(data, catIndex))
+            {
+                var epId = epByCode[entry.EpCode];
+                WriteVCItem(writer, entry, epId, vcIdSeq++, ref rgIdSeq, chain);
+            }
+            writer.WriteEndElement(); // PweVociComputo
+
+            writer.WriteEndElement(); // PweMisurazioni
+        }
+
+        private static void WriteEPItem(XmlWriter writer, ReportEntry entry, int id)
         {
             writer.WriteStartElement("EPItem");
             writer.WriteAttributeString("ID", id.ToString(CultureInfo.InvariantCulture));
 
+            writer.WriteElementString("TipoEP", "0");
             writer.WriteElementString("Tariffa", entry.EpCode);
             writer.WriteElementString("Articolo", entry.EpCode);
             writer.WriteElementString("DesRidotta", Truncate(entry.EpDescription, 200));
             writer.WriteElementString("DesEstesa", entry.EpDescription);
+            writer.WriteStartElement("DesBreve"); writer.WriteEndElement();
             writer.WriteElementString("UnMisura", entry.Unit);
-
-            // PriMus supporta fino a 5 prezzi per voce (diverse revisioni/committenti).
-            // Popoliamo solo Prezzo1, gli altri a 0.
             writer.WriteElementString("Prezzo1", entry.UnitPrice.ToString("F5", CultureInfo.InvariantCulture));
             writer.WriteElementString("Prezzo2", "0");
             writer.WriteElementString("Prezzo3", "0");
             writer.WriteElementString("Prezzo4", "0");
             writer.WriteElementString("Prezzo5", "0");
-            writer.WriteElementString("CnfQt", "");
-
-            // FK capitoli (0 se non assegnato)
-            writer.WriteElementString("IDSpCap", (chain.SuperId ?? 0).ToString(CultureInfo.InvariantCulture));
-            writer.WriteElementString("IDCap", (chain.CatId ?? 0).ToString(CultureInfo.InvariantCulture));
-            writer.WriteElementString("IDSbCap", (chain.SubId ?? 0).ToString(CultureInfo.InvariantCulture));
-
-            writer.WriteElementString("CodiceWBSCAP", "");
+            writer.WriteElementString("IDSpCap", "1");  // tutti puntano al placeholder
+            writer.WriteElementString("IDCap", "0");
+            writer.WriteElementString("IDSbCap", "0");
+            writer.WriteStartElement("CodiceWBSCAP"); writer.WriteEndElement();
+            writer.WriteElementString("Flags", "0");
             writer.WriteElementString("Data", EmptyDate);
-            writer.WriteElementString("DesBreve", "");
-            writer.WriteElementString("IncMDO", "0");
-            writer.WriteElementString("IncMAT", "0");
+            writer.WriteStartElement("AdrInternet"); writer.WriteEndElement();
             writer.WriteElementString("IncSIC", "0");
-            writer.WriteElementString("TipoRisorsa", "0");
-            writer.WriteElementString("Flags", "512");
-            writer.WriteElementString("AdrInternet", "");
+            writer.WriteElementString("IncMDO", "0.000000000000000000");
+            writer.WriteElementString("IncMAT", "0.000000000000000000");
+            writer.WriteElementString("IncATTR", "0.000000000000000000");
+            writer.WriteStartElement("TagBIM"); writer.WriteEndElement();
+            writer.WriteStartElement("PweEPAnalisi"); writer.WriteEndElement();
 
-            writer.WriteEndElement();
+            writer.WriteEndElement(); // EPItem
         }
 
-        private static void WriteVCItem(XmlWriter writer, ReportEntry entry, int epId, int vcId)
+        private static void WriteVCItem(XmlWriter writer, ReportEntry entry, int epId, int vcId, ref int rgIdSeq, CategoryChain chain)
         {
-            // SCHEMA IPOTIZZATO — da validare con file computo XPWE reale.
-            // Il file di riferimento (listino) ha VCItem vuoto <VCItem/>, quindi nomi
-            // e ordine dei campi sono estrapolati dallo stile ACCA.
             writer.WriteStartElement("VCItem");
             writer.WriteAttributeString("ID", vcId.ToString(CultureInfo.InvariantCulture));
 
-            // Riferimento alla voce di elenco prezzi
             writer.WriteElementString("IDEP", epId.ToString(CultureInfo.InvariantCulture));
-            writer.WriteElementString("Tariffa", entry.EpCode);
-            writer.WriteElementString("DesEstesa", entry.EpDescription);
-            writer.WriteElementString("UnMisura", entry.Unit);
+            writer.WriteElementString("Quantita", entry.Quantity.ToString(CultureInfo.InvariantCulture));
+            writer.WriteElementString("DataMis", System.DateTime.Now.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture));
+            writer.WriteElementString("Flags", "0");
 
-            // Misurazione: Parti uguali × Lunghezza × Larghezza × Altezza
-            // Noi abbiamo solo la quantità finale dall'estrattore Revit —
-            // la mettiamo in "PartiUguali" e le dimensioni a 1 (il prodotto dà la quantità).
-            writer.WriteElementString("PartiUguali", entry.Quantity.ToString("F5", CultureInfo.InvariantCulture));
-            writer.WriteElementString("Lunghezza", "1");
-            writer.WriteElementString("Larghezza", "1");
-            writer.WriteElementString("HPeso", "1");
-            writer.WriteElementString("Quantita", entry.Quantity.ToString("F5", CultureInfo.InvariantCulture));
+            // FK a Categorie (il nostro ComputoChapter)
+            writer.WriteElementString("IDSpCat", (chain.SuperId ?? 0).ToString(CultureInfo.InvariantCulture));
+            writer.WriteElementString("IDCat", (chain.CatId ?? 0).ToString(CultureInfo.InvariantCulture));
+            writer.WriteElementString("IDSbCat", (chain.SubId ?? 0).ToString(CultureInfo.InvariantCulture));
+            writer.WriteStartElement("CodiceWBS"); writer.WriteEndElement();
 
-            // Prezzo e importo calcolato
-            writer.WriteElementString("Prezzo", entry.UnitPrice.ToString("F5", CultureInfo.InvariantCulture));
-            writer.WriteElementString("Importo", entry.Total.ToString("F2", CultureInfo.InvariantCulture));
+            // Misurazioni: una sola riga RGItem con PartiUguali = Quantity
+            writer.WriteStartElement("PweVCMisure");
+            writer.WriteStartElement("RGItem");
+            writer.WriteAttributeString("ID", (rgIdSeq++).ToString(CultureInfo.InvariantCulture));
+            writer.WriteElementString("IDVV", "-2");
+            writer.WriteElementString("Descrizione", BuildMisuraNote(entry));
+            writer.WriteElementString("PartiUguali", entry.Quantity.ToString("F2", CultureInfo.InvariantCulture));
+            writer.WriteStartElement("Lunghezza"); writer.WriteEndElement();
+            writer.WriteStartElement("Larghezza"); writer.WriteEndElement();
+            writer.WriteElementString("HPeso", "1.000");
+            writer.WriteElementString("Quantita", entry.Quantity.ToString("F2", CultureInfo.InvariantCulture));
+            writer.WriteElementString("Flags", "0");
+            writer.WriteEndElement(); // RGItem
+            writer.WriteEndElement(); // PweVCMisure
 
-            // Note / riferimento al modello Revit (ElementId)
-            writer.WriteElementString("Note", $"ElementId={entry.ElementId} · {entry.Category}");
+            writer.WriteEndElement(); // VCItem
+        }
 
-            writer.WriteEndElement();
+        private static string BuildMisuraNote(ReportEntry entry)
+        {
+            // Include ElementId (traccia Revit) + categoria come pro-memoria nella descrizione
+            if (!string.IsNullOrEmpty(entry.ElementId))
+                return $"Revit ID={entry.ElementId} · {entry.Category}";
+            return entry.EpDescription.Length > 100 ? entry.EpDescription.Substring(0, 100) : entry.EpDescription;
         }
 
         private static string Truncate(string s, int max)
@@ -253,93 +342,123 @@ namespace QtoRevitPlugin.Reports
             if (string.IsNullOrEmpty(s)) return "";
             return s.Length <= max ? s : s.Substring(0, max);
         }
+
+        // =====================================================================
+        // Enumerazione entries con category chain
+        // =====================================================================
+
+        private static IEnumerable<(ReportEntry Entry, CategoryChain Chain)> EnumerateEntries(ReportDataSet data)
+        {
+            foreach (var node in data.Chapters)
+                foreach (var x in WalkNode(node, new CategoryChain()))
+                    yield return x;
+            foreach (var e in data.UnchaperedEntries)
+                yield return (e, new CategoryChain());
+        }
+
+        private static IEnumerable<(ReportEntry Entry, CategoryChain Chain)> EnumerateEntriesWithChain(
+            ReportDataSet data, CategoryIndex catIndex)
+        {
+            foreach (var node in data.Chapters)
+                foreach (var x in WalkNodeMapped(node, new CategoryChain(), catIndex))
+                    yield return x;
+            foreach (var e in data.UnchaperedEntries)
+                yield return (e, new CategoryChain());
+        }
+
+        private static IEnumerable<(ReportEntry, CategoryChain)> WalkNode(ReportChapterNode node, CategoryChain parent)
+        {
+            foreach (var child in node.Children)
+                foreach (var x in WalkNode(child, parent))
+                    yield return x;
+            foreach (var e in node.Entries)
+                yield return (e, parent);
+        }
+
+        private static IEnumerable<(ReportEntry, CategoryChain)> WalkNodeMapped(
+            ReportChapterNode node, CategoryChain parent, CategoryIndex catIndex)
+        {
+            var chain = parent;
+            if (catIndex.TryGetPwId(node.Chapter.Id, out var pwId, out var level))
+            {
+                if (level == 1) chain.SuperId = pwId;
+                else if (level == 2) chain.CatId = pwId;
+                else chain.SubId = pwId;
+            }
+            foreach (var entry in node.Entries)
+                yield return (entry, chain);
+            foreach (var child in node.Children)
+                foreach (var x in WalkNodeMapped(child, chain, catIndex))
+                    yield return x;
+        }
     }
 
     // =========================================================================
-    // Strutture di supporto interne per indicizzazione capitoli con ID ACCA
+    // Strutture di supporto
     // =========================================================================
 
-    internal class IndexedChapter
+    internal class CategoryMeta
     {
-        public int Id { get; set; }
-        public int? ParentId { get; set; }
+        public int PwId { get; set; }       // ID nel file PriMus (1-based)
+        public int DbId { get; set; }       // ID nostro ComputoChapter
         public string Code { get; set; } = "";
         public string Name { get; set; } = "";
-        public int Level { get; set; }  // 1, 2, 3
+        public int Level { get; set; }      // 1, 2, 3
     }
 
-    internal struct ChapterChain
+    internal struct CategoryChain
     {
         public int? SuperId;
         public int? CatId;
         public int? SubId;
     }
 
-    internal class ChapterIndex
+    internal class CategoryIndex
     {
-        public List<IndexedChapter> SuperCapitoli { get; } = new List<IndexedChapter>();
-        public List<IndexedChapter> Capitoli { get; } = new List<IndexedChapter>();
-        public List<IndexedChapter> SubCapitoli { get; } = new List<IndexedChapter>();
+        public List<CategoryMeta> Super { get; } = new List<CategoryMeta>();
+        public List<CategoryMeta> Cat { get; } = new List<CategoryMeta>();
+        public List<CategoryMeta> Sub { get; } = new List<CategoryMeta>();
 
-        private readonly Dictionary<int, IndexedChapter> _byDbId = new Dictionary<int, IndexedChapter>();
-        private int _nextId = 1;
-
-        public int NextAvailableId => _nextId;
+        private readonly Dictionary<int, CategoryMeta> _byDbId = new Dictionary<int, CategoryMeta>();
 
         public void Build(ReportDataSet data)
         {
+            int superSeq = 1, catSeq = 1, subSeq = 1;
             foreach (var root in data.Chapters)
-                IndexNode(root, parent: null, level: 1);
+                IndexNode(root, 1, ref superSeq, ref catSeq, ref subSeq);
         }
 
-        private IndexedChapter IndexNode(ReportChapterNode node, IndexedChapter? parent, int level)
+        private void IndexNode(ReportChapterNode node, int level,
+            ref int superSeq, ref int catSeq, ref int subSeq)
         {
-            var ic = new IndexedChapter
+            var meta = new CategoryMeta
             {
-                Id = _nextId++,
-                ParentId = parent?.Id,
+                DbId = node.Chapter.Id,
                 Code = node.Chapter.Code,
-                Name = node.Chapter.Name,
+                Name = string.IsNullOrEmpty(node.Chapter.Name) ? node.Chapter.Code : node.Chapter.Name,
                 Level = level
             };
-            _byDbId[node.Chapter.Id] = ic;
-            if (level == 1) SuperCapitoli.Add(ic);
-            else if (level == 2) Capitoli.Add(ic);
-            else SubCapitoli.Add(ic);
+
+            if (level == 1) { meta.PwId = superSeq++; Super.Add(meta); }
+            else if (level == 2) { meta.PwId = catSeq++; Cat.Add(meta); }
+            else { meta.PwId = subSeq++; Sub.Add(meta); }
+
+            _byDbId[node.Chapter.Id] = meta;
 
             foreach (var child in node.Children)
-                IndexNode(child, ic, level + 1);
-
-            return ic;
+                IndexNode(child, level + 1, ref superSeq, ref catSeq, ref subSeq);
         }
 
-        /// <summary>
-        /// Enumera tutte le voci (chaptered + unchaptered) con relativa catena capitoli.
-        /// </summary>
-        public IEnumerable<(ReportEntry Entry, ChapterChain Chain)> EnumerateEntries(ReportDataSet data)
+        public bool TryGetPwId(int dbId, out int pwId, out int level)
         {
-            foreach (var root in data.Chapters)
-                foreach (var item in WalkNode(root, new ChapterChain()))
-                    yield return item;
-
-            foreach (var entry in data.UnchaperedEntries)
-                yield return (entry, new ChapterChain());
-        }
-
-        private IEnumerable<(ReportEntry, ChapterChain)> WalkNode(ReportChapterNode node, ChapterChain parentChain)
-        {
-            var chain = parentChain;
-            if (_byDbId.TryGetValue(node.Chapter.Id, out var ic))
+            if (_byDbId.TryGetValue(dbId, out var meta))
             {
-                if (ic.Level == 1) chain.SuperId = ic.Id;
-                else if (ic.Level == 2) chain.CatId = ic.Id;
-                else chain.SubId = ic.Id;
+                pwId = meta.PwId;
+                level = meta.Level;
+                return true;
             }
-            foreach (var entry in node.Entries)
-                yield return (entry, chain);
-            foreach (var child in node.Children)
-                foreach (var item in WalkNode(child, chain))
-                    yield return item;
+            pwId = 0; level = 0;
+            return false;
         }
     }
 }
