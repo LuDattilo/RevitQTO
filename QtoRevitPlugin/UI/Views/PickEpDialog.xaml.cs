@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using QtoRevitPlugin.AI;
 using QtoRevitPlugin.Application;
 using QtoRevitPlugin.Models;
 using QtoRevitPlugin.Services;
@@ -66,6 +67,125 @@ namespace QtoRevitPlugin.UI.Views
             _categoryOstCode = ostCode;
             _targetInstanceCount = instanceCount;
             _quantityProbe = probe;
+        }
+
+        /// <summary>
+        /// Popola la banda suggerimenti AI con i top-N risultati ottenuti dal
+        /// gateway. Lista vuota → banda collassata (niente rumore visivo).
+        /// Chiamare prima di ShowDialog (o dopo Loaded ma prima dell'interazione utente).
+        /// </summary>
+        public void SetAiSuggestions(IReadOnlyList<MappingSuggestion>? suggestions)
+        {
+            if (suggestions == null || suggestions.Count == 0)
+            {
+                AiSuggestionsBorder.Visibility = Visibility.Collapsed;
+                AiSuggestionsList.ItemsSource = null;
+                return;
+            }
+
+            var rows = new List<AiChipRow>(suggestions.Count);
+            foreach (var s in suggestions)
+            {
+                if (s.PriceItem == null || string.IsNullOrWhiteSpace(s.PriceItem.Code)) continue;
+                var pi = s.PriceItem;
+                rows.Add(new AiChipRow
+                {
+                    Code = pi.Code,
+                    ShortLabel = string.IsNullOrWhiteSpace(pi.ShortDesc) ? pi.Description : pi.ShortDesc,
+                    ScoreLabel = $"{(int)Math.Round(s.Score * 100)}%",
+                });
+            }
+
+            if (rows.Count == 0)
+            {
+                AiSuggestionsBorder.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            AiSuggestionsList.ItemsSource = rows;
+            AiSuggestionsHint.Text = $"{rows.Count} suggerimento/i — clicca un chip per selezionare la voce";
+            AiSuggestionsBorder.Visibility = Visibility.Visible;
+        }
+
+        /// <summary>
+        /// Click su un chip suggerimento: cerca la voce nella lista filtrata e
+        /// la seleziona. Se non la trova (es. l'utente sta guardando un altro
+        /// listino) prova a switchare listino via codice.
+        /// </summary>
+        private void OnAiSuggestionClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button btn || btn.Tag is not string code) return;
+            TrySelectByCode(code);
+        }
+
+        /// <summary>
+        /// Cerca la voce per Code nella lista corrente. Se presente, la seleziona
+        /// e la scrolla in view. Se assente, cerca in tutti i listini disponibili
+        /// e switcha al primo listino che la contiene.
+        /// </summary>
+        private void TrySelectByCode(string code)
+        {
+            if (string.IsNullOrWhiteSpace(code)) return;
+
+            // 1. Cerca nella ListView corrente (potrebbe essere filtrata per ricerca)
+            EpPickRow? hit = null;
+            if (ItemsList.ItemsSource is IEnumerable<EpPickRow> current)
+            {
+                foreach (var r in current)
+                    if (string.Equals(r.Code, code, StringComparison.OrdinalIgnoreCase))
+                    {
+                        hit = r;
+                        break;
+                    }
+            }
+            if (hit != null)
+            {
+                // Pulisci eventuale filtro SearchBox per essere sicuri la riga
+                // rimanga visibile dopo il refilter
+                if (!string.IsNullOrWhiteSpace(SearchBox.Text)) SearchBox.Text = string.Empty;
+                ItemsList.SelectedItem = hit;
+                ItemsList.ScrollIntoView(hit);
+                return;
+            }
+
+            // 2. Cerca nel cache allItems (stesso listino, nessun filtro)
+            var inAll = _allItems.FirstOrDefault(i => string.Equals(i.Code, code, StringComparison.OrdinalIgnoreCase));
+            if (inAll != null)
+            {
+                SearchBox.Text = string.Empty;
+                ItemsList.SelectedItem = inAll;
+                ItemsList.ScrollIntoView(inAll);
+                return;
+            }
+
+            // 3. Cerca in tutti i listini e switcha a quello che la contiene
+            var lib = QtoApplication.Instance?.UserLibrary?.Library;
+            if (lib == null) return;
+            foreach (var pl in lib.GetPriceLists())
+            {
+                var items = lib.GetPriceItemsByList(pl.Id);
+                if (items.Any(i => string.Equals(i.Code, code, StringComparison.OrdinalIgnoreCase)))
+                {
+                    var listRow = _lists.FirstOrDefault(l => l.Id == pl.Id);
+                    if (listRow != null)
+                    {
+                        ListCombo.SelectedItem = listRow;
+                        // OnListChanged ricarica _allItems → poi seleziona
+                        var found = _allItems.FirstOrDefault(i =>
+                            string.Equals(i.Code, code, StringComparison.OrdinalIgnoreCase));
+                        if (found != null)
+                        {
+                            SearchBox.Text = string.Empty;
+                            ItemsList.SelectedItem = found;
+                            ItemsList.ScrollIntoView(found);
+                        }
+                        return;
+                    }
+                }
+            }
+
+            // Non trovata da nessuna parte
+            FooterStatus.Text = $"Voce «{code}» non trovata nei listini disponibili.";
         }
 
         /// <summary>
@@ -268,6 +388,14 @@ namespace QtoRevitPlugin.UI.Views
             DialogResult = false;
             Close();
         }
+    }
+
+    /// <summary>DTO per i chip della banda suggerimenti AI (UI-7).</summary>
+    public class AiChipRow
+    {
+        public string Code { get; set; } = string.Empty;
+        public string ShortLabel { get; set; } = string.Empty;
+        public string ScoreLabel { get; set; } = string.Empty;
     }
 
     /// <summary>Riga listino per combo source.</summary>

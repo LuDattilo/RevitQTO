@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Autodesk.Revit.DB;
+using QtoRevitPlugin.AI;
 using QtoRevitPlugin.Application;
 using QtoRevitPlugin.Extraction;
 using QtoRevitPlugin.Models;
@@ -104,6 +106,30 @@ namespace QtoRevitPlugin.Services
                 ostCode: category.ToString(), // BuiltInCategory.ToString() → "OST_Walls"
                 instanceCount: instances.Count,
                 probe: ProbeQuantity);
+
+            // AI suggestions (UI-7): chiede al gateway i top-3 per (familyName, category).
+            // Fire-and-wait con timeout corto per non ritardare l'apertura dialog se
+            // Ollama è lento. Se AI disabilitata o unavailable, lista vuota → banda invisibile.
+            var settings = SettingsService.Load();
+            try
+            {
+                var suggestionsTask = AiSuggestionsGateway.GetSuggestionsAsync(
+                    settings, repo,
+                    familyName: familyName,
+                    category: category.ToString(),
+                    topN: 3,
+                    timeoutMs: 2500,
+                    logger: msg => CrashLogger.Warn(msg));
+                if (suggestionsTask.Wait(TimeSpan.FromMilliseconds(2600)))
+                    dialog.SetAiSuggestions(suggestionsTask.Result);
+                else
+                    dialog.SetAiSuggestions(null);
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.WriteException("AssignEpCommandRunner.AiSuggestions", ex);
+                dialog.SetAiSuggestions(null);
+            }
 
             var ok = dialog.ShowDialog();
             if (ok != true || dialog.SelectedItem == null)

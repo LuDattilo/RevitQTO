@@ -19,11 +19,19 @@
     <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <!-- 0 header -->
             <RowDefinition Height="Auto" />
+            <!-- 1 filters (listino + search) -->
+            <RowDefinition Height="Auto" />
+            <!-- 2 AI suggestions (collassato se vuoto) -->
             <RowDefinition Height="*" />
+            <!-- 3 lista voci -->
             <RowDefinition Height="Auto" />
+            <!-- 4 quantity radios -->
             <RowDefinition Height="Auto" />
+            <!-- 5 preview totale -->
             <RowDefinition Height="Auto" />
+            <!-- 6 footer -->
         </Grid.RowDefinitions>
 
         <!-- Header -->
@@ -66,8 +74,95 @@
                      FontSize="11" Padding="6,3" />
         </Grid>
 
+        <!-- Suggerimenti AI (collassato se vuoto) -->
+        <Border x:Name="AiSuggestionsBorder"
+                Grid.Row="2"
+                Margin="0,0,0,8"
+                Padding="8,6"
+                Background="{DynamicResource BrandAccentSoftBrush}"
+                BorderBrush="{DynamicResource BrandAccentBrush}" BorderThickness="1"
+                CornerRadius="4"
+                Visibility="Collapsed">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="●"
+                               Foreground="{DynamicResource BrandAccentBrush}"
+                               FontSize="12" FontWeight="Bold"
+                               VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <TextBlock Text="SUGGERIMENTI AI"
+                               FontFamily="{DynamicResource FontMono}"
+                               FontSize="9" FontWeight="Bold"
+                               Foreground="{DynamicResource ChromeTextDimBrush}"
+                               VerticalAlignment="Center" />
+                    <TextBlock x:Name="AiSuggestionsHint"
+                               Margin="8,0,0,0"
+                               FontSize="10" FontStyle="Italic"
+                               Foreground="{DynamicResource ChromeTextDimBrush}"
+                               VerticalAlignment="Center"
+                               Text="" />
+                </StackPanel>
+                <ItemsControl x:Name="AiSuggestionsList" Margin="0,4,0,0">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <!-- Chip cliccabile: auto-seleziona la voce nella lista sottostante -->
+                            <Button Margin="0,0,6,4"
+                                    Padding="0"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Cursor="Hand"
+                                    Click="OnAiSuggestionClick"
+                                    Tag="{Binding Code}">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="ChipBg"
+                                                Background="{DynamicResource PanelSubBrush}"
+                                                BorderBrush="{DynamicResource BrandAccentBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="10"
+                                                Padding="10,4">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Code}"
+                                                           FontFamily="{DynamicResource FontMono}"
+                                                           FontSize="10" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource ChromeTextBrush}" />
+                                                <TextBlock Text=" · "
+                                                           Foreground="{DynamicResource ChromeTextDimBrush}"
+                                                           FontSize="10" />
+                                                <TextBlock Text="{Binding ShortLabel}"
+                                                           FontSize="10"
+                                                           Foreground="{DynamicResource ChromeTextBrush}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           MaxWidth="260" />
+                                                <TextBlock Text=" · "
+                                                           Foreground="{DynamicResource ChromeTextDimBrush}"
+                                                           FontSize="10" />
+                                                <TextBlock Text="{Binding ScoreLabel}"
+                                                           FontFamily="{DynamicResource FontMono}"
+                                                           FontSize="10" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource BrandAccentBrush}" />
+                                            </StackPanel>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="ChipBg" Property="Background" Value="{DynamicResource BrandAccentSoftBrush}" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
+
         <!-- Lista voci -->
-        <Border Grid.Row="2"
+        <Border Grid.Row="3"
                 BorderBrush="{DynamicResource EdgeLightBrush}"
                 BorderThickness="1">
             <ListView x:Name="ItemsList"
@@ -97,7 +192,7 @@
         </Border>
 
         <!-- Sezione Quantità (radio + etichetta categoria) -->
-        <Border Grid.Row="3" Margin="0,12,0,0"
+        <Border Grid.Row="4" Margin="0,12,0,0"
                 Padding="10,8"
                 Background="{DynamicResource PanelSubBrush}"
                 BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1"
@@ -141,7 +236,7 @@
         </Border>
 
         <!-- Anteprima totale preventivo -->
-        <Border Grid.Row="4" Margin="0,8,0,0"
+        <Border Grid.Row="5" Margin="0,8,0,0"
                 Padding="10,8"
                 Background="{DynamicResource BrandAccentSoftBrush}"
                 BorderBrush="{DynamicResource BrandAccentBrush}" BorderThickness="1"
@@ -176,7 +271,7 @@
         </Border>
 
         <!-- Footer: OK / Annulla -->
-        <StackPanel Grid.Row="5" Orientation="Horizontal"
+        <StackPanel Grid.Row="6" Orientation="Horizontal"
                     HorizontalAlignment="Right" Margin="0,12,0,0">
             <TextBlock x:Name="FooterStatus"
                        VerticalAlignment="Center" Margin="0,0,16,0"
