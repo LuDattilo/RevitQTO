@@ -3,7 +3,6 @@ using Autodesk.Revit.UI.Events;
 using QtoRevitPlugin.Services;
 using QtoRevitPlugin.UI;
 using QtoRevitPlugin.UI.Panes;
-using QtoRevitPlugin.UI.Views;
 using QtoRevitPlugin.UI.ViewModels;
 using RevitAsync = Revit.Async;
 using System;
@@ -38,7 +37,9 @@ namespace QtoRevitPlugin.Application
         /// </summary>
         public UserLibraryManager UserLibrary { get; private set; } = null!;
         public IUserContext UserContext { get; private set; } = null!;
-        public CatalogBrowserWindow? CatalogBrowser { get; internal set; }
+        // CatalogBrowser property rimossa: il Prezzario è ora accessibile solo dalla
+        // SetupView (via bottone "Sfoglia listino…"), non più da un ribbon button dedicato.
+        // Il ciclo di vita della CatalogBrowserWindow è gestito da SetupView stessa.
 
         // One-shot: al primo Idling catturiamo l'UIApplication.
         // Non tentiamo Hide/Show sul pane: quella è gestita da Revit via UIState.dat.
@@ -219,15 +220,6 @@ namespace QtoRevitPlugin.Application
                 Image = IconFactory.CreateLaunchIcon(16)
             };
 
-            var prezzarioButton = new PushButtonData(
-                "TogglePrezzario",
-                "Prezzario",
-                assemblyPath,
-                "QtoRevitPlugin.Commands.ToggleCatalogBrowserCommand")
-            {
-                ToolTip = "Apre/chiude il pannello Prezzario con Preferiti e voci EP"
-            };
-
             var exportButton = new PushButtonData(
                 "ExportCme",
                 "Export",
@@ -239,9 +231,9 @@ namespace QtoRevitPlugin.Application
                 Image = IconFactory.CreateLaunchIcon(16)
             };
 
+            // Il Prezzario (CatalogBrowserWindow) non ha un bottone ribbon dedicato:
+            // è accessibile dalla SetupView via "Sfoglia listino…". Evita duplicazione.
             panel.AddItem(launchButton);
-            panel.AddSeparator();
-            panel.AddItem(prezzarioButton);
             panel.AddSeparator();
             panel.AddItem(exportButton);
         }
