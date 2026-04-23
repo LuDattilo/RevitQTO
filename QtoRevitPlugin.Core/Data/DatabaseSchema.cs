@@ -14,12 +14,13 @@ namespace QtoRevitPlugin.Data
     /// </summary>
     internal static class DatabaseSchema
     {
+        // v5 (Sprint 9): ComputoChapters + QtoAssignments.ComputoChapterId + Sessions.LastUsedComputoChapterId
         // v4 (Sprint 6): ChangeLog + ElementSnapshots + colonne audit su QtoAssignments
         //                (CreatedBy, CreatedAt, ModifiedBy, Version, AuditStatus).
         // v3 (Sprint 4): aggiunta colonna PriceLists.PublicId GUID per riferimenti portabili
         //                nel DataStorage ES del .rvt (ProjectPriceListSnapshot futuro — Sprint 5).
         // v2 (Sprint 2): aggiunta virtual table PriceItems_FTS per ricerca full-text.
-        public const int CurrentVersion = 4;
+        public const int CurrentVersion = 5;
 
         /// <summary>Ordine di esecuzione degli statement per setup iniziale.</summary>
         public static readonly string[] InitialStatements =
@@ -38,7 +39,8 @@ namespace QtoRevitPlugin.Data
             ModelDiffLog,
             ChangeLog,
             ElementSnapshots,
-            EmbeddingCache
+            EmbeddingCache,
+            ComputoChapters
         };
 
         /// <summary>
@@ -315,5 +317,33 @@ CREATE TABLE IF NOT EXISTS EmbeddingCache (
     CreatedAt   DATETIME DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(PriceItemId, ModelName)
 );";
+
+        // --- ComputoChapters (Sprint 9) ----------------------------------------
+
+        public const string ComputoChapters = @"
+CREATE TABLE IF NOT EXISTS ComputoChapters (
+    Id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    SessionId        INTEGER NOT NULL REFERENCES Sessions(Id) ON DELETE CASCADE,
+    ParentChapterId  INTEGER NULL REFERENCES ComputoChapters(Id) ON DELETE CASCADE,
+    Code             TEXT NOT NULL,
+    Name             TEXT NOT NULL,
+    Level            INTEGER NOT NULL,
+    SortOrder        INTEGER NOT NULL DEFAULT 0,
+    CreatedAt        TEXT NOT NULL,
+    UNIQUE(SessionId, Code)
+);
+CREATE INDEX IF NOT EXISTS IX_ComputoChapters_Session ON ComputoChapters(SessionId);
+CREATE INDEX IF NOT EXISTS IX_ComputoChapters_Parent ON ComputoChapters(ParentChapterId);";
+
+        // --- Migration v4 → v5 (Sprint 9) --------------------------------------
+
+        public const string MigrateV4ToV5_AddComputoChapterIdToAssignments =
+            "ALTER TABLE QtoAssignments ADD COLUMN ComputoChapterId INTEGER NULL REFERENCES ComputoChapters(Id) ON DELETE SET NULL;";
+
+        public const string MigrateV4ToV5_AddIndexOnComputoChapterId =
+            "CREATE INDEX IF NOT EXISTS IX_QtoAssignments_Chapter ON QtoAssignments(ComputoChapterId);";
+
+        public const string MigrateV4ToV5_AddLastUsedChapterToSessions =
+            "ALTER TABLE Sessions ADD COLUMN LastUsedComputoChapterId INTEGER NULL REFERENCES ComputoChapters(Id) ON DELETE SET NULL;";
     }
 }
