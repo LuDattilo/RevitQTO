@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using QtoRevitPlugin.Application;
 using QtoRevitPlugin.Data;
 using QtoRevitPlugin.Models;
@@ -30,6 +31,7 @@ namespace QtoRevitPlugin.UI.ViewModels
 
         public ObservableCollection<PriceListRow> PriceLists { get; } = new();
         public ObservableCollection<PriceItemRow> SearchResults { get; } = new();
+        public ObservableCollection<FavoriteRowVm> Favorites { get; } = new ObservableCollection<FavoriteRowVm>();
 
         // Nota: ProjectInfo non è più esposto qui come property — Sprint 10 rev. B ha
         // separato SetupView in 4 sub-tab UserControl indipendenti. ProjectInfoView
@@ -46,6 +48,13 @@ namespace QtoRevitPlugin.UI.ViewModels
         [ObservableProperty] private string _lastSearchLevel = "";
         [ObservableProperty] private PriceListRow? _selectedPriceList;
         [ObservableProperty] private PriceItemRow? _selectedSearchResult;
+        [ObservableProperty] private FavoriteRowVm? _selectedFavorite;
+
+        /// <summary>
+        /// True se la voce selezionata nei risultati ricerca è già nei preferiti.
+        /// Aggiornata da OnSelectedSearchResultChanged + dopo ToggleFavorite.
+        /// </summary>
+        [ObservableProperty] private bool _isSelectedResultFavorite;
 
         /// <summary>
         /// True quando la UserLibrary è disponibile (sempre true se il plugin è avviato correttamente).
@@ -65,6 +74,7 @@ namespace QtoRevitPlugin.UI.ViewModels
             _searchDebounce.Tick += OnSearchDebounceTick;
 
             RefreshPriceLists();
+            LoadFavorites();
         }
 
         // ---------------------------------------------------------------------
@@ -221,10 +231,137 @@ namespace QtoRevitPlugin.UI.ViewModels
                 SearchStatus = result.Count > 0
                     ? $"{result.Count} risultati · livello {result.Level} · {sw.ElapsedMilliseconds} ms"
                     : $"Nessun risultato · {sw.ElapsedMilliseconds} ms";
+
+                SyncFavoriteFlagsOnSearchResults();
             }
             catch (Exception ex)
             {
                 SearchStatus = $"Errore ricerca: {ex.Message}";
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // Preferiti
+        // ---------------------------------------------------------------------
+
+        /// <summary>
+        /// Carica la lista preferiti dalla UserLibrary. Chiamato all'avvio e dopo
+        /// ogni operazione che modifica la tabella UserFavorites.
+        /// </summary>
+        public void LoadFavorites()
+        {
+            try
+            {
+                var repo = GetActiveRepo();
+                if (repo == null) return;
+
+                Favorites.Clear();
+                foreach (var f in repo.GetFavorites())
+                    Favorites.Add(new FavoriteRowVm(f));
+
+                RefreshIsSelectedResultFavorite();
+                SyncFavoriteFlagsOnSearchResults();
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.WriteException("SetupViewModel.LoadFavorites", ex);
+            }
+        }
+
+        /// <summary>Aggiorna il flag booleano IsSelectedResultFavorite dopo un cambio selezione o toggle.</summary>
+        private void RefreshIsSelectedResultFavorite()
+        {
+            var sel = SelectedSearchResult;
+            IsSelectedResultFavorite = sel != null &&
+                Favorites.Any(f => f.Code == sel.Code && f.Model.ListId == (int?)sel.ListId);
+        }
+
+        /// <summary>Propaga il flag IsFavoriteInLibrary su tutti i risultati di ricerca correnti.</summary>
+        private void SyncFavoriteFlagsOnSearchResults()
+        {
+            if (SearchResults == null) return;
+            var favKeys = new HashSet<(string code, int? listId)>(
+                Favorites.Select(f => (f.Code, f.Model.ListId)));
+            foreach (var r in SearchResults)
+                r.IsFavoriteInLibrary = favKeys.Contains((r.Code, (int?)r.ListId));
+        }
+
+        partial void OnSelectedSearchResultChanged(PriceItemRow? value)
+            => RefreshIsSelectedResultFavorite();
+
+        [RelayCommand]
+        private void ToggleFavorite()
+        {
+            var sel = SelectedSearchResult;
+            if (sel == null) return;
+
+            var repo = GetActiveRepo();
+            if (repo == null) return;
+
+            try
+            {
+                if (IsSelectedResultFavorite)
+                {
+                    // Rimuovi il preferito esistente per questo (Code, ListId)
+                    var existing = Favorites.FirstOrDefault(f => f.Code == sel.Code && f.Model.ListId == (int?)sel.ListId);
+                    if (existing != null)
+                    {
+                        repo.RemoveFavorite(existing.Id);
+                        Favorites.Remove(existing);
+                    }
+                }
+                else
+                {
+                    // Aggiungi nuovo preferito
+                    var fav = new UserFavorite
+                    {
+                        PriceItemId = sel.Id,
+                        Code = sel.Code,
+                        Description = sel.Description,
+                        Unit = sel.Unit,
+                        UnitPrice = sel.UnitPrice,
+                        ListName = sel.ListName,
+                        ListId = sel.ListId,
+                        AddedAt = DateTime.UtcNow
+                    };
+                    fav.Id = repo.AddFavorite(fav);
+                    Favorites.Insert(0, new FavoriteRowVm(fav));
+                }
+
+                RefreshIsSelectedResultFavorite();
+                // Aggiorna la star icon nella riga della griglia
+                sel.IsFavoriteInLibrary = IsSelectedResultFavorite;
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.WriteException("SetupViewModel.ToggleFavorite", ex);
+            }
+        }
+
+        [RelayCommand]
+        private void UseFavoriteInSearch()
+        {
+            if (SelectedFavorite == null) return;
+            // Imposta la SearchQuery al Code del preferito — la ricerca scatta via debounce
+            SearchQuery = SelectedFavorite.Code;
+        }
+
+        [RelayCommand]
+        private void RemoveFavorite(FavoriteRowVm row)
+        {
+            if (row == null) return;
+            var repo = GetActiveRepo();
+            if (repo == null) return;
+            try
+            {
+                repo.RemoveFavorite(row.Id);
+                Favorites.Remove(row);
+                RefreshIsSelectedResultFavorite();
+                SyncFavoriteFlagsOnSearchResults();
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.WriteException("SetupViewModel.RemoveFavorite", ex);
             }
         }
 
@@ -301,10 +438,12 @@ namespace QtoRevitPlugin.UI.ViewModels
         }
     }
 
-    public class PriceItemRow
+    public partial class PriceItemRow : ObservableObject
     {
         public PriceItemRow(PriceItem item)
         {
+            Id = item.Id;
+            ListId = item.PriceListId;
             Code = item.Code;
             SuperChapter = item.SuperChapter;
             Chapter = item.Chapter;
@@ -316,6 +455,8 @@ namespace QtoRevitPlugin.UI.ViewModels
             ListName = item.ListName;
         }
 
+        public int Id { get; }
+        public int ListId { get; }
         public string Code { get; }
         public string SuperChapter { get; }
         public string Chapter { get; }
@@ -326,6 +467,8 @@ namespace QtoRevitPlugin.UI.ViewModels
         public string Unit { get; }
         public double UnitPrice { get; }
         public string ListName { get; }
+
+        [ObservableProperty] private bool _isFavoriteInLibrary;
 
         public string ShortDescTrimmed =>
             string.IsNullOrEmpty(ShortDesc) ? "" :
@@ -339,7 +482,7 @@ namespace QtoRevitPlugin.UI.ViewModels
         {
             get
             {
-                var parts = new System.Collections.Generic.List<string>(3);
+                var parts = new List<string>(3);
                 if (!string.IsNullOrWhiteSpace(SuperChapter)) parts.Add(SuperChapter);
                 if (!string.IsNullOrWhiteSpace(Chapter)) parts.Add(Chapter);
                 if (!string.IsNullOrWhiteSpace(SubChapter)) parts.Add(SubChapter);
