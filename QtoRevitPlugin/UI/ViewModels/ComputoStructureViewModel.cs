@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using GongSolutions.Wpf.DragDrop;
 using QtoRevitPlugin.Application;
 using QtoRevitPlugin.Data;
 using QtoRevitPlugin.Models;
@@ -15,7 +16,7 @@ namespace QtoRevitPlugin.UI.ViewModels
     /// gestisce CRUD sui ComputoChapter (3 livelli: Super→Cat→Sub),
     /// popola il TreeView e calcola i count di assegnazioni per capitolo.
     /// </summary>
-    public partial class ComputoStructureViewModel : ObservableObject
+    public partial class ComputoStructureViewModel : ObservableObject, IDropTarget
     {
         private IQtoRepository? _repo;
         private int _sessionId;
@@ -316,6 +317,107 @@ namespace QtoRevitPlugin.UI.ViewModels
             return level == 2
                 ? $"{prefix}{QtoRevitPlugin.Models.ChapterCodeHelper.ToAlpha(nextIdx)}"
                 : $"{prefix}{nextIdx:D2}";
+        }
+
+        // =====================================================================
+        // Drag & Drop (GongSolutions.WPF.DragDrop)
+        // =====================================================================
+
+        public void DragOver(IDropInfo dropInfo)
+        {
+            if (_repo == null) { dropInfo.Effects = System.Windows.DragDropEffects.None; return; }
+
+            var source = dropInfo.Data as ComputoChapterViewModel;
+            var target = dropInfo.TargetItem as ComputoChapterViewModel;
+
+            if (source == null) { dropInfo.Effects = System.Windows.DragDropEffects.None; return; }
+            if (target != null && (target.Model.Id == source.Model.Id || IsDescendant(target, source)))
+            {
+                dropInfo.Effects = System.Windows.DragDropEffects.None;
+                return;
+            }
+
+            if (target == null)
+            {
+                dropInfo.Effects = source.Model.Level == 1
+                    ? System.Windows.DragDropEffects.Move
+                    : System.Windows.DragDropEffects.None;
+                return;
+            }
+
+            var validParent = target.Model.Level == source.Model.Level - 1;
+            var validSibling = target.Model.Level == source.Model.Level;
+
+            if (validParent || validSibling)
+            {
+                dropInfo.Effects = System.Windows.DragDropEffects.Move;
+                dropInfo.DropTargetAdorner = DropTargetAdorners.Highlight;
+            }
+            else
+            {
+                dropInfo.Effects = System.Windows.DragDropEffects.None;
+            }
+        }
+
+        public void Drop(IDropInfo dropInfo)
+        {
+            if (_repo == null) return;
+            var source = dropInfo.Data as ComputoChapterViewModel;
+            if (source == null) return;
+            var target = dropInfo.TargetItem as ComputoChapterViewModel;
+
+            try
+            {
+                if (target == null)
+                {
+                    if (source.Model.Level != 1) return;
+                    source.Model.ParentChapterId = null;
+                    source.Model.SortOrder = Roots.Count;
+                    _repo.UpdateComputoChapter(source.Model);
+                }
+                else if (target.Model.Level == source.Model.Level)
+                {
+                    source.Model.ParentChapterId = target.Model.ParentChapterId;
+                    source.Model.SortOrder = target.Model.SortOrder;
+                    var allForSession = _repo.GetComputoChapters(_sessionId);
+                    var toShift = allForSession
+                        .Where(c => c.ParentChapterId == target.Model.ParentChapterId
+                                 && c.Level == target.Model.Level
+                                 && c.Id != source.Model.Id
+                                 && c.SortOrder >= target.Model.SortOrder)
+                        .ToList();
+                    foreach (var s in toShift) { s.SortOrder++; _repo.UpdateComputoChapter(s); }
+                    _repo.UpdateComputoChapter(source.Model);
+                }
+                else if (target.Model.Level == source.Model.Level - 1)
+                {
+                    source.Model.ParentChapterId = target.Model.Id;
+                    var existingChildren = _repo.GetComputoChapters(_sessionId)
+                        .Where(c => c.ParentChapterId == target.Model.Id).ToList();
+                    source.Model.SortOrder = existingChildren.Count;
+                    _repo.UpdateComputoChapter(source.Model);
+                }
+                else return;
+
+                Reload();
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.WriteException("ComputoStructureViewModel.Drop", ex);
+                System.Windows.MessageBox.Show(
+                    $"Errore durante lo spostamento: {ex.Message}",
+                    "Drag & Drop", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            }
+        }
+
+        private static bool IsDescendant(ComputoChapterViewModel candidate, ComputoChapterViewModel ancestor)
+        {
+            foreach (var child in ancestor.Children)
+            {
+                if (child.Model.Id == candidate.Model.Id) return true;
+                if (IsDescendant(candidate, child)) return true;
+            }
+            return false;
         }
     }
 }

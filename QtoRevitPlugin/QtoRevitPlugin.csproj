@@ -66,6 +66,8 @@
       RevitTask.RunAsync(app => { ... }) che gira sul thread Revit dentro un modal context.
     -->
     <PackageReference Include="Revit.Async" Version="2.*" />
+    <!-- Sprint10 T4: drag&drop TreeView capitoli. Compatibile net461+/net6+. -->
+    <PackageReference Include="GongSolutions.WPF.DragDrop" Version="3.2.1" />
   </ItemGroup>
 
   <!-- System.Text.Json non è built-in in .NET Framework 4.8 — richiede NuGet -->

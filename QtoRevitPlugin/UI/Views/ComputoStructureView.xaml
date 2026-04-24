@@ -1,7 +1,8 @@
 <UserControl x:Class="QtoRevitPlugin.UI.Views.ComputoStructureView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="clr-namespace:QtoRevitPlugin.UI.ViewModels">
+             xmlns:vm="clr-namespace:QtoRevitPlugin.UI.ViewModels"
+             xmlns:dd="urn:gong-wpf-dragdrop">
     <UserControl.DataContext>
         <vm:ComputoStructureViewModel/>
     </UserControl.DataContext>
@@ -26,9 +27,12 @@
             <Button Content="↓" Command="{Binding MoveDownCommand}" Margin="0,0,0,0" Padding="6,2" ToolTip="Sposta giù"/>
         </StackPanel>
 
-        <!-- TreeView (unchanged) -->
+        <!-- TreeView con drag&drop (GongSolutions) -->
         <TreeView x:Name="ChaptersTree" Grid.Row="1" ItemsSource="{Binding Roots}"
-                  SelectedItemChanged="OnTreeSelectedItemChanged">
+                  SelectedItemChanged="OnTreeSelectedItemChanged"
+                  dd:DragDrop.IsDragSource="True"
+                  dd:DragDrop.IsDropTarget="True"
+                  dd:DragDrop.DropHandler="{Binding}">
             <TreeView.ItemContainerStyle>
                 <Style TargetType="TreeViewItem">
                     <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
