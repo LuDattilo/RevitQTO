@@ -1,4 +1,5 @@
 using QtoRevitPlugin.UI.ViewModels;
+using System.Windows;
 using System.Windows.Controls;
 
 namespace QtoRevitPlugin.UI.Views
@@ -15,5 +16,9 @@ namespace QtoRevitPlugin.UI.Views
             if (DataContext is CmeEditorViewModel vm)
                 vm.SelectedNavNode = e.NewValue as CmeNavNode;
         }
+
+        /// <summary>Apre la Redazione CME in finestra separata (workflow multi-monitor).</summary>
+        private void OnPopoutClick(object sender, RoutedEventArgs e)
+            => PopoutWindow.Popout(new CmeEditorView(), "CME · Redazione CME");
     }
 }

@@ -3,19 +3,13 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:QtoRevitPlugin.UI.ViewModels">
 
-    <!-- ScrollViewer esterno: se il pannello docked Revit ha poca altezza, tutta la
-         SelectionView scorre verticalmente in modo che toolbar + tabella + card
-         Assegna EP + status bar restino sempre raggiungibili. -->
-    <ScrollViewer VerticalScrollBarVisibility="Auto"
-                  HorizontalScrollBarVisibility="Disabled">
+    <!-- Pattern uniformato a Listino: titolo+popout in Row=Auto, contenuto scrollabile in Row=*,
+         status bar in Row=Auto sempre visibile in basso. -->
     <Grid Background="{DynamicResource PanelBgBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />   <!-- 0: titolo + popout -->
-            <RowDefinition Height="Auto" />   <!-- 1: filtri (ScrollViewer MaxHeight 360) -->
-            <RowDefinition Height="Auto" />   <!-- 2: toolbar isola/nascondi/reset -->
-            <RowDefinition Height="Auto" />   <!-- 3: DataGrid risultati (MinHeight 300, MaxHeight 600) -->
-            <RowDefinition Height="Auto" />   <!-- 4: card Assegna EP (Plan C-6) -->
-            <RowDefinition Height="Auto" />   <!-- 5: status bar -->
+            <RowDefinition Height="*" />      <!-- 1: contenuto (ScrollViewer) -->
+            <RowDefinition Height="Auto" />   <!-- 2: status bar -->
         </Grid.RowDefinitions>
 
         <!-- Titolo + bottone pop-out -->
@@ -34,10 +28,20 @@
                     ToolTip="Apre questa scheda in una finestra separata" />
         </Grid>
 
+        <!-- Contenuto principale scrollabile (pattern uniformato a Listino). -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />   <!-- card filtri (con ScrollViewer annidato MaxHeight=360) -->
+                <RowDefinition Height="Auto" />   <!-- toolbar isola/nascondi/reset -->
+                <RowDefinition Height="Auto" />   <!-- DataGrid risultati -->
+                <RowDefinition Height="Auto" />   <!-- card Assegna EP (Plan C-6) -->
+            </Grid.RowDefinitions>
+
         <!-- Filtro: Fase Revit + Modalità computo + Categoria + Filtri parametrici -->
-        <!-- ScrollViewer esterno con MaxHeight: se l'utente aggiunge molti filtri
+        <!-- ScrollViewer annidato con MaxHeight: se l'utente aggiunge molti filtri
              parametrici la card non schiaccia il DataGrid sottostante. -->
-        <ScrollViewer Grid.Row="1" MaxHeight="360"
+        <ScrollViewer Grid.Row="0" MaxHeight="360"
                       VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled">
         <Border Style="{DynamicResource CardStyle}" Margin="16,8,16,4">
@@ -265,7 +269,7 @@
         </ScrollViewer>
 
         <!-- Toolbar azioni -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="16,0,16,4">
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="16,0,16,4">
             <Button x:Name="BtnIsolate" Click="OnIsolateClick"
                     Content="Isola in vista"
                     Style="{DynamicResource BtnPrimary}"
@@ -285,8 +289,8 @@
                     Foreground="{DynamicResource InkDimBrush}" />
         </StackPanel>
 
-        <!-- DataGrid risultati (altezza fissa tra 300 e 600 per convivere con ScrollViewer esterno) -->
-        <Border Grid.Row="3" Margin="16,0,16,8" MinHeight="300" MaxHeight="600"
+        <!-- DataGrid risultati -->
+        <Border Grid.Row="2" Margin="16,0,16,8" MinHeight="300"
                 BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1">
             <DataGrid x:Name="GridElements"
                       ItemsSource="{Binding Elements}"
@@ -322,7 +326,7 @@
         </Border>
 
         <!-- Plan C-6: Card ASSEGNA EP (tra DataGrid risultati e status bar) -->
-        <Border Grid.Row="4" Margin="16,4,16,4" Padding="10,8"
+        <Border Grid.Row="3" Margin="16,4,16,4" Padding="10,8"
                 Background="{DynamicResource PanelSubBrush}"
                 BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1" CornerRadius="4">
             <Grid>
@@ -381,8 +385,11 @@
             </Grid>
         </Border>
 
-        <!-- Status bar -->
-        <Border Grid.Row="5" Background="{DynamicResource PanelSubBrush}"
+        </Grid>   <!-- chiude Grid interno 4 righe -->
+        </ScrollViewer>
+
+        <!-- Status bar fuori dal ScrollViewer (sempre visibile in basso) -->
+        <Border Grid.Row="2" Background="{DynamicResource PanelSubBrush}"
                 BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="0,1,0,0"
                 Padding="16,8">
             <TextBlock Text="{Binding StatusMessage}"
@@ -390,5 +397,4 @@
                        Foreground="{DynamicResource InkMutedBrush}" />
         </Border>
     </Grid>
-    </ScrollViewer>
 </UserControl>
