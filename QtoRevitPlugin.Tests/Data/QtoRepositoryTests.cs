@@ -27,6 +27,10 @@ namespace QtoRevitPlugin.Tests.Data
         [Fact]
         public void NewDatabase_HasCurrentSchemaVersion()
         {
+            // v12 introdotta in Plan C-0 (Modulo Computi PriMus): ComputoDocuments,
+            //    ChapterNodes, CategoryNodes, WbsNodes, MeasurementRows, MeasurementSubRows,
+            //    XpweExportJobs + 17 colonne aggiuntive su PriceItems (Prezzo2..5,
+            //    SpCap/Cap/SbCap FK, IncMDO/MAT/SIC, TipoRisorsa, Flags, CnfQt, AdrInternet)
             // v11 introdotta in T3.1: UserFavorites.PriceListPublicId per sync cross-machine
             // v10 introdotta in Listino Task 1: tabella UserFavorites (listino preferiti utente)
             // v9 introdotta in Infoproj v2: tabella comuni_italiani (ISTAT) + RevitParamMapping
@@ -39,7 +43,8 @@ namespace QtoRevitPlugin.Tests.Data
             // v4 introdotta in Sprint 6 con ChangeLog + ElementSnapshots + audit fields
             // v3 introdotta in Sprint 4 con PriceLists.PublicId (GUID portabile per snapshot .rvt)
             // v2 introdotta in Sprint 2 con PriceItems_FTS
-            _repo.GetSchemaVersion().Should().Be(11);
+            // Aggiornare a ogni bump schema.
+            _repo.GetSchemaVersion().Should().Be(12);
         }
 
         [Fact]

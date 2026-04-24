@@ -33,7 +33,7 @@ namespace QtoRevitPlugin.Tests.T31
             {
                 using (var repo = new QtoRepository(dbPath))
                 {
-                    repo.GetSchemaVersion().Should().Be(11);
+                    repo.GetSchemaVersion().Should().Be(12);
                 }
 
                 using var conn = new SqliteConnection($"Data Source={dbPath};Pooling=False");
@@ -206,7 +206,7 @@ VALUES ('EP-A1', 1, 'L-A', '2026-01-01T00:00:00Z'),
                 // Step 2: apri con QtoRepository → esegue migration fino a v11
                 using (var repo = new QtoRepository(dbPath))
                 {
-                    repo.GetSchemaVersion().Should().Be(11);
+                    repo.GetSchemaVersion().Should().Be(12);
                 }
                 SqliteConnection.ClearAllPools();
 
@@ -265,25 +265,27 @@ VALUES ('EP-A1', 1, 'L-A', '2026-01-01T00:00:00Z'),
                 }
                 SqliteConnection.ClearAllPools();
 
-                // Seconda apertura: version è già 11, MigrateIfNeeded no-op
+                // Seconda apertura: il DB è già stato migrato fino alla CurrentVersion corrente
+                // dalla prima apertura (repo1 sopra). MigrateIfNeeded no-op.
                 using (var repo2 = new QtoRepository(dbPath))
                 {
-                    repo2.GetSchemaVersion().Should().Be(11);
+                    repo2.GetSchemaVersion().Should().Be(12);
                     var favs = repo2.GetFavorites();
                     favs.Should().ContainSingle();
                     favs[0].PriceListPublicId.Should().Be(publicId, "idempotency: il PublicId resta stabile");
                 }
 
-                // Verifica che SchemaInfo non abbia due righe v11 (una da InsertSchema
-                // iniziale + una dalla migration: in aperture successive non deve più
-                // crescere).
+                // Verifica che SchemaInfo non abbia due righe della CurrentVersion (una da
+                // InsertSchema iniziale: in aperture successive non deve più crescere).
+                // Nota: con CurrentVersion=12 il DB creato parte direttamente a v12, quindi
+                // testiamo l'idempotenza sulla versione corrente (non più v11 come storicamente).
                 SqliteConnection.ClearAllPools();
                 using var conn2 = new SqliteConnection($"Data Source={dbPath};Pooling=False");
                 conn2.Open();
                 using var cmd = conn2.CreateCommand();
-                cmd.CommandText = "SELECT COUNT(*) FROM SchemaInfo WHERE Version = 11;";
-                var v11Rows = Convert.ToInt64(cmd.ExecuteScalar()!);
-                v11Rows.Should().Be(1, "la riga v11 in SchemaInfo è scritta una volta sola");
+                cmd.CommandText = "SELECT COUNT(*) FROM SchemaInfo WHERE Version = 12;";
+                var currRows = Convert.ToInt64(cmd.ExecuteScalar()!);
+                currRows.Should().Be(1, "la riga della CurrentVersion in SchemaInfo è scritta una volta sola");
             }
             finally { SafeDelete(dbPath); }
         }

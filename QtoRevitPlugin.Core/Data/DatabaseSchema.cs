@@ -14,6 +14,14 @@ namespace QtoRevitPlugin.Data
     /// </summary>
     internal static class DatabaseSchema
     {
+        // v12 (C-0 Task 2 — XPWE Document model): aggiunge tabelle
+        //   ComputoDocuments, ChapterNodes, CategoryNodes, WbsNodes,
+        //   MeasurementRows, MeasurementSubRows, XpweExportJobs (idempotenti
+        //   via CREATE TABLE/INDEX IF NOT EXISTS) + 17 ALTER TABLE su PriceItems
+        //   per estenderne lo schema al superset richiesto da XPWE PriceItem
+        //   (Prezzo2..5, SpCapId/CapId/SbCapId/WbsCapNodeId, IncMDO/IncMAT/IncSIC,
+        //   Flags default 512, CnfQt, AdrInternet, TipoRisorsa, Articolo, DataEP).
+        //   Le ALTER TABLE richiedono check preventivo ColumnExists lato Migration.cs.
         // v11 (T3.1 — ListId→PublicId migration): aggiunge colonna
         //   UserFavorites.PriceListPublicId TEXT (GUID stabile cross-machine
         //   che riferisce PriceLists.PublicId, esistente da v3). Backfill
@@ -40,7 +48,7 @@ namespace QtoRevitPlugin.Data
         // v3 (Sprint 4): aggiunta colonna PriceLists.PublicId GUID per riferimenti portabili
         //                nel DataStorage ES del .rvt (ProjectPriceListSnapshot futuro — Sprint 5).
         // v2 (Sprint 2): aggiunta virtual table PriceItems_FTS per ricerca full-text.
-        public const int CurrentVersion = 11;
+        public const int CurrentVersion = 12;
 
         /// <summary>Ordine di esecuzione degli statement per setup iniziale.</summary>
         public static readonly string[] InitialStatements =
@@ -67,7 +75,25 @@ namespace QtoRevitPlugin.Data
             RevitParamMapping,
             UserFavorites,
             UserFavoritesIndexCode,
-            UserFavoritesIndexPublicId
+            UserFavoritesIndexPublicId,
+            ComputoDocuments,
+            ChapterNodes,
+            ChapterNodesIndexDoc,
+            ChapterNodesIndexParent,
+            CategoryNodes,
+            CategoryNodesIndexDoc,
+            CategoryNodesIndexParent,
+            WbsNodes,
+            WbsNodesIndexDoc,
+            WbsNodesIndexParent,
+            MeasurementRows,
+            MeasurementRowsIndexDoc,
+            MeasurementRowsIndexPi,
+            MeasurementSubRows,
+            MeasurementSubRowsIndexRow,
+            MeasurementSubRowsIndexIdvv,
+            XpweExportJobs,
+            XpweExportJobsIndexDoc
         };
 
         /// <summary>
@@ -643,5 +669,178 @@ SET PriceListPublicId = (
 )
 WHERE PriceListPublicId IS NULL
   AND ListId IS NOT NULL;";
+
+        // --- XPWE Document model (schema v12) ----------------------------------
+        // Strutture tabellari per il mapping EP → Computo (C-0 Task 2):
+        //   ComputoDocuments, ChapterNodes, CategoryNodes, WbsNodes,
+        //   MeasurementRows, MeasurementSubRows, XpweExportJobs.
+        // Tutte le DDL sono idempotenti (CREATE TABLE/INDEX IF NOT EXISTS).
+
+        public const string ComputoDocuments = @"
+CREATE TABLE IF NOT EXISTS ComputoDocuments (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    WorkSessionId INTEGER NOT NULL UNIQUE REFERENCES Sessions(Id) ON DELETE CASCADE,
+    TipoDocumento INTEGER NOT NULL,
+    Versione TEXT NOT NULL DEFAULT '5.04',
+    Fgs INTEGER NOT NULL DEFAULT 2147614720,
+    PercPrezzi REAL NOT NULL DEFAULT 0,
+    Comune TEXT,
+    Provincia TEXT,
+    Oggetto TEXT,
+    Committente TEXT,
+    Impresa TEXT,
+    ParteOpera TEXT,
+    Currency TEXT NOT NULL DEFAULT 'EUR',
+    CreatedAt TEXT NOT NULL,
+    UpdatedAt TEXT NOT NULL
+);";
+
+        public const string ChapterNodes = @"
+CREATE TABLE IF NOT EXISTS ChapterNodes (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    DocumentId INTEGER NOT NULL REFERENCES ComputoDocuments(Id) ON DELETE CASCADE,
+    Level TEXT NOT NULL CHECK(Level IN ('SpCap','Cap','SbCap')),
+    Codice TEXT NOT NULL,
+    DesSintetica TEXT NOT NULL,
+    DesEstesa TEXT,
+    DataInit TEXT,
+    Durata INTEGER NOT NULL DEFAULT 0,
+    CodFase TEXT,
+    Percentuale REAL NOT NULL DEFAULT 0,
+    ParentId INTEGER REFERENCES ChapterNodes(Id) ON DELETE CASCADE,
+    SortOrder INTEGER NOT NULL,
+    IsActive INTEGER NOT NULL DEFAULT 1
+);";
+
+        public const string ChapterNodesIndexDoc =
+            "CREATE INDEX IF NOT EXISTS ix_chapternodes_doc ON ChapterNodes(DocumentId);";
+
+        public const string ChapterNodesIndexParent =
+            "CREATE INDEX IF NOT EXISTS ix_chapternodes_parent ON ChapterNodes(ParentId);";
+
+        public const string CategoryNodes = @"
+CREATE TABLE IF NOT EXISTS CategoryNodes (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    DocumentId INTEGER NOT NULL REFERENCES ComputoDocuments(Id) ON DELETE CASCADE,
+    Level TEXT NOT NULL CHECK(Level IN ('SpCat','Cat','SbCat')),
+    Codice TEXT NOT NULL,
+    DesSintetica TEXT NOT NULL,
+    DesEstesa TEXT,
+    DataInit TEXT,
+    Durata INTEGER NOT NULL DEFAULT 0,
+    CodFase TEXT,
+    Percentuale REAL NOT NULL DEFAULT 0,
+    ParentId INTEGER REFERENCES CategoryNodes(Id) ON DELETE CASCADE,
+    SortOrder INTEGER NOT NULL,
+    IsActive INTEGER NOT NULL DEFAULT 1
+);";
+
+        public const string CategoryNodesIndexDoc =
+            "CREATE INDEX IF NOT EXISTS ix_categorynodes_doc ON CategoryNodes(DocumentId);";
+
+        public const string CategoryNodesIndexParent =
+            "CREATE INDEX IF NOT EXISTS ix_categorynodes_parent ON CategoryNodes(ParentId);";
+
+        public const string WbsNodes = @"
+CREATE TABLE IF NOT EXISTS WbsNodes (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    DocumentId INTEGER NOT NULL REFERENCES ComputoDocuments(Id) ON DELETE CASCADE,
+    Kind TEXT NOT NULL CHECK(Kind IN ('WbsCap','WbsComputo')),
+    Codice TEXT NOT NULL,
+    DesSintetica TEXT NOT NULL,
+    ParentId INTEGER REFERENCES WbsNodes(Id) ON DELETE CASCADE,
+    Level INTEGER NOT NULL,
+    SortOrder INTEGER NOT NULL,
+    IsActive INTEGER NOT NULL DEFAULT 1
+);";
+
+        public const string WbsNodesIndexDoc =
+            "CREATE INDEX IF NOT EXISTS ix_wbsnodes_doc ON WbsNodes(DocumentId);";
+
+        public const string WbsNodesIndexParent =
+            "CREATE INDEX IF NOT EXISTS ix_wbsnodes_parent ON WbsNodes(ParentId);";
+
+        public const string MeasurementRows = @"
+CREATE TABLE IF NOT EXISTS MeasurementRows (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    DocumentId INTEGER NOT NULL REFERENCES ComputoDocuments(Id) ON DELETE CASCADE,
+    PriceItemId INTEGER NOT NULL REFERENCES PriceItems(Id) ON DELETE RESTRICT,
+    Quantita REAL NOT NULL DEFAULT 0,
+    DataMis TEXT,
+    Flags INTEGER NOT NULL DEFAULT 0,
+    SpCatId INTEGER REFERENCES CategoryNodes(Id),
+    CatId INTEGER REFERENCES CategoryNodes(Id),
+    SbCatId INTEGER REFERENCES CategoryNodes(Id),
+    WbsComputoNodeId INTEGER REFERENCES WbsNodes(Id),
+    SortOrder INTEGER NOT NULL
+);";
+
+        public const string MeasurementRowsIndexDoc =
+            "CREATE INDEX IF NOT EXISTS ix_measurementrows_doc ON MeasurementRows(DocumentId);";
+
+        public const string MeasurementRowsIndexPi =
+            "CREATE INDEX IF NOT EXISTS ix_measurementrows_pi ON MeasurementRows(PriceItemId);";
+
+        public const string MeasurementSubRows = @"
+CREATE TABLE IF NOT EXISTS MeasurementSubRows (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    MeasurementRowId INTEGER NOT NULL REFERENCES MeasurementRows(Id) ON DELETE CASCADE,
+    IDVV INTEGER NOT NULL,
+    Descrizione TEXT,
+    PartiUguali REAL NOT NULL DEFAULT 1,
+    Lunghezza REAL,
+    Larghezza REAL,
+    HPeso REAL,
+    Quantita REAL NOT NULL DEFAULT 0,
+    Flags INTEGER NOT NULL DEFAULT 0,
+    SortOrder INTEGER NOT NULL
+);";
+
+        public const string MeasurementSubRowsIndexRow =
+            "CREATE INDEX IF NOT EXISTS ix_subrows_row ON MeasurementSubRows(MeasurementRowId);";
+
+        public const string MeasurementSubRowsIndexIdvv =
+            "CREATE INDEX IF NOT EXISTS ix_subrows_idvv ON MeasurementSubRows(IDVV);";
+
+        public const string XpweExportJobs = @"
+CREATE TABLE IF NOT EXISTS XpweExportJobs (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    DocumentId INTEGER NOT NULL REFERENCES ComputoDocuments(Id),
+    ExportedAt TEXT NOT NULL,
+    TipoDocumento INTEGER NOT NULL,
+    XpweVersion TEXT NOT NULL,
+    FilePath TEXT,
+    FileChecksum TEXT,
+    ValidationReport TEXT
+);";
+
+        public const string XpweExportJobsIndexDoc =
+            "CREATE INDEX IF NOT EXISTS ix_exportjobs_doc ON XpweExportJobs(DocumentId);";
+
+        // --- Migration v11 → v12 (C-0 Task 2): estensione PriceItems ------------
+        // 17 colonne aggiuntive su PriceItems per compatibilità XPWE PriceItem:
+        //   Prezzo2..5, SpCapId/CapId/SbCapId/WbsCapNodeId (FK logiche nullable),
+        //   IncMDO/IncMAT/IncSIC, Flags (default 512), CnfQt, AdrInternet,
+        //   TipoRisorsa, Articolo, DataEP.
+        // ALTER TABLE ADD COLUMN non è idempotente in SQLite: check preventivo
+        // via PRAGMA in DatabaseInitializer / Migration.cs.
+
+        public const string MigrateV11ToV12_ExtendPriceItemsPrezzo2 = "ALTER TABLE PriceItems ADD COLUMN Prezzo2 REAL NOT NULL DEFAULT 0;";
+        public const string MigrateV11ToV12_ExtendPriceItemsPrezzo3 = "ALTER TABLE PriceItems ADD COLUMN Prezzo3 REAL NOT NULL DEFAULT 0;";
+        public const string MigrateV11ToV12_ExtendPriceItemsPrezzo4 = "ALTER TABLE PriceItems ADD COLUMN Prezzo4 REAL NOT NULL DEFAULT 0;";
+        public const string MigrateV11ToV12_ExtendPriceItemsPrezzo5 = "ALTER TABLE PriceItems ADD COLUMN Prezzo5 REAL NOT NULL DEFAULT 0;";
+        public const string MigrateV11ToV12_ExtendPriceItemsSpCapId = "ALTER TABLE PriceItems ADD COLUMN SpCapId INTEGER NULL;";
+        public const string MigrateV11ToV12_ExtendPriceItemsCapId = "ALTER TABLE PriceItems ADD COLUMN CapId INTEGER NULL;";
+        public const string MigrateV11ToV12_ExtendPriceItemsSbCapId = "ALTER TABLE PriceItems ADD COLUMN SbCapId INTEGER NULL;";
+        public const string MigrateV11ToV12_ExtendPriceItemsWbsCapNodeId = "ALTER TABLE PriceItems ADD COLUMN WbsCapNodeId INTEGER NULL;";
+        public const string MigrateV11ToV12_ExtendPriceItemsIncMDO = "ALTER TABLE PriceItems ADD COLUMN IncMDO REAL NOT NULL DEFAULT 0;";
+        public const string MigrateV11ToV12_ExtendPriceItemsIncMAT = "ALTER TABLE PriceItems ADD COLUMN IncMAT REAL NOT NULL DEFAULT 0;";
+        public const string MigrateV11ToV12_ExtendPriceItemsIncSIC = "ALTER TABLE PriceItems ADD COLUMN IncSIC REAL NOT NULL DEFAULT 0;";
+        public const string MigrateV11ToV12_ExtendPriceItemsFlags = "ALTER TABLE PriceItems ADD COLUMN Flags INTEGER NOT NULL DEFAULT 512;";
+        public const string MigrateV11ToV12_ExtendPriceItemsCnfQt = "ALTER TABLE PriceItems ADD COLUMN CnfQt TEXT NULL;";
+        public const string MigrateV11ToV12_ExtendPriceItemsAdrInternet = "ALTER TABLE PriceItems ADD COLUMN AdrInternet TEXT NULL;";
+        public const string MigrateV11ToV12_ExtendPriceItemsTipoRisorsa = "ALTER TABLE PriceItems ADD COLUMN TipoRisorsa INTEGER NOT NULL DEFAULT 0;";
+        public const string MigrateV11ToV12_ExtendPriceItemsArticolo = "ALTER TABLE PriceItems ADD COLUMN Articolo TEXT NULL;";
+        public const string MigrateV11ToV12_ExtendPriceItemsDataEP = "ALTER TABLE PriceItems ADD COLUMN DataEP TEXT NULL;";
     }
 }

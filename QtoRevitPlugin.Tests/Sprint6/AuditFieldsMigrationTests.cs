@@ -102,7 +102,8 @@ namespace QtoRevitPlugin.Tests.Sprint6
                     versionCmd.CommandText = "SELECT MAX(Version) FROM SchemaInfo;";
                     version = Convert.ToInt32(versionCmd.ExecuteScalar());
                 }
-                Assert.Equal(11, version);
+                // Aggiornare a ogni bump di schema.
+                Assert.Equal(12, version);
             }
             finally { SafeDelete(path); }
         }
