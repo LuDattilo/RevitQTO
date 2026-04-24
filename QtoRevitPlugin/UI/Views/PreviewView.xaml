@@ -14,10 +14,6 @@
         <!-- Titolo view -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="16,14,16,4">
             <TextBlock Text="Preview Live" Style="{DynamicResource ViewTitleStyle}" />
-            <TextBlock Text="§ Fase 11" VerticalAlignment="Bottom"
-                       Foreground="{DynamicResource InkMutedBrush}"
-                       FontFamily="{DynamicResource FontMono}" FontSize="10"
-                       Margin="8,0,0,12" />
         </StackPanel>
 
         <!-- Tab switcher Selezione / Riepilogo -->

@@ -17,17 +17,11 @@
         <Grid Grid.Row="0" Margin="16,14,16,4">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Text="Mapping Sorgenti" Style="{DynamicResource ViewTitleStyle}" />
-            <TextBlock Grid.Column="1" Text="§ Sprint 4 · Task 3"
-                       VerticalAlignment="Bottom"
-                       Foreground="{DynamicResource InkMutedBrush}"
-                       FontFamily="{DynamicResource FontMono}" FontSize="10"
-                       Margin="8,0,0,12" />
-            <Button Grid.Column="3" x:Name="BtnPopout" Click="OnPopoutClick"
+            <Button Grid.Column="2" x:Name="BtnPopout" Click="OnPopoutClick"
                     Content="⤢ Apri in finestra"
                     Padding="8,3" FontSize="10"
                     Background="Transparent" Foreground="{DynamicResource InkDimBrush}"

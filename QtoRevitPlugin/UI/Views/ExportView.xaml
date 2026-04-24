@@ -18,11 +18,6 @@
         <!-- Header -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="16,14,16,4">
             <TextBlock Text="Esporta Computo" Style="{DynamicResource ViewTitleStyle}" />
-            <TextBlock Text="§ Fase 12 · Step finale"
-                       VerticalAlignment="Bottom"
-                       Foreground="{DynamicResource InkMutedBrush}"
-                       FontFamily="{DynamicResource FontMono}" FontSize="10"
-                       Margin="8,0,0,12" />
         </StackPanel>
 
         <!-- Card con bottone lancia-wizard -->

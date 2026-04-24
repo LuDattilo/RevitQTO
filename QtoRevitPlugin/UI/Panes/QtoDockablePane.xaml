@@ -191,17 +191,6 @@
                                    FontSize="10" />
                     </StackPanel>
 
-                    <Border Grid.Column="1"
-                            Background="{DynamicResource BrandAccentSoftBrush}"
-                            BorderBrush="{DynamicResource EdgeLightBrush}"
-                            BorderThickness="1"
-                            CornerRadius="8"
-                            Padding="10,6">
-                        <TextBlock Text="{Binding ActiveView.Reference}"
-                                   FontFamily="{DynamicResource FontMono}"
-                                   FontSize="10"
-                                   Foreground="{DynamicResource BrandAccentDeepBrush}" />
-                    </Border>
                 </Grid>
                 <WrapPanel x:Name="SwitcherHost" Orientation="Horizontal" />
                 <Border Margin="0,4,0,0"
