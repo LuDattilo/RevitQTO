@@ -1372,6 +1372,90 @@ WHERE Id = @Id;";
                 new { Id = id, Now = DateTime.UtcNow.ToString("o") });
         }
 
+        // =====================================================================
+        // RoomMappingConfigs (Sprint 11)
+        // =====================================================================
+
+        public int InsertRoomMappingConfig(RoomMappingConfig cfg)
+        {
+            const string sql = @"
+INSERT INTO RoomMappings (SessionId, EpCode, EpDescription, Unit, Formula, TargetCategory, RoomNameFilter)
+VALUES (@SessionId, @EpCode, @EpDescription, @Unit, @Formula, @TargetCategory, @RoomNameFilter);
+SELECT last_insert_rowid();";
+            return _conn.ExecuteScalar<int>(sql, new
+            {
+                cfg.SessionId,
+                cfg.EpCode,
+                cfg.EpDescription,
+                cfg.Unit,
+                cfg.Formula,
+                TargetCategory = cfg.TargetCategory.ToString(),
+                cfg.RoomNameFilter
+            });
+        }
+
+        public IReadOnlyList<RoomMappingConfig> GetRoomMappingConfigs(int sessionId)
+        {
+            const string sql = @"
+SELECT Id, SessionId, EpCode, EpDescription, Unit, Formula, TargetCategory, RoomNameFilter
+FROM RoomMappings
+WHERE SessionId = @SessionId
+ORDER BY Id;";
+            return _conn.Query<RoomMappingRow>(sql, new { SessionId = sessionId })
+                .Select(r => r.ToConfig())
+                .ToList();
+        }
+
+        public void UpdateRoomMappingConfig(RoomMappingConfig cfg)
+        {
+            const string sql = @"
+UPDATE RoomMappings
+SET EpCode=@EpCode, EpDescription=@EpDescription, Unit=@Unit,
+    Formula=@Formula, TargetCategory=@TargetCategory, RoomNameFilter=@RoomNameFilter
+WHERE Id=@Id;";
+            _conn.Execute(sql, new
+            {
+                cfg.Id,
+                cfg.EpCode,
+                cfg.EpDescription,
+                cfg.Unit,
+                cfg.Formula,
+                TargetCategory = cfg.TargetCategory.ToString(),
+                cfg.RoomNameFilter
+            });
+        }
+
+        public void DeleteRoomMappingConfig(int id)
+        {
+            _conn.Execute("DELETE FROM RoomMappings WHERE Id=@Id;", new { Id = id });
+        }
+
+        private class RoomMappingRow
+        {
+            public int Id { get; set; }
+            public int SessionId { get; set; }
+            public string EpCode { get; set; } = "";
+            public string? EpDescription { get; set; }
+            public string? Unit { get; set; }
+            public string Formula { get; set; } = "";
+            public string TargetCategory { get; set; } = "Rooms";
+            public string? RoomNameFilter { get; set; }
+
+            public RoomMappingConfig ToConfig() => new RoomMappingConfig
+            {
+                Id = Id,
+                SessionId = SessionId,
+                EpCode = EpCode,
+                EpDescription = EpDescription ?? "",
+                Unit = Unit ?? "",
+                Formula = Formula,
+                TargetCategory = TargetCategory == "MEPSpaces"
+                    ? RoomTargetCategory.MEPSpaces
+                    : RoomTargetCategory.Rooms,
+                RoomNameFilter = RoomNameFilter ?? ""
+            };
+        }
+
         private class ManualItemRow
         {
             public int Id { get; set; }
