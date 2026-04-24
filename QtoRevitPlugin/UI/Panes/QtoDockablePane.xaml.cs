@@ -208,7 +208,10 @@ namespace QtoRevitPlugin.UI.Panes
             return item.Key switch
             {
                 QtoViewKey.Home => CreateHomeView(),
-                QtoViewKey.ProjectSetup => new ProjectInfoView(),
+                // Plan C-3: ProjectSetup ora apre SetupView (container con 4 tab:
+                // Informazioni / Listino / Struttura Computo / Capitoli+Categorie+WBS v12 / Nuovi Prezzi).
+                // ProjectInfoView è montato come primo tab dentro SetupView.
+                QtoViewKey.ProjectSetup => new SetupView(),
                 QtoViewKey.PriceList => new SetupListinoView(),
                 QtoViewKey.Verification => new PreviewView { DataContext = _vm },
                 QtoViewKey.Preview => new PreviewView { DataContext = _vm },
