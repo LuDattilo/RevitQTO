@@ -407,12 +407,14 @@ WHERE p.Id IN @Ids;";
         public IReadOnlyList<PriceItem> GetPriceItemsByCode(string code)
         {
             if (string.IsNullOrWhiteSpace(code)) return new List<PriceItem>();
+            // COLLATE NOCASE rende la LIKE case-insensitive (PriMus e import custom possono
+            // differire per maiuscole/minuscole del Code). TRIM per tollerare eventuali spazi.
             const string sql = @"
 SELECT p.*, pl.Name AS ListName
 FROM PriceItems p
 JOIN PriceLists pl ON pl.Id = p.PriceListId
-WHERE p.Code = @c AND pl.IsActive = 1;";
-            return _conn.Query<PriceItemRow>(sql, new { c = code })
+WHERE TRIM(p.Code) = TRIM(@c) COLLATE NOCASE AND pl.IsActive = 1;";
+            return _conn.Query<PriceItemRow>(sql, new { c = code.Trim() })
                         .Select(r => r.ToPriceItem())
                         .ToList();
         }

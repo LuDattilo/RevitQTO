@@ -3,12 +3,17 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:QtoRevitPlugin.UI.ViewModels">
 
+    <!-- ScrollViewer esterno: se il pannello docked Revit ha poca altezza, tutta la
+         SelectionView scorre verticalmente in modo che toolbar + tabella + card
+         Assegna EP + status bar restino sempre raggiungibili. -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled">
     <Grid Background="{DynamicResource PanelBgBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />   <!-- 0: titolo + popout -->
             <RowDefinition Height="Auto" />   <!-- 1: filtri (ScrollViewer MaxHeight 360) -->
             <RowDefinition Height="Auto" />   <!-- 2: toolbar isola/nascondi/reset -->
-            <RowDefinition Height="*" />      <!-- 3: DataGrid risultati -->
+            <RowDefinition Height="Auto" />   <!-- 3: DataGrid risultati (MinHeight 300, MaxHeight 600) -->
             <RowDefinition Height="Auto" />   <!-- 4: card Assegna EP (Plan C-6) -->
             <RowDefinition Height="Auto" />   <!-- 5: status bar -->
         </Grid.RowDefinitions>
@@ -280,8 +285,8 @@
                     Foreground="{DynamicResource InkDimBrush}" />
         </StackPanel>
 
-        <!-- DataGrid risultati -->
-        <Border Grid.Row="3" Margin="16,0,16,8"
+        <!-- DataGrid risultati (altezza fissa tra 300 e 600 per convivere con ScrollViewer esterno) -->
+        <Border Grid.Row="3" Margin="16,0,16,8" MinHeight="300" MaxHeight="600"
                 BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1">
             <DataGrid x:Name="GridElements"
                       ItemsSource="{Binding Elements}"
@@ -385,4 +390,5 @@
                        Foreground="{DynamicResource InkMutedBrush}" />
         </Border>
     </Grid>
+    </ScrollViewer>
 </UserControl>

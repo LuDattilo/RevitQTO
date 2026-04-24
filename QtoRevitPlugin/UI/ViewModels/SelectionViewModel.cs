@@ -596,12 +596,14 @@ namespace QtoRevitPlugin.UI.ViewModels
                 var docSvc = new ComputoDocumentService(repo);
                 var cmeDoc = docSvc.GetOrCreate(sess.Id);
 
-                // 2. Risolvi PriceItem per Code (primo match attivo)
-                var items = repo.GetPriceItemsByCode(ActiveEpCode);
+                // 2. Risolvi PriceItem per Code (primo match attivo).
+                // Trim + lookup. Se non trovato, fallback su ricerca case-insensitive via LINQ.
+                var codeLookup = (ActiveEpCode ?? "").Trim();
+                var items = repo.GetPriceItemsByCode(codeLookup);
                 var pi = items.FirstOrDefault();
                 if (pi == null)
                 {
-                    StatusMessage = $"Voce '{ActiveEpCode}' non trovata nei listini attivi.";
+                    StatusMessage = $"Voce '{codeLookup}' (len={codeLookup.Length}) non trovata nei listini attivi. Verifica che il listino sia attivo e il codice sia esatto.";
                     return;
                 }
 
