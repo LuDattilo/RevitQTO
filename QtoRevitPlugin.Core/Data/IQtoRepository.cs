@@ -104,6 +104,12 @@ namespace QtoRevitPlugin.Data
         /// <summary>Soft delete (IsDeleted=1) per audit trail.</summary>
         void DeleteManualItem(int id);
 
+        // RoomMappingConfigs (Sprint 11)
+        int InsertRoomMappingConfig(RoomMappingConfig cfg);
+        IReadOnlyList<RoomMappingConfig> GetRoomMappingConfigs(int sessionId);
+        void UpdateRoomMappingConfig(RoomMappingConfig cfg);
+        void DeleteRoomMappingConfig(int id);
+
         // SelectionRules (I6). Preset regole di selezione salvati come JSON blob.
         // Alternative al file JSON (persistenza globale user); qui persistiamo nel .cme
         // specifico della sessione per condivisione col team via file .cme workshared.
