@@ -61,6 +61,12 @@ namespace QtoRevitPlugin.Services
         /// </summary>
         public event EventHandler? ActiveEpChanged;
 
+        /// <summary>
+        /// Plan C-6: emesso dopo ogni ApplyEp andato a buon fine. Permette a CmeEditor
+        /// (Redazione CME) di ricaricare la tabella VCItem+RGItem live senza refresh manuale.
+        /// </summary>
+        public event EventHandler? AssignmentsChanged;
+
         /// <summary>Chiamato dal ViewModel Listino quando cambia la selezione voce.</summary>
         public void SetActiveEp(string code, string description)
         {
@@ -68,6 +74,12 @@ namespace QtoRevitPlugin.Services
             ActiveEpCode = code ?? "";
             AssignEpLogger.Log(
                 $"SetActiveEp · code=[{code}] len={code?.Length ?? 0} · desc=[{description ?? "null"}]");
+        }
+
+        /// <summary>Chiamato da ApplyEp dopo successo per far refreshare le view dipendenti.</summary>
+        public void NotifyAssignmentsChanged()
+        {
+            AssignmentsChanged?.Invoke(this, EventArgs.Empty);
         }
 
         // =====================================================================

@@ -38,6 +38,8 @@ namespace QtoRevitPlugin.UI.ViewModels
                 var sm = QtoApplication.Instance.SessionManager;
                 sm.SessionChanged += (_, _) => Reload();
                 sm.ActiveEpChanged += (_, _) => Reload();
+                // Plan C-6: refresh automatico dopo ogni assegnazione da Selezione
+                sm.AssignmentsChanged += (_, _) => Reload();
             }
             Reload();
         }

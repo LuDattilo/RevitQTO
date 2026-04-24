@@ -193,19 +193,24 @@
                                     <DataTemplate>
                                         <Border Background="{DynamicResource PanelSubBrush}"
                                                 BorderBrush="{DynamicResource BrandAccentBrush}"
-                                                BorderThickness="0,0,0,1" Padding="12,6">
+                                                BorderThickness="0,0,0,1" Padding="12,8">
+                                            <!-- Altezza auto: si adatta alla descrizione completa senza troncare -->
                                             <StackPanel>
-                                                <TextBlock FontSize="10" FontWeight="Bold"
-                                                           Foreground="{DynamicResource BrandAccentDeepBrush}">
+                                                <TextBlock FontSize="11" FontWeight="Bold"
+                                                           Foreground="{DynamicResource BrandAccentDeepBrush}"
+                                                           TextWrapping="Wrap">
                                                     <Run Text="{Binding Code, Mode=OneWay}" FontFamily="Consolas"/>
                                                     <Run Text=" · "/>
                                                     <Run Text="{Binding UnitPriceFormatted, Mode=OneWay}"/>
+                                                    <Run Text=" · "/>
+                                                    <Run Text="{Binding Unit, Mode=OneWay}"/>
                                                     <Run Text=" · "/>
                                                     <Run Text="{Binding ListName, Mode=OneWay}"/>
                                                 </TextBlock>
                                                 <TextBlock Text="{Binding Description}"
                                                            FontSize="11" TextWrapping="Wrap"
-                                                           Margin="0,2,0,0"
+                                                           Margin="0,4,0,0"
+                                                           TextTrimming="None"
                                                            Foreground="{DynamicResource InkDefaultBrush}"/>
                                             </StackPanel>
                                         </Border>

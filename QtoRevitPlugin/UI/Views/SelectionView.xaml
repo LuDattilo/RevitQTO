@@ -337,13 +337,45 @@
                 BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1" CornerRadius="4">
             <Grid>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>   <!-- 0: banner esito assegnazione -->
+                    <RowDefinition Height="Auto"/>   <!-- 1: voce attiva + descrizione -->
+                    <RowDefinition Height="Auto"/>   <!-- 2: ComboBox quantità -->
+                    <RowDefinition Height="Auto"/>   <!-- 3: preview + bottone applica -->
                 </Grid.RowDefinitions>
 
+                <!-- Banner esito assegnazione (visibile 5s dopo click Assegna) -->
+                <Border Grid.Row="0" Margin="0,0,0,8" Padding="10,6" CornerRadius="3"
+                        Visibility="{Binding LastAssignVisible, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Background" Value="#C8E6C9"/>  <!-- success green soft -->
+                            <Setter Property="BorderBrush" Value="#2E7D32"/>
+                            <Setter Property="BorderThickness" Value="1"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding LastAssignIsSuccess}" Value="False">
+                                    <Setter Property="Background" Value="#FFCDD2"/>  <!-- error red soft -->
+                                    <Setter Property="BorderBrush" Value="#C62828"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <TextBlock Text="{Binding LastAssignSummary}"
+                               FontSize="12" FontWeight="SemiBold"
+                               Foreground="#1B5E20" TextWrapping="Wrap">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding LastAssignIsSuccess}" Value="False">
+                                        <Setter Property="Foreground" Value="#B71C1C"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Border>
+
                 <!-- Riga 1: voce attiva + descrizione -->
-                <StackPanel Grid.Row="0" Orientation="Horizontal">
+                <StackPanel Grid.Row="1" Orientation="Horizontal">
                     <TextBlock Text="ASSEGNA VOCE EP"
                                FontFamily="{DynamicResource FontMono}"
                                FontSize="9" FontWeight="Bold"
@@ -361,7 +393,7 @@
                 </StackPanel>
 
                 <!-- Riga 2: ComboBox QuantityMode (scelta unica compatta) -->
-                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,6,0,0">
+                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,6,0,0">
                     <TextBlock Text="Quantità per istanza:" FontSize="10"
                                Foreground="{DynamicResource InkMutedBrush}"
                                VerticalAlignment="Center" Margin="0,0,8,0"/>
@@ -374,7 +406,7 @@
                 </StackPanel>
 
                 <!-- Riga 3: preview + bottone applica (testo e preview dinamici in base alla selezione) -->
-                <Grid Grid.Row="2" Margin="0,8,0,0">
+                <Grid Grid.Row="3" Margin="0,8,0,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>

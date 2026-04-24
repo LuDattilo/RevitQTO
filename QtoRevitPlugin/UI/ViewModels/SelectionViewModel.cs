@@ -61,6 +61,15 @@ namespace QtoRevitPlugin.UI.ViewModels
         [ObservableProperty] private string _assignPreview = "";
         [ObservableProperty] private string _assignButtonText = "Assegna";
 
+        /// <summary>
+        /// Ultimo esito assegnazione — mostrato come banner verde (success) o rosso (failure)
+        /// sopra la card Assegna EP. Auto-clear dopo 5 secondi via DispatcherTimer.
+        /// </summary>
+        [ObservableProperty] private string _lastAssignSummary = "";
+        [ObservableProperty] private bool _lastAssignIsSuccess;
+        [ObservableProperty] private bool _lastAssignVisible;
+        private readonly DispatcherTimer _assignBannerTimer;
+
         /// <summary>Elementi selezionati nel DataGrid (aggiornati dal code-behind via SetSelectedElements).</summary>
         public ObservableCollection<ElementRowVm> SelectedElements { get; } = new();
 
@@ -85,6 +94,16 @@ namespace QtoRevitPlugin.UI.ViewModels
 
         partial void OnQuantityModeChanged(QuantityMode value) => UpdateAssignPreview();
 
+        partial void OnLastAssignSummaryChanged(string value)
+        {
+            if (!string.IsNullOrEmpty(value))
+            {
+                LastAssignVisible = true;
+                _assignBannerTimer.Stop();
+                _assignBannerTimer.Start();
+            }
+        }
+
         /// <summary>
         /// Plan C-6: chiamato dal code-behind quando cambia la selezione nel DataGrid.
         /// Aggiorna SelectedElements + preview + CanApply.
@@ -103,6 +122,14 @@ namespace QtoRevitPlugin.UI.ViewModels
         {
             _searchDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(350) };
             _searchDebounce.Tick += OnSearchDebounceTick;
+
+            // Plan C-6: timer per auto-clear del banner esito assegnazione (5s).
+            _assignBannerTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+            _assignBannerTimer.Tick += (_, _) =>
+            {
+                _assignBannerTimer.Stop();
+                LastAssignVisible = false;
+            };
 
             foreach (var (bic, label) in SelectionService.PopularCategories)
                 Categories.Add(new CategoryItemVm(bic, label));
@@ -781,16 +808,25 @@ namespace QtoRevitPlugin.UI.ViewModels
                 };
                 StatusMessage = $"✓ Assegnati {addedCount} elementi a '{ActiveEpCode}' · tot {totalQty:N2} {unit}";
                 AssignEpLogger.Log($"SUCCESS · {addedCount} SubRow · tot={totalQty:N2} {unit}");
+                // Plan C-6: notifica Redazione CME et al. per refresh live
+                QtoApplication.Instance?.SessionManager?.NotifyAssignmentsChanged();
+                // Feedback UI esplicito: banner "success" + toast con contatore totale
+                LastAssignSummary = $"✓ {addedCount} elementi assegnati a «{pi.Code}» · {totalQty:N2} {unit} · € {totalQty * pi.UnitPrice:N2}";
+                LastAssignIsSuccess = true;
             }
             catch (DomainValidationException dex)
             {
                 StatusMessage = $"{dex.RuleCode}: {dex.Message}";
                 AssignEpLogger.Log($"DomainValidationException · {dex.RuleCode}: {dex.Message}");
+                LastAssignIsSuccess = false;
+                LastAssignSummary = $"⚠ Errore: {dex.Message}";
             }
             catch (Exception ex)
             {
                 StatusMessage = $"Errore assegnazione: {ex.Message}";
                 AssignEpLogger.Log($"EXCEPTION · {ex.GetType().Name}: {ex.Message}{Environment.NewLine}{ex.StackTrace}");
+                LastAssignIsSuccess = false;
+                LastAssignSummary = $"⚠ Errore: {ex.Message}";
             }
         }
     }
