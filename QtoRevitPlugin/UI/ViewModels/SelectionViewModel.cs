@@ -60,6 +60,9 @@ namespace QtoRevitPlugin.UI.ViewModels
         [ObservableProperty] private QuantityMode _quantityMode = QuantityMode.Count;
         [ObservableProperty] private string _assignPreview = "";
 
+        /// <summary>Elementi selezionati nel DataGrid (aggiornati dal code-behind via SetSelectedElements).</summary>
+        public ObservableCollection<ElementRowVm> SelectedElements { get; } = new();
+
         public ObservableCollection<QuantityModeOption> QuantityModeOptions { get; } =
             new ObservableCollection<QuantityModeOption>
             {
@@ -70,7 +73,7 @@ namespace QtoRevitPlugin.UI.ViewModels
             };
 
         public bool CanApply =>
-            !string.IsNullOrWhiteSpace(ActiveEpCode) && Elements.Count > 0;
+            !string.IsNullOrWhiteSpace(ActiveEpCode) && SelectedElements.Count > 0;
 
         partial void OnActiveEpCodeChanged(string value)
         {
@@ -80,6 +83,20 @@ namespace QtoRevitPlugin.UI.ViewModels
         }
 
         partial void OnQuantityModeChanged(QuantityMode value) => UpdateAssignPreview();
+
+        /// <summary>
+        /// Plan C-6: chiamato dal code-behind quando cambia la selezione nel DataGrid.
+        /// Aggiorna SelectedElements + preview + CanApply.
+        /// </summary>
+        public void SetSelectedElements(System.Collections.Generic.IEnumerable<ElementRowVm> selected)
+        {
+            SelectedElements.Clear();
+            if (selected != null)
+                foreach (var el in selected) SelectedElements.Add(el);
+            OnPropertyChanged(nameof(CanApply));
+            ApplyEpCommand.NotifyCanExecuteChanged();
+            UpdateAssignPreview();
+        }
 
         public SelectionViewModel()
         {
@@ -298,7 +315,10 @@ namespace QtoRevitPlugin.UI.ViewModels
                                 rulesLabel +
                                 $" · {sw.ElapsedMilliseconds} ms";
 
-                // Plan C-6: aggiorna preview assegnazione quando il set risultati cambia
+                // Plan C-6: reset selezione quando i risultati cambiano (il DataGrid perde la
+                // selezione automaticamente quando ItemsSource cambia, il code-behind richiamerà
+                // SetSelectedElements(empty) via evento).
+                SelectedElements.Clear();
                 UpdateAssignPreview();
                 OnPropertyChanged(nameof(CanApply));
                 ApplyEpCommand.NotifyCanExecuteChanged();
@@ -576,14 +596,22 @@ namespace QtoRevitPlugin.UI.ViewModels
         }
 
         /// <summary>
-        /// Ricalcola la preview "N elementi · tot X m²" leggendo i valori geometrici
-        /// dei Revit elements attualmente in Elements, secondo il QuantityMode.
+        /// Ricalcola la preview "N selezionati · tot X m²" leggendo i valori geometrici
+        /// degli elementi ATTUALMENTE SELEZIONATI nel DataGrid (non dell'intera tabella filtrata).
         /// </summary>
         private void UpdateAssignPreview()
         {
-            if (string.IsNullOrWhiteSpace(ActiveEpCode) || Elements.Count == 0)
+            if (SelectedElements.Count == 0)
             {
-                AssignPreview = "";
+                AssignPreview = Elements.Count > 0
+                    ? "Seleziona una o più righe per l'assegnazione"
+                    : "";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(ActiveEpCode))
+            {
+                AssignPreview = $"{SelectedElements.Count} selezionati · seleziona una voce dal Listino";
                 return;
             }
 
@@ -595,7 +623,7 @@ namespace QtoRevitPlugin.UI.ViewModels
                 var reader = new RevitElementMeasurementReader();
                 double total = 0;
                 int counted = 0;
-                foreach (var vm in Elements)
+                foreach (var vm in SelectedElements)
                 {
 #if REVIT2025_OR_LATER
                     var el = doc.GetElement(new ElementId((long)vm.ElementId));
@@ -613,7 +641,7 @@ namespace QtoRevitPlugin.UI.ViewModels
                     QuantityMode.Length => "m",
                     _ => "pz"
                 };
-                AssignPreview = $"{counted} elementi · tot {total:N2} {unit}";
+                AssignPreview = $"{counted} selezionati · tot {total:N2} {unit}";
             }
             catch (Exception ex)
             {
@@ -703,11 +731,12 @@ namespace QtoRevitPlugin.UI.ViewModels
                 var msvc = new MeasurementService(repo);
                 var row = msvc.CreateRow(cmeDoc.Id, pi.Id);
 
-                // 4. Per ciascun elemento filtrato → MeasurementSubRow (RGItem)
+                // 4. Per ciascun elemento SELEZIONATO nel DataGrid → MeasurementSubRow (RGItem)
+                AssignEpLogger.Log($"SelectedElements count={SelectedElements.Count}");
                 var reader = new RevitElementMeasurementReader();
                 int addedCount = 0;
                 double totalQty = 0;
-                foreach (var elVm in Elements)
+                foreach (var elVm in SelectedElements)
                 {
 #if REVIT2025_OR_LATER
                     var el = doc.GetElement(new ElementId((long)elVm.ElementId));
