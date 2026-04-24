@@ -29,7 +29,12 @@
         </Grid>
 
         <!-- Filtro: Fase Revit + Modalità computo + Categoria + Filtri parametrici -->
-        <Border Grid.Row="1" Style="{DynamicResource CardStyle}" Margin="16,8,16,4">
+        <!-- ScrollViewer esterno con MaxHeight: se l'utente aggiunge molti filtri
+             parametrici la card non schiaccia il DataGrid sottostante. -->
+        <ScrollViewer Grid.Row="1" MaxHeight="360"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+        <Border Style="{DynamicResource CardStyle}" Margin="16,8,16,4">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -130,24 +135,99 @@
                             <DataTemplate>
                                 <Grid Margin="0,3,0,0">
                                     <Grid.ColumnDefinitions>
+                                        <!-- AND/OR — nascosto per la prima regola -->
+                                        <ColumnDefinition Width="46"/>
+                                        <!-- Parametro (ComboBox con autocomplete) -->
                                         <ColumnDefinition Width="*" MinWidth="120"/>
-                                        <ColumnDefinition Width="90"/>
-                                        <ColumnDefinition Width="*" MinWidth="80"/>
+                                        <!-- Operatore -->
+                                        <ColumnDefinition Width="105"/>
+                                        <!-- Valore -->
+                                        <ColumnDefinition Width="*" MinWidth="70"/>
+                                        <!-- × rimuovi -->
                                         <ColumnDefinition Width="22"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBox Grid.Column="0"
-                                             Style="{DynamicResource TxtField}"
-                                             Text="{Binding ParameterName, UpdateSourceTrigger=PropertyChanged}"
-                                             ToolTip="Nome esatto del parametro Revit (es: Spessore, Area, Materiale struttura)"/>
-                                    <ComboBox Grid.Column="1" Margin="4,0"
+
+                                    <!-- AND/OR pill — hidden for first rule via wrapper -->
+                                    <Border Grid.Column="0" Margin="0,0,4,0">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsFirst}" Value="True">
+                                                        <Setter Property="Visibility" Value="Hidden"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <ComboBox Style="{DynamicResource CmbField}"
+                                                  ItemsSource="{x:Static vm:ParamFilterRuleVm.LogicLabels}"
+                                                  SelectedItem="{Binding LogicLabel, Mode=TwoWay}"
+                                                  FontSize="10" FontWeight="SemiBold"/>
+                                    </Border>
+
+                                    <!-- Parametro: ComboBox editabile (IsEditable=True) con lista da Revit -->
+                                    <ComboBox Grid.Column="1"
+                                              Style="{DynamicResource CmbField}"
+                                              IsEditable="True"
+                                              ItemsSource="{Binding AvailableParams}"
+                                              Text="{Binding ParameterName, UpdateSourceTrigger=PropertyChanged}"
+                                              ToolTip="Seleziona un parametro dalla lista o digita il nome esatto"/>
+
+                                    <!-- Operatore -->
+                                    <ComboBox Grid.Column="2" Margin="4,0"
                                               Style="{DynamicResource CmbField}"
                                               ItemsSource="{x:Static vm:ParamFilterRuleVm.OperatorLabels}"
                                               SelectedItem="{Binding OperatorLabel, Mode=TwoWay}" />
-                                    <TextBox Grid.Column="2"
-                                             Style="{DynamicResource TxtField}"
-                                             Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
-                                             ToolTip="Valore in unità di progetto (es: 0.30 per 30 cm, 10.5 per 10.5 m²)"/>
-                                    <Button Grid.Column="3" Margin="4,0,0,0"
+
+                                    <!-- Valore — nascosto per IsEmpty/IsNotEmpty via wrapper -->
+                                    <Border Grid.Column="3">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding NeedsValue}" Value="False">
+                                                        <Setter Property="Visibility" Value="Hidden"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <!--
+                                            Valore: TextBox libera per operatori testuali/numerici,
+                                            ComboBox editabile con valori distinti del modello quando
+                                            l'operatore è '=' o '≠' (IsValueFromList).
+                                            La ComboBox popola i valori lazy sul DropDownOpened.
+                                        -->
+                                        <Grid>
+                                            <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
+                                                     ToolTip="Valore in unità di progetto (lunghezze in m, aree in m²)">
+                                                <TextBox.Style>
+                                                    <Style TargetType="TextBox" BasedOn="{StaticResource TxtField}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsValueFromList}" Value="True">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBox.Style>
+                                            </TextBox>
+                                            <ComboBox IsEditable="True"
+                                                      ItemsSource="{Binding AvailableValues}"
+                                                      Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
+                                                      DropDownOpened="OnValueComboDropDownOpened"
+                                                      ToolTip="Seleziona un valore presente nel modello o digita il valore esatto">
+                                                <ComboBox.Style>
+                                                    <Style TargetType="ComboBox" BasedOn="{StaticResource CmbField}">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsValueFromList}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </ComboBox.Style>
+                                            </ComboBox>
+                                        </Grid>
+                                    </Border>
+
+                                    <Button Grid.Column="4" Margin="4,0,0,0"
                                             Command="{Binding DataContext.RemoveParamRuleCommand,
                                                       Source={x:Reference ParamRulesList}}"
                                             CommandParameter="{Binding}"
@@ -170,12 +250,13 @@
                                 </Style.Triggers>
                             </Style>
                         </TextBlock.Style>
-                        &#x26A0; Valori numerici in unità di progetto (lunghezze in m, aree in m²). Testi case-insensitive.
+                        &#x26A0; Valori numerici in unità di progetto (lunghezze in m, aree in m²). Testi case-insensitive. La lista parametri si popola selezionando una categoria.
                     </TextBlock>
                 </StackPanel>
 
             </Grid>
         </Border>
+        </ScrollViewer>
 
         <!-- Toolbar azioni -->
         <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="16,0,16,4">
@@ -207,6 +288,8 @@
                       CanUserAddRows="False"
                       CanUserDeleteRows="False"
                       CanUserResizeRows="False"
+                      CanUserReorderColumns="True"
+                      CanUserResizeColumns="True"
                       HeadersVisibility="Column"
                       GridLinesVisibility="Horizontal"
                       RowHeight="22"
@@ -216,6 +299,11 @@
                       IsReadOnly="True"
                       SelectionMode="Extended"
                       MouseDoubleClick="OnRowDoubleClick">
+                <DataGrid.ColumnHeaderStyle>
+                    <Style TargetType="DataGridColumnHeader">
+                        <EventSetter Event="MouseRightButtonUp" Handler="OnColumnHeaderRightClick"/>
+                    </Style>
+                </DataGrid.ColumnHeaderStyle>
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Id"            Binding="{Binding ElementId}"           Width="70"  FontFamily="Consolas" />
                     <DataGridTextColumn Header="Famiglia"      Binding="{Binding FamilyName}"          Width="*" />
