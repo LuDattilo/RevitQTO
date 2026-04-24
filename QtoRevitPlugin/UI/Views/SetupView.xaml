@@ -33,6 +33,15 @@
             <TabItem Header="Struttura Computo">
                 <views:ComputoStructureView />
             </TabItem>
+            <TabItem Header="Capitoli (v12)">
+                <views:ChapterNodesView />
+            </TabItem>
+            <TabItem Header="Categorie (v12)">
+                <views:CategoryNodesView />
+            </TabItem>
+            <TabItem Header="WBS (v12)">
+                <views:WbsNodesView />
+            </TabItem>
             <TabItem Header="Nuovi Prezzi">
                 <views:NuoviPrezziView />
             </TabItem>
