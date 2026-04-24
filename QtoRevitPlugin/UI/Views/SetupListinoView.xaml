@@ -184,8 +184,8 @@
                                       BorderBrush="{DynamicResource EdgeLightBrush}"
                                       MaxHeight="380"
                                       RowDetailsVisibilityMode="VisibleWhenSelected"
-                                      RowStyle="{StaticResource BrandDataGridRowStyle}"
-                                      CellStyle="{StaticResource BrandDataGridCellStyle}"
+                                      RowStyle="{DynamicResource BrandDataGridRowStyle}"
+                                      CellStyle="{DynamicResource BrandDataGridCellStyle}"
                                       MouseDoubleClick="OnSearchResultDoubleClick"
                                       PreviewMouseLeftButtonDown="OnSearchResultMouseDown"
                                       MouseMove="OnSearchResultMouseMove">
@@ -363,8 +363,8 @@
                                           BorderBrush="{DynamicResource EdgeLightBrush}"
                                           MaxHeight="380"
                                           RowDetailsVisibilityMode="VisibleWhenSelected"
-                                          RowStyle="{StaticResource BrandDataGridRowStyle}"
-                                          CellStyle="{StaticResource BrandDataGridCellStyle}"
+                                          RowStyle="{DynamicResource BrandDataGridRowStyle}"
+                                          CellStyle="{DynamicResource BrandDataGridCellStyle}"
                                           Visibility="{Binding ProjectFavoritesIsEmpty,
                                                        Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                                     <DataGrid.RowDetailsTemplate>
@@ -568,8 +568,8 @@
                                           BorderBrush="{DynamicResource EdgeLightBrush}"
                                           MaxHeight="380"
                                           RowDetailsVisibilityMode="VisibleWhenSelected"
-                                          RowStyle="{StaticResource BrandDataGridRowStyle}"
-                                          CellStyle="{StaticResource BrandDataGridCellStyle}"
+                                          RowStyle="{DynamicResource BrandDataGridRowStyle}"
+                                          CellStyle="{DynamicResource BrandDataGridCellStyle}"
                                           Visibility="{Binding PersonalFavoritesIsEmpty,
                                                        Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                                     <DataGrid.RowDetailsTemplate>

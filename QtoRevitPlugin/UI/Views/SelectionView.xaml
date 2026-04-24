@@ -314,8 +314,11 @@
                         <EventSetter Event="MouseRightButtonUp" Handler="OnColumnHeaderRightClick"/>
                     </Style>
                 </DataGrid.ColumnHeaderStyle>
-                <DataGrid.RowStyle><StaticResource ResourceKey="BrandDataGridRowStyle"/></DataGrid.RowStyle>
-                <DataGrid.CellStyle><StaticResource ResourceKey="BrandDataGridCellStyle"/></DataGrid.CellStyle>
+                <!-- DynamicResource (non Static): il tema QtoTheme.xaml viene caricato nelle
+                     Application.Resources al runtime (OnStartup), quindi al parse-time della View
+                     lo StaticResource fallirebbe con exception. DynamicResource resolve al render. -->
+                <DataGrid.RowStyle><DynamicResource ResourceKey="BrandDataGridRowStyle"/></DataGrid.RowStyle>
+                <DataGrid.CellStyle><DynamicResource ResourceKey="BrandDataGridCellStyle"/></DataGrid.CellStyle>
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Id"            Binding="{Binding ElementId}"           Width="70"  FontFamily="Consolas" />
                     <DataGridTextColumn Header="Famiglia"      Binding="{Binding FamilyName}"          Width="*" />
