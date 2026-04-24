@@ -222,6 +222,81 @@
         </Style.Triggers>
     </Style>
 
+    <!-- Pulsante toolbar compatto (bordo neutro, sfondo trasparente, hover grigio) -->
+    <Style x:Key="BtnTool" TargetType="Button" BasedOn="{StaticResource BtnPrimary}">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{StaticResource InkDefaultBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource EdgeLightBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="10,5" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource PanelSubBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource EdgeMediumBrush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.45" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Pulsante icona/azione piccola (×, +, ★) senza bordo e sfondo -->
+    <Style x:Key="BtnIcon" TargetType="Button" BasedOn="{StaticResource BtnPrimary}">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{StaticResource InkMutedBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="4,2" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Foreground" Value="{StaticResource BrandAccentDeepBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- ComboBox uniforme: bordo EdgeLight, Padding 6 4, FontSize 11, CornerRadius 4 -->
+    <Style x:Key="CmbField" TargetType="ComboBox">
+        <Setter Property="FontFamily" Value="{StaticResource FontBody}" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Padding" Value="6,4" />
+        <Setter Property="BorderBrush" Value="{StaticResource EdgeLightBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Background" Value="White" />
+        <Setter Property="Height" Value="28" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="BorderBrush" Value="{StaticResource EdgeMediumBrush}" />
+            </Trigger>
+            <Trigger Property="IsFocused" Value="True">
+                <Setter Property="BorderBrush" Value="{StaticResource BrandAccentBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- TextBox uniforme: bordo EdgeLight, Padding 6 4, FontSize 11 -->
+    <Style x:Key="TxtField" TargetType="TextBox">
+        <Setter Property="FontFamily" Value="{StaticResource FontBody}" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Padding" Value="6,4" />
+        <Setter Property="BorderBrush" Value="{StaticResource EdgeLightBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Background" Value="White" />
+        <Setter Property="Height" Value="28" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="BorderBrush" Value="{StaticResource EdgeMediumBrush}" />
+            </Trigger>
+            <Trigger Property="IsFocused" Value="True">
+                <Setter Property="BorderBrush" Value="{StaticResource BrandAccentBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
     <!-- ============================================================
          SWITCHER — ToggleButton per il DockablePane
          Chrome teal-slate invece del nero profondo precedente.
