@@ -56,7 +56,37 @@ namespace QtoRevitPlugin.Data
                 MigrateIfNeeded(conn);
             }
 
+            // Self-healing idempotente (Plan C-6 fix): i DB già a v12 ma con colonne
+            // XPWE mancanti (perché migrati quando il helper C-0 era incompleto, es.
+            // prima dell'aggiunta di Tariffa e Prezzo1) vengono ora riparati. Questo
+            // blocco è safe su QUALSIASI schema (v1..v12) perché ciascuna ALTER è
+            // protetta da PRAGMA table_info check.
+            EnsureAllV12PriceItemColumnsIdempotent(conn);
+
             return conn;
+        }
+
+        /// <summary>
+        /// Self-healing: applica le 17 ALTER TABLE di v12 senza ricontrollare la SchemaInfo.
+        /// Chiamato SEMPRE a ogni open, è idempotente perché ogni ALTER è preceduta da
+        /// un PRAGMA check (ColumnExists).
+        /// </summary>
+        private static void EnsureAllV12PriceItemColumnsIdempotent(SqliteConnection conn)
+        {
+            // Non tutte le installazioni hanno la tabella PriceItems (es. DB vuoto
+            // da Sprint 0). Se manca, no-op.
+            using (var tx0 = conn.BeginTransaction())
+            {
+                if (!TableExists(conn, tx0, "PriceItems"))
+                {
+                    tx0.Rollback();
+                    return;
+                }
+                tx0.Rollback();
+            }
+            using var tx = conn.BeginTransaction();
+            ApplyV12PriceItemExtensions(conn, tx);
+            tx.Commit();
         }
 
         private void ApplyInitialSchema(SqliteConnection conn)
