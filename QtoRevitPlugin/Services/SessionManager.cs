@@ -66,6 +66,8 @@ namespace QtoRevitPlugin.Services
         {
             _activeEpDescription = description ?? "";
             ActiveEpCode = code ?? "";
+            AssignEpLogger.Log(
+                $"SetActiveEp · code=[{code}] len={code?.Length ?? 0} · desc=[{description ?? "null"}]");
         }
 
         // =====================================================================

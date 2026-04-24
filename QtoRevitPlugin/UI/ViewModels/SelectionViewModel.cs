@@ -581,12 +581,16 @@ namespace QtoRevitPlugin.UI.ViewModels
         [RelayCommand(CanExecute = nameof(CanApply))]
         private void ApplyEp()
         {
+            AssignEpLogger.Log("========== ApplyEp start ==========");
             var repo = QtoApplication.Instance?.SessionManager?.Repository;
             var sess = QtoApplication.Instance?.SessionManager?.ActiveSession;
             var doc = QtoApplication.Instance?.CurrentUiApp?.ActiveUIDocument?.Document;
+            AssignEpLogger.Log($"Context · repo={(repo != null ? "ok" : "null")} · session={(sess != null ? $"id={sess.Id}" : "null")} · doc={(doc != null ? $"'{doc.Title}'" : "null")}");
+
             if (repo == null || sess == null || doc == null)
             {
                 StatusMessage = "Sessione o documento non disponibili.";
+                AssignEpLogger.Log("ABORT: context mancante");
                 return;
             }
 
@@ -595,17 +599,34 @@ namespace QtoRevitPlugin.UI.ViewModels
                 // 1. Garantisci ComputoDocument per la sessione
                 var docSvc = new ComputoDocumentService(repo);
                 var cmeDoc = docSvc.GetOrCreate(sess.Id);
+                AssignEpLogger.Log($"ComputoDocument · id={cmeDoc.Id} · tipo={cmeDoc.TipoDocumento}");
 
                 // 2. Risolvi PriceItem per Code (primo match attivo).
-                // Trim + lookup. Se non trovato, fallback su ricerca case-insensitive via LINQ.
                 var codeLookup = (ActiveEpCode ?? "").Trim();
+                AssignEpLogger.Log($"Lookup voce EP · code=[{codeLookup}] len={codeLookup.Length}");
+                // Log ogni char come hex per individuare caratteri invisibili (NBSP, zero-width, ecc.)
+                var hex = string.Join(" ", codeLookup.Select(c => ((int)c).ToString("X2")));
+                AssignEpLogger.Log($"  bytes: {hex}");
+
                 var items = repo.GetPriceItemsByCode(codeLookup);
+                AssignEpLogger.Log($"GetPriceItemsByCode · matches={items.Count}");
+
                 var pi = items.FirstOrDefault();
                 if (pi == null)
                 {
-                    StatusMessage = $"Voce '{codeLookup}' (len={codeLookup.Length}) non trovata nei listini attivi. Verifica che il listino sia attivo e il codice sia esatto.";
+                    // FALLBACK: LIKE cerca se c'è qualcosa di simile (es. prefisso diverso)
+                    var similar = repo.SearchPriceItemsByCodeLike(codeLookup, 5);
+                    AssignEpLogger.Log($"Fallback LIKE · {similar.Count} simili:");
+                    foreach (var s in similar)
+                        AssignEpLogger.Log($"  · listId={s.PriceListId} · code=[{s.Code}] · list={s.ListName}");
+
+                    StatusMessage = similar.Count > 0
+                        ? $"Voce '{codeLookup}' non trovata esatta. {similar.Count} codici simili nel DB (vedi log): es. '{similar[0].Code}'"
+                        : $"Voce '{codeLookup}' (len={codeLookup.Length}) non trovata. Listino disattivato? (log: {AssignEpLogger.LogPath})";
+                    AssignEpLogger.Log($"ABORT: {StatusMessage}");
                     return;
                 }
+                AssignEpLogger.Log($"PriceItem trovato · id={pi.Id} · listId={pi.PriceListId} · list={pi.ListName}");
 
                 // 3. Crea un nuovo MeasurementRow (VCItem)
                 var msvc = new MeasurementService(repo);
@@ -651,14 +672,17 @@ namespace QtoRevitPlugin.UI.ViewModels
                     _ => "pz"
                 };
                 StatusMessage = $"✓ Assegnati {addedCount} elementi a '{ActiveEpCode}' · tot {totalQty:N2} {unit}";
+                AssignEpLogger.Log($"SUCCESS · {addedCount} SubRow · tot={totalQty:N2} {unit}");
             }
             catch (DomainValidationException dex)
             {
                 StatusMessage = $"{dex.RuleCode}: {dex.Message}";
+                AssignEpLogger.Log($"DomainValidationException · {dex.RuleCode}: {dex.Message}");
             }
             catch (Exception ex)
             {
                 StatusMessage = $"Errore assegnazione: {ex.Message}";
+                AssignEpLogger.Log($"EXCEPTION · {ex.GetType().Name}: {ex.Message}{Environment.NewLine}{ex.StackTrace}");
             }
         }
     }

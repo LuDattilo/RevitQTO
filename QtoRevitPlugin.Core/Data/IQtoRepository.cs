@@ -80,6 +80,13 @@ namespace QtoRevitPlugin.Data
         /// </summary>
         System.Collections.Generic.IReadOnlyList<PriceItem> GetPriceItemsByCode(string code);
 
+        /// <summary>
+        /// Plan C-6 debug: fallback LIKE per trovare voci simili al code passato.
+        /// Usato quando GetPriceItemsByCode fallisce, per diagnosticare problemi di
+        /// corrispondenza (prefisso diverso, caratteri invisibili). Ignora IsActive.
+        /// </summary>
+        System.Collections.Generic.IReadOnlyList<PriceItem> SearchPriceItemsByCodeLike(string code, int limit);
+
         // EmbeddingCache (AI — modulo opzionale). Cache vettori per voci di listino,
         // pre-calcolati al primo load e invalidati al cambio modello o listino.
         /// <summary>True se esiste un embedding per (priceItemId, modelName).</summary>

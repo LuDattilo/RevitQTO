@@ -419,6 +419,26 @@ WHERE TRIM(p.Code) = TRIM(@c) COLLATE NOCASE AND pl.IsActive = 1;";
                         .ToList();
         }
 
+        public IReadOnlyList<PriceItem> SearchPriceItemsByCodeLike(string code, int limit)
+        {
+            if (string.IsNullOrWhiteSpace(code)) return new List<PriceItem>();
+            // Ricerca fuzzy: estrae 8 caratteri centrali dal codice (se lungo >12)
+            // e cerca LIKE '%core%'. Utile per diagnosticare discrepanze prefisso/suffisso.
+            var trim = code.Trim();
+            var core = trim.Length > 12
+                ? trim.Substring(trim.Length / 2 - 4, 8)
+                : trim;
+            const string sql = @"
+SELECT p.*, pl.Name AS ListName
+FROM PriceItems p
+JOIN PriceLists pl ON pl.Id = p.PriceListId
+WHERE p.Code LIKE @pat COLLATE NOCASE
+LIMIT @lim;";
+            return _conn.Query<PriceItemRow>(sql, new { pat = "%" + core + "%", lim = limit })
+                        .Select(r => r.ToPriceItem())
+                        .ToList();
+        }
+
         /// <summary>
         /// Sanitizza la query utente e la converte in sintassi FTS5 prefix-match per ogni token.
         /// Rimuove caratteri problematici ("*()^-) e produce 'word1* word2*' (AND implicito).
