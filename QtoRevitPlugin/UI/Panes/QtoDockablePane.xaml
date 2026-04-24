@@ -108,9 +108,6 @@
                                     Click="OnSessionMenuClick">
                                 <Button.ContextMenu>
                                     <ContextMenu x:Name="SessionContextMenu">
-                                        <MenuItem x:Name="MiNew" Header="Nuovo computo…" Click="OnNewSession" />
-                                        <MenuItem x:Name="MiOpen" Header="Apri computo…" Click="OnOpenSession" />
-                                        <Separator />
                                         <MenuItem x:Name="MiSave" Header="Salva" Click="OnSave" />
                                         <MenuItem x:Name="MiSaveAs" Header="Salva con nome…" Click="OnSaveAs" />
                                         <Separator />
