@@ -734,11 +734,8 @@ namespace QtoRevitPlugin.UI.ViewModels
             return QtoApplication.Instance?.UserLibrary?.Library;
         }
 
-        private static IPriceListParser? FindParserFor(string filePath)
-        {
-            var parsers = new IPriceListParser[] { new DcfParser(), new ExcelParser(), new CsvParser() };
-            return parsers.FirstOrDefault(p => p.CanHandle(filePath));
-        }
+        private static IPriceListParser? FindParserFor(string filePath) =>
+            PriceListParserFactory.FindFor(filePath);
     }
 
     // -------------------------------------------------------------------------
