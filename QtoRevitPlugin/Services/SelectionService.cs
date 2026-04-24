@@ -9,24 +9,47 @@ namespace QtoRevitPlugin.Services
     public enum ParamOperator
     {
         Contains,
+        NotContains,
         Equals,
         NotEquals,
         GreaterThan,
         LessThan,
         GreaterOrEqual,
-        LessOrEqual
+        LessOrEqual,
+        IsEmpty,
+        IsNotEmpty
+    }
+
+    public enum RuleLogicOperator { And, Or }
+
+    /// <summary>
+    /// Meta-descrittore di un parametro filtrabile. Per i BuiltInParameter (language-independent)
+    /// la risoluzione runtime usa <see cref="Element.get_Parameter(BuiltInParameter)"/>; per i
+    /// parametri progetto/condivisi (BuiltIn==null) si fa fallback a <see cref="Element.LookupParameter(string)"/>.
+    /// DisplayName è il label localizzato per la UI.
+    /// </summary>
+    public class FilterableParam
+    {
+        public string DisplayName { get; set; } = "";
+        public BuiltInParameter? BuiltIn { get; set; }
+        public override string ToString() => DisplayName;
     }
 
     /// <summary>
     /// Regola filtro parametrica usata in Selezione v2. I valori sono in unità
     /// DISPLAY del progetto (es. "0.30" per 30 cm). Il service converte in unità
     /// interne Revit prima del confronto per StorageType.Double.
+    /// LogicOperator determina come questa regola si combina con le precedenti (AND/OR).
+    /// BuiltIn, quando valorizzato, ha la precedenza su ParameterName per la risoluzione
+    /// runtime (language-independent).
     /// </summary>
     public class ParamFilterRule
     {
         public string ParameterName { get; set; } = "";
+        public BuiltInParameter? BuiltIn { get; set; }
         public ParamOperator Operator { get; set; } = ParamOperator.Contains;
         public string Value { get; set; } = "";
+        public RuleLogicOperator LogicOperator { get; set; } = RuleLogicOperator.And;
     }
 
     /// <summary>
@@ -36,7 +59,7 @@ namespace QtoRevitPlugin.Services
     /// Regola C7 (performance): filtri rapidi PRIMA dei lenti →
     /// OfCategory + WhereElementIsNotElementType (rapidi) + WherePasses(ElementPhaseStatusFilter) (lento).
     /// </summary>
-    public class SelectionService
+    public partial class SelectionService
     {
         /// <summary>
         /// Elenco "popolare" di categorie modellabili per il dropdown UI.
@@ -82,6 +105,23 @@ namespace QtoRevitPlugin.Services
             SelectionComputationMode computationMode = SelectionComputationMode.NewAndExisting,
             IReadOnlyList<ParamFilterRule>? paramRules = null,
             int maxResults = 500)
+            => FindElements(doc, category, nameQuery, phaseFilterId, computationMode, paramRules, null, maxResults);
+
+        /// <summary>
+        /// Overload con colonne aggiuntive: per ogni elemento risultante popola
+        /// <see cref="ElementRowInfo.CustomValues"/> coi valori (display string) dei parametri in
+        /// <paramref name="extraColumns"/>. I parametri sono risolti via BuiltInParameter quando possibile
+        /// (language-independent).
+        /// </summary>
+        public IReadOnlyList<ElementRowInfo> FindElements(
+            Document doc,
+            BuiltInCategory category,
+            string? nameQuery,
+            int? phaseFilterId,
+            SelectionComputationMode computationMode,
+            IReadOnlyList<ParamFilterRule>? paramRules,
+            IReadOnlyList<FilterableParam>? extraColumns,
+            int maxResults = 500)
         {
             var collector = new FilteredElementCollector(doc)
                 .OfCategory(category)
@@ -94,19 +134,23 @@ namespace QtoRevitPlugin.Services
 #else
                 var phaseId = new ElementId(phaseFilterId.Value);
 #endif
-                var statuses = computationMode == SelectionComputationMode.Demolitions
-                    ? new List<ElementOnPhaseStatus> { ElementOnPhaseStatus.Demolished }
-                    : new List<ElementOnPhaseStatus>
-                    {
-                        ElementOnPhaseStatus.New,
-                        ElementOnPhaseStatus.Existing
-                    };
+                var statuses = computationMode switch
+                {
+                    SelectionComputationMode.Demolitions   => new List<ElementOnPhaseStatus> { ElementOnPhaseStatus.Demolished },
+                    SelectionComputationMode.NewOnly       => new List<ElementOnPhaseStatus> { ElementOnPhaseStatus.New },
+                    _                                      => new List<ElementOnPhaseStatus> { ElementOnPhaseStatus.New, ElementOnPhaseStatus.Existing }
+                };
                 var phaseFilter = new ElementPhaseStatusFilter(phaseId, statuses);
                 collector = collector.WherePasses(phaseFilter);
             }
 
+            // Una regola è "attiva" se ha il parametro e (un valore, oppure è IsEmpty/IsNotEmpty
+            // che non richiede valore).
             var activeRules = paramRules?
-                .Where(r => !string.IsNullOrWhiteSpace(r.ParameterName) && !string.IsNullOrWhiteSpace(r.Value))
+                .Where(r => !string.IsNullOrWhiteSpace(r.ParameterName) &&
+                            (r.Operator == ParamOperator.IsEmpty ||
+                             r.Operator == ParamOperator.IsNotEmpty ||
+                             !string.IsNullOrWhiteSpace(r.Value)))
                 .ToList();
 
             var elements = collector.ToElements();
@@ -132,10 +176,65 @@ namespace QtoRevitPlugin.Services
                     if (!PassesAllRules(el, activeRules)) continue;
                 }
 
+                // Colonne personalizzate: estrai display value per ogni parametro richiesto.
+                if (extraColumns != null && extraColumns.Count > 0)
+                {
+                    foreach (var col in extraColumns)
+                    {
+                        // Short-circuit sintetico per Family Name / Type Name.
+                        if (col.BuiltIn.HasValue)
+                        {
+                            var synth = TryResolveSyntheticDisplay(el, col.BuiltIn.Value);
+                            if (synth != null)
+                            {
+                                info.CustomValues[col.DisplayName] = synth;
+                                continue;
+                            }
+                        }
+                        var p = ResolveParameter(el, col.BuiltIn, col.DisplayName);
+                        info.CustomValues[col.DisplayName] = ExtractDisplayValue(p, doc);
+                    }
+                }
+
                 result.Add(info);
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Estrae la stringa display di un Parameter seguendo le stesse regole di EnumerateDistinctValues:
+        /// string diretta, ElementId → nome elemento, Double → conversione unità progetto con 3 decimali,
+        /// Integer → AsValueString o valore raw. Null/HasValue=false → stringa vuota.
+        /// </summary>
+        private static string ExtractDisplayValue(Parameter? p, Document doc)
+        {
+            if (p == null || !p.HasValue) return string.Empty;
+            switch (p.StorageType)
+            {
+                case StorageType.String:
+                    return p.AsString() ?? string.Empty;
+                case StorageType.ElementId:
+                    var refEl = doc.GetElement(p.AsElementId());
+                    return refEl?.Name ?? p.AsValueString() ?? string.Empty;
+                case StorageType.Integer:
+                    return p.AsValueString() ?? p.AsInteger().ToString(System.Globalization.CultureInfo.InvariantCulture);
+                case StorageType.Double:
+                {
+                    double raw = p.AsDouble();
+                    double disp = raw;
+                    try
+                    {
+                        var unitId = p.GetUnitTypeId();
+                        if (unitId != null && unitId != UnitTypeId.Custom)
+                            disp = UnitUtils.ConvertFromInternalUnits(raw, unitId);
+                    }
+                    catch { }
+                    return disp.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+                }
+                default:
+                    return p.AsValueString() ?? string.Empty;
+            }
         }
 
         /// <summary>Isola temporaneamente gli elementi sulla vista attiva (toggle per-view).</summary>
@@ -270,15 +369,119 @@ namespace QtoRevitPlugin.Services
         // Selezione v2 — Filtri parametrici
         // -------------------------------------------------------------------
 
+        /// <summary>
+        /// AND/OR logic: il primo blocco AND deve passare tutto; i blocchi OR sono
+        /// raggruppati — almeno uno dei cluster OR deve passare intero.
+        /// Regola semplificata per UI lineare: ogni rule ha il proprio LogicOperator
+        /// che indica come si lega alla rule precedente.
+        /// La prima regola è sempre AND implicito.
+        /// </summary>
         private static bool PassesAllRules(Element el, List<ParamFilterRule> rules)
         {
-            foreach (var rule in rules)
+            // Modello flat: ogni regola OR crea un "ramo alternativo".
+            // Strategia: accumula risultato corrente, quando arriva OR valuta il ramo.
+            bool current = true;
+            bool result = true;
+
+            for (int i = 0; i < rules.Count; i++)
             {
-                var param = ResolveParameter(el, rule.ParameterName);
-                if (param == null || !param.HasValue) return false;
-                if (!EvaluateRule(param, rule)) return false;
+                var rule = rules[i];
+                bool ruleResult = EvaluateRuleOnElement(el, rule);
+
+                if (i == 0 || rule.LogicOperator == RuleLogicOperator.And)
+                {
+                    current = current && ruleResult;
+                }
+                else // Or
+                {
+                    // Salva il branch precedente e inizia branch alternativo
+                    result = result || current;
+                    current = ruleResult;
+                }
             }
-            return true;
+            return result || current;
+        }
+
+        private static bool EvaluateRuleOnElement(Element el, ParamFilterRule rule)
+        {
+            // Parametri sintetici (Family Name/Type Name su system families): valutati come string.
+            if (rule.BuiltIn.HasValue)
+            {
+                var synth = TryResolveSyntheticDisplay(el, rule.BuiltIn.Value);
+                if (synth != null)
+                {
+                    var sval = synth;
+                    if (rule.Operator == ParamOperator.IsEmpty)
+                        return string.IsNullOrWhiteSpace(sval);
+                    if (rule.Operator == ParamOperator.IsNotEmpty)
+                        return !string.IsNullOrWhiteSpace(sval);
+                    return EvalString(sval, rule);
+                }
+            }
+
+            // IsEmpty/IsNotEmpty non richiedono valore
+            if (rule.Operator == ParamOperator.IsEmpty || rule.Operator == ParamOperator.IsNotEmpty)
+            {
+                var p = ResolveParameter(el, rule.BuiltIn, rule.ParameterName);
+                bool hasVal = p != null && p.HasValue &&
+                              !string.IsNullOrWhiteSpace(p.AsValueString() ?? p.AsString());
+                return rule.Operator == ParamOperator.IsNotEmpty ? hasVal : !hasVal;
+            }
+
+            var param = ResolveParameter(el, rule.BuiltIn, rule.ParameterName);
+            if (param == null || !param.HasValue) return false;
+            return EvaluateRule(param, rule);
+        }
+
+        /// <summary>
+        /// Risolve il parametro su un elemento. Se <paramref name="builtIn"/> è valorizzato usa
+        /// <c>get_Parameter(BuiltInParameter)</c> (language-independent), con fallback sul type
+        /// per i parametri di tipo (ALL_MODEL_FAMILY_NAME, ALL_MODEL_TYPE_NAME, ecc.).
+        /// Altrimenti ricade sulla risoluzione per nome (LookupParameter + scan case-insensitive).
+        /// </summary>
+        private static Parameter? ResolveParameter(Element el, BuiltInParameter? builtIn, string name)
+        {
+            if (builtIn.HasValue && builtIn.Value != BuiltInParameter.INVALID)
+            {
+                var p = el.get_Parameter(builtIn.Value);
+                if (p != null) return p;
+
+                // Parametri di tipo: prova sul type element.
+                var typeEl = el.Document.GetElement(el.GetTypeId());
+                if (typeEl != null)
+                {
+                    p = typeEl.get_Parameter(builtIn.Value);
+                    if (p != null) return p;
+                }
+                // Non trovato come builtin: fallback per nome (raro, ma innocuo).
+            }
+
+            if (string.IsNullOrEmpty(name)) return null;
+            return ResolveParameterByName(el, name);
+        }
+
+        /// <summary>
+        /// Legge il valore display "sintetico" per i BuiltInParameter che su alcuni tipi di elementi
+        /// (es. Wall, Floor, Ceiling — system families) non sono esposti come Parameter ma solo come
+        /// property C# sul type. Copre ALL_MODEL_FAMILY_NAME e ALL_MODEL_TYPE_NAME in modo
+        /// language-independent. Ritorna null se non è un caso sintetico gestito.
+        /// </summary>
+        private static string? TryResolveSyntheticDisplay(Element el, BuiltInParameter bip)
+        {
+            if (bip == BuiltInParameter.ALL_MODEL_FAMILY_NAME)
+            {
+                if (el is FamilyInstance fi) return fi.Symbol?.FamilyName;
+                var typeEl = el.Document.GetElement(el.GetTypeId()) as ElementType;
+                return typeEl?.FamilyName;
+            }
+            if (bip == BuiltInParameter.ALL_MODEL_TYPE_NAME ||
+                bip == BuiltInParameter.SYMBOL_NAME_PARAM)
+            {
+                if (el is FamilyInstance fi) return fi.Symbol?.Name;
+                var typeEl = el.Document.GetElement(el.GetTypeId()) as ElementType;
+                return typeEl?.Name;
+            }
+            return null;
         }
 
         /// <summary>
@@ -286,7 +489,7 @@ namespace QtoRevitPlugin.Services
         /// case-insensitive), poi sul tipo. LookupParameter di Revit API è case-sensitive,
         /// da qui il fallback con ScanParameters.
         /// </summary>
-        private static Parameter? ResolveParameter(Element el, string name)
+        private static Parameter? ResolveParameterByName(Element el, string name)
         {
             var p = el.LookupParameter(name);
             if (p != null) return p;
@@ -370,9 +573,12 @@ namespace QtoRevitPlugin.Services
         private static bool EvalString(string val, ParamFilterRule rule) =>
             rule.Operator switch
             {
-                ParamOperator.Contains  => val.IndexOf(rule.Value, System.StringComparison.OrdinalIgnoreCase) >= 0,
-                ParamOperator.Equals    => string.Equals(val, rule.Value, System.StringComparison.OrdinalIgnoreCase),
-                ParamOperator.NotEquals => !string.Equals(val, rule.Value, System.StringComparison.OrdinalIgnoreCase),
+                ParamOperator.Contains    => val.IndexOf(rule.Value, System.StringComparison.OrdinalIgnoreCase) >= 0,
+                ParamOperator.NotContains => val.IndexOf(rule.Value, System.StringComparison.OrdinalIgnoreCase) < 0,
+                ParamOperator.Equals      => string.Equals(val, rule.Value, System.StringComparison.OrdinalIgnoreCase),
+                ParamOperator.NotEquals   => !string.Equals(val, rule.Value, System.StringComparison.OrdinalIgnoreCase),
+                ParamOperator.IsEmpty     => string.IsNullOrWhiteSpace(val),
+                ParamOperator.IsNotEmpty  => !string.IsNullOrWhiteSpace(val),
                 _ => true
             };
 
@@ -403,5 +609,116 @@ namespace QtoRevitPlugin.Services
         private static bool TryParseDouble(string s, out double val) =>
             double.TryParse(s, System.Globalization.NumberStyles.Any,
                            System.Globalization.CultureInfo.InvariantCulture, out val);
+
+        /// <summary>
+        /// Enumera i valori distinti (display string) del parametro <paramref name="parameterName"/>
+        /// per gli elementi della categoria <paramref name="category"/> filtrati per fase
+        /// (stessa pipeline di <see cref="FindElements"/>). Usato per popolare la ComboBox valore
+        /// dei filtri parametrici quando operatore è '=' o '≠'.
+        /// </summary>
+        public IReadOnlyList<string> EnumerateDistinctValues(
+            Document doc,
+            BuiltInCategory category,
+            string parameterName,
+            int? phaseFilterId,
+            SelectionComputationMode computationMode = SelectionComputationMode.NewAndExisting,
+            int maxElements = 5000)
+            => EnumerateDistinctValues(
+                doc, category,
+                new FilterableParam { DisplayName = parameterName, BuiltIn = null },
+                phaseFilterId, computationMode, maxElements);
+
+        /// <summary>
+        /// Versione builtin-aware: risolve il parametro via BuiltInParameter quando disponibile
+        /// (language-independent), altrimenti per nome. Da usare preferibilmente.
+        /// </summary>
+        public IReadOnlyList<string> EnumerateDistinctValues(
+            Document doc,
+            BuiltInCategory category,
+            FilterableParam param,
+            int? phaseFilterId,
+            SelectionComputationMode computationMode = SelectionComputationMode.NewAndExisting,
+            int maxElements = 5000)
+        {
+            if (param == null) return System.Array.Empty<string>();
+            if (!param.BuiltIn.HasValue && string.IsNullOrWhiteSpace(param.DisplayName))
+                return System.Array.Empty<string>();
+
+            var collector = new FilteredElementCollector(doc)
+                .OfCategory(category)
+                .WhereElementIsNotElementType();
+
+            if (phaseFilterId.HasValue && phaseFilterId.Value > 0)
+            {
+#if REVIT2025_OR_LATER
+                var phaseId = new ElementId((long)phaseFilterId.Value);
+#else
+                var phaseId = new ElementId(phaseFilterId.Value);
+#endif
+                var statuses = computationMode switch
+                {
+                    SelectionComputationMode.Demolitions => new List<ElementOnPhaseStatus> { ElementOnPhaseStatus.Demolished },
+                    SelectionComputationMode.NewOnly     => new List<ElementOnPhaseStatus> { ElementOnPhaseStatus.New },
+                    _                                    => new List<ElementOnPhaseStatus> { ElementOnPhaseStatus.New, ElementOnPhaseStatus.Existing }
+                };
+                collector = collector.WherePasses(new ElementPhaseStatusFilter(phaseId, statuses));
+            }
+
+            var seen = new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+            int count = 0;
+            foreach (var el in collector)
+            {
+                if (count++ >= maxElements) break;
+
+                // Short-circuit sintetico (Family Name / Type Name su system families).
+                if (param.BuiltIn.HasValue)
+                {
+                    var synth = TryResolveSyntheticDisplay(el, param.BuiltIn.Value);
+                    if (synth != null)
+                    {
+                        if (!string.IsNullOrWhiteSpace(synth)) seen.Add(synth);
+                        continue;
+                    }
+                }
+
+                var p = ResolveParameter(el, param.BuiltIn, param.DisplayName);
+                if (p == null || !p.HasValue) continue;
+
+                string? display = null;
+                switch (p.StorageType)
+                {
+                    case StorageType.String:
+                        display = p.AsString();
+                        break;
+                    case StorageType.ElementId:
+                        var refEl = doc.GetElement(p.AsElementId());
+                        display = refEl?.Name ?? p.AsValueString();
+                        break;
+                    case StorageType.Integer:
+                        display = p.AsValueString() ?? p.AsInteger().ToString(System.Globalization.CultureInfo.InvariantCulture);
+                        break;
+                    case StorageType.Double:
+                    {
+                        double raw = p.AsDouble();
+                        double disp = raw;
+                        try
+                        {
+                            var unitId = p.GetUnitTypeId();
+                            if (unitId != null && unitId != UnitTypeId.Custom)
+                                disp = UnitUtils.ConvertFromInternalUnits(raw, unitId);
+                        }
+                        catch { }
+                        display = disp.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+                        break;
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(display)) seen.Add(display!);
+            }
+
+            var list = new List<string>(seen);
+            list.Sort(System.StringComparer.OrdinalIgnoreCase);
+            return list;
+        }
     }
 }

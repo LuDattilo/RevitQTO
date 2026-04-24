@@ -23,11 +23,25 @@ namespace QtoRevitPlugin.UI.ViewModels
         private readonly DispatcherTimer _searchDebounce;
         private bool _isRefreshingPhaseSelection;
 
+        // Cache dei valori distinti per (categoria, parametro). Invalidata al cambio categoria.
+        private readonly Dictionary<(BuiltInCategory Bic, string Param), IReadOnlyList<string>> _valuesCache = new();
+
+        // Mappa DisplayName → FilterableParam (contiene BuiltInParameter per risoluzione
+        // language-independent). Ripopolata ad ogni cambio categoria.
+        private readonly Dictionary<string, FilterableParam> _paramIndex =
+            new Dictionary<string, FilterableParam>(StringComparer.OrdinalIgnoreCase);
+
         public ObservableCollection<CategoryItemVm> Categories { get; } = new();
         public ObservableCollection<PhaseItemVm> AvailablePhases { get; } = new();
         public ObservableCollection<ComputationModeOptionVm> ComputationModes { get; } = new();
         public ObservableCollection<ElementRowVm> Elements { get; } = new();
         public ObservableCollection<ParamFilterRuleVm> ParamRules { get; } = new ObservableCollection<ParamFilterRuleVm>();
+
+        /// <summary>
+        /// Colonne personalizzate (parametri Revit) aggiunte via menu contestuale sulle intestazioni.
+        /// La View osserva i cambi di questa collection e crea/rimuove DataGridColumn dinamicamente.
+        /// </summary>
+        public ObservableCollection<FilterableParam> CustomColumns { get; } = new ObservableCollection<FilterableParam>();
 
         [ObservableProperty] private CategoryItemVm? _selectedCategory;
         [ObservableProperty] private PhaseItemVm? _selectedPhase;
@@ -46,6 +60,7 @@ namespace QtoRevitPlugin.UI.ViewModels
             foreach (var (bic, label) in SelectionService.PopularCategories)
                 Categories.Add(new CategoryItemVm(bic, label));
             ComputationModes.Add(new ComputationModeOptionVm(SelectionComputationMode.NewAndExisting, "Nuovo + Esistente"));
+            ComputationModes.Add(new ComputationModeOptionVm(SelectionComputationMode.NewOnly, "Solo Nuovo"));
             ComputationModes.Add(new ComputationModeOptionVm(SelectionComputationMode.Demolitions, "Demolizioni"));
 
             if (QtoApplication.Instance?.SessionManager != null)
@@ -62,9 +77,99 @@ namespace QtoRevitPlugin.UI.ViewModels
             RefreshPhaseOptions(session);
         }
 
+        /// <summary>Parametri filtrabili per la categoria attiva — popolati via Revit API.</summary>
+        public ObservableCollection<string> AvailableFilterParams { get; } = new();
+
         partial void OnSelectedCategoryChanged(CategoryItemVm? value)
         {
+            _valuesCache.Clear();
+            foreach (var rule in ParamRules)
+            {
+                rule.AreValuesLoaded = false;
+                rule.AvailableValues.Clear();
+            }
+            RefreshAvailableParams();
             Search();
+        }
+
+        private void RefreshAvailableParams()
+        {
+            AvailableFilterParams.Clear();
+            _paramIndex.Clear();
+            var doc = QtoApplication.Instance?.CurrentUiApp?.ActiveUIDocument?.Document;
+            if (doc == null || SelectedCategory == null) return;
+
+            try
+            {
+                var paramList = GetFilterableParameters(doc, SelectedCategory.Bic);
+                foreach (var fp in paramList)
+                {
+                    AvailableFilterParams.Add(fp.DisplayName);
+                    _paramIndex[fp.DisplayName] = fp;
+                }
+            }
+            catch { /* fuori dal Revit thread — lista resta vuota */ }
+
+            // Propaga la lista aggiornata alle regole esistenti
+            foreach (var rule in ParamRules)
+                SyncAvailableParams(rule);
+        }
+
+        /// <summary>
+        /// Enumera i parametri filtrabili per la categoria restituendo display name + BuiltInParameter
+        /// (quando applicabile). Il BuiltInParameter è la fonte di verità language-independent per la
+        /// risoluzione runtime; il display name serve solo alla UI.
+        /// </summary>
+        private static List<FilterableParam> GetFilterableParameters(
+            Autodesk.Revit.DB.Document doc, BuiltInCategory category)
+        {
+            var result = new List<FilterableParam>();
+            try
+            {
+#if REVIT2025_OR_LATER
+                var catId = new ElementId((long)category);
+#else
+                var catId = new ElementId((int)category);
+#endif
+                var paramIds = Autodesk.Revit.DB.ParameterFilterUtilities.GetFilterableParametersInCommon(
+                    doc, new List<ElementId> { catId });
+                var seen = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+                foreach (var pid in paramIds)
+                {
+#if REVIT2025_OR_LATER
+                    long raw = pid.Value;
+#else
+                    long raw = pid.IntegerValue;
+#endif
+                    string? name = null;
+                    BuiltInParameter? bipOrNull = null;
+                    if (raw < 0)
+                    {
+                        // Built-in parameter: language-independent via enum.
+                        var bip = (BuiltInParameter)raw;
+                        bipOrNull = bip;
+                        try { name = LabelUtils.GetLabelFor(bip); } catch { }
+                    }
+                    else
+                    {
+                        // Shared/project parameter: risolto per nome (i nomi utente non sono localizzati).
+                        var pe = doc.GetElement(pid) as Autodesk.Revit.DB.ParameterElement;
+                        name = pe?.GetDefinition()?.Name ?? pe?.Name;
+                    }
+                    if (!string.IsNullOrEmpty(name) && seen.Add(name!))
+                        result.Add(new FilterableParam { DisplayName = name!, BuiltIn = bipOrNull });
+                }
+                result.Sort((a, b) => System.StringComparer.OrdinalIgnoreCase.Compare(a.DisplayName, b.DisplayName));
+            }
+            catch { }
+            return result;
+        }
+
+        private void SyncAvailableParams(ParamFilterRuleVm rule)
+        {
+            rule.AvailableParams.Clear();
+            foreach (var name in AvailableFilterParams)
+                rule.AvailableParams.Add(name);
         }
 
         partial void OnNameQueryChanged(string value)
@@ -123,17 +228,26 @@ namespace QtoRevitPlugin.UI.ViewModels
             try
             {
                 var rules = ParamRules
-                    .Where(r => !string.IsNullOrWhiteSpace(r.ParameterName) && !string.IsNullOrWhiteSpace(r.Value))
-                    .Select(r => r.ToModel())
+                    .Where(r => !string.IsNullOrWhiteSpace(r.ParameterName) &&
+                                (!r.NeedsValue || !string.IsNullOrWhiteSpace(r.Value)))
+                    .Select(r =>
+                    {
+                        var m = r.ToModel();
+                        if (_paramIndex.TryGetValue(m.ParameterName, out var fp))
+                            m.BuiltIn = fp.BuiltIn;
+                        return m;
+                    })
                     .ToList();
 
+                var extra = CustomColumns.Count > 0 ? CustomColumns.ToList() : null;
                 var results = _service.FindElements(
                     doc,
                     SelectedCategory.Bic,
                     NameQuery,
                     SelectedPhase.PhaseId,
                     ComputationMode,
-                    rules);
+                    rules,
+                    extra);
                 sw.Stop();
 
                 foreach (var info in results)
@@ -154,6 +268,40 @@ namespace QtoRevitPlugin.UI.ViewModels
 
         /// <summary>Gli Id attualmente mostrati (dopo filtro).</summary>
         public IEnumerable<int> CurrentElementIds() => Elements.Select(e => e.ElementId);
+
+        /// <summary>
+        /// Restituisce i parametri filtrabili della categoria corrente che NON sono già
+        /// colonne custom. Usato dal code-behind per popolare il menu contestuale
+        /// "Aggiungi colonna parametro…".
+        /// </summary>
+        public IReadOnlyList<FilterableParam> GetAddableColumnParams()
+        {
+            var already = new HashSet<string>(CustomColumns.Select(c => c.DisplayName),
+                StringComparer.OrdinalIgnoreCase);
+            return _paramIndex.Values
+                .Where(fp => !already.Contains(fp.DisplayName))
+                .OrderBy(fp => fp.DisplayName, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        /// <summary>Aggiunge una colonna custom e rilancia la ricerca per popolare i valori.</summary>
+        public void AddCustomColumn(FilterableParam param)
+        {
+            if (param == null || string.IsNullOrWhiteSpace(param.DisplayName)) return;
+            if (CustomColumns.Any(c => string.Equals(c.DisplayName, param.DisplayName,
+                StringComparison.OrdinalIgnoreCase))) return;
+            CustomColumns.Add(param);
+            Search();
+        }
+
+        /// <summary>Rimuove una colonna custom per display name.</summary>
+        public void RemoveCustomColumn(string displayName)
+        {
+            if (string.IsNullOrWhiteSpace(displayName)) return;
+            var existing = CustomColumns.FirstOrDefault(c =>
+                string.Equals(c.DisplayName, displayName, StringComparison.OrdinalIgnoreCase));
+            if (existing != null) CustomColumns.Remove(existing);
+        }
 
         /// <summary>Isola gli elementi filtrati correnti sulla vista attiva.</summary>
         public void IsolateCurrent()
@@ -196,23 +344,76 @@ namespace QtoRevitPlugin.UI.ViewModels
             _service.SelectInRevit(uidoc, new[] { elementId });
         }
 
-        public string ComputationModeLabel =>
-            ComputationMode == SelectionComputationMode.Demolitions
-                ? "Demolizioni"
-                : "Nuovo + Esistente";
+        public string ComputationModeLabel => ComputationMode switch
+        {
+            SelectionComputationMode.Demolitions => "Demolizioni",
+            SelectionComputationMode.NewOnly     => "Solo Nuovo",
+            _                                    => "Nuovo + Esistente"
+        };
 
         [RelayCommand]
         private void AddParamRule()
         {
             var rule = new ParamFilterRuleVm();
-            // Debounce ricerca quando l'utente edita un campo della regola
-            rule.PropertyChanged += (_, _) =>
+            rule.IsFirst = ParamRules.Count == 0;
+            SyncAvailableParams(rule);
+            rule.PropertyChanged += (s, e) =>
             {
-                _searchDebounce.Stop();
-                _searchDebounce.Start();
+                // Rischedula il search solo per i campi che impattano il risultato.
+                if (e.PropertyName == nameof(ParamFilterRuleVm.ParameterName) ||
+                    e.PropertyName == nameof(ParamFilterRuleVm.Operator) ||
+                    e.PropertyName == nameof(ParamFilterRuleVm.Value) ||
+                    e.PropertyName == nameof(ParamFilterRuleVm.LogicOperator))
+                {
+                    _searchDebounce.Stop();
+                    _searchDebounce.Start();
+                }
             };
             ParamRules.Add(rule);
             UpdateHasParamRules();
+            // Se ci sono già altre regole complete, riesegui subito (la nuova è vuota = ininfluente).
+            Search();
+        }
+
+        /// <summary>
+        /// Carica (lazy, al DropDownOpened della ComboBox valore) i valori distinti del parametro
+        /// selezionato per la categoria corrente. Usa una cache per evitare riletture del modello.
+        /// </summary>
+        [RelayCommand]
+        private void LoadParamValues(ParamFilterRuleVm? rule)
+        {
+            if (rule == null || rule.AreValuesLoaded) return;
+            if (SelectedCategory == null || string.IsNullOrWhiteSpace(rule.ParameterName)) return;
+
+            var paramName = rule.ParameterName.Trim();
+            var key = (SelectedCategory.Bic, paramName);
+            if (!_valuesCache.TryGetValue(key, out var values))
+            {
+                var doc = QtoApplication.Instance?.CurrentUiApp?.ActiveUIDocument?.Document;
+                if (doc == null) return;
+                try
+                {
+                    // Arricchisci con BuiltInParameter (language-independent) quando disponibile.
+                    if (!_paramIndex.TryGetValue(paramName, out var fp))
+                        fp = new FilterableParam { DisplayName = paramName, BuiltIn = null };
+
+                    values = _service.EnumerateDistinctValues(
+                        doc,
+                        SelectedCategory.Bic,
+                        fp,
+                        SelectedPhase?.PhaseId,
+                        ComputationMode);
+                    _valuesCache[key] = values;
+                }
+                catch
+                {
+                    values = System.Array.Empty<string>();
+                }
+            }
+
+            rule.AvailableValues.Clear();
+            foreach (var v in values) rule.AvailableValues.Add(v);
+            rule.AreValuesLoaded = true;
         }
 
         [RelayCommand]
@@ -227,7 +428,7 @@ namespace QtoRevitPlugin.UI.ViewModels
         private void UpdateHasParamRules() =>
             HasParamRules = ParamRules.Any(r =>
                 !string.IsNullOrWhiteSpace(r.ParameterName) &&
-                !string.IsNullOrWhiteSpace(r.Value));
+                (!r.NeedsValue || !string.IsNullOrWhiteSpace(r.Value)));
 
         private void RefreshPhaseOptions(WorkSession? session)
         {
@@ -299,6 +500,8 @@ namespace QtoRevitPlugin.UI.ViewModels
 
     public class ElementRowVm
     {
+        private readonly Dictionary<string, string> _customValues;
+
         public ElementRowVm(ElementRowInfo info)
         {
             ElementId = info.ElementId;
@@ -309,6 +512,7 @@ namespace QtoRevitPlugin.UI.ViewModels
             LevelName = info.LevelName;
             PhaseCreatedName = info.PhaseCreatedName;
             PhaseDemolishedName = info.PhaseDemolishedName;
+            _customValues = info.CustomValues ?? new Dictionary<string, string>();
         }
 
         public int ElementId { get; }
@@ -319,6 +523,10 @@ namespace QtoRevitPlugin.UI.ViewModels
         public string LevelName { get; }
         public string PhaseCreatedName { get; }
         public string PhaseDemolishedName { get; }
+
+        /// <summary>Indexer usato dalle DataGridColumn dinamiche: Binding="{Binding [DisplayName]}".</summary>
+        public string this[string key] =>
+            _customValues != null && _customValues.TryGetValue(key, out var v) ? v : string.Empty;
     }
 
     public class ComputationModeOptionVm
