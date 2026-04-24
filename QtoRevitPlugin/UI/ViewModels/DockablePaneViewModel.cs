@@ -216,7 +216,7 @@ namespace QtoRevitPlugin.UI.ViewModels
             Views.Add(new QtoViewItem(QtoViewKey.ProjectSetup, "Setup progetto", "§Fase 1", 2));
             Views.Add(new QtoViewItem(QtoViewKey.PriceList, "Listino", "§Fase 1 · Listino", 2));
             Views.Add(new QtoViewItem(QtoViewKey.Selection, "Selezione", "§I3", 4));
-            Views.Add(new QtoViewItem(QtoViewKey.Tagging, "Tagging", "§I1·I2·I12·I13", 5));
+            Views.Add(new QtoViewItem(QtoViewKey.Tagging, "Redazione CME", "§Plan C-5", 5));
             Views.Add(new QtoViewItem(QtoViewKey.Verification, "Verifica", "§Fase 11", 1));
             Views.Add(new QtoViewItem(QtoViewKey.Export, "Esporta", "§Fase 12", 9));
 

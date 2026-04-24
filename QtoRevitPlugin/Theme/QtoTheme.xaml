@@ -10,7 +10,11 @@
     - Nomi dei brush MANTENUTI identici per backward-compat con 16 XAML esistenti.
 -->
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:conv="clr-namespace:QtoRevitPlugin.UI.Converters">
+
+    <!-- Plan C-5: converter per binding RadioButton ↔ enum property -->
+    <conv:EnumToBooleanConverter x:Key="EnumToBool"/>
 
     <!-- ============================================================
          BRAND — teal-cyan RevitCortex

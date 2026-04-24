@@ -222,11 +222,10 @@ namespace QtoRevitPlugin.UI.Panes
 
                 QtoViewKey.Selection => new SelectionView(),
 
-                // Sprint 4 Task 3: MappingView condivide il tag "Tagging" finché non
-                // creiamo una TaggingView dedicata in Sprint 5. Per ora la MappingView
-                // permette CRUD in-memory di formule Room (Sorgente B) e voci manuali (Sorgente C)
-                // + preview read-only delle famiglie (Sorgente A).
-                QtoViewKey.Tagging => new MappingView(),
+                // Plan C-5: la chiave Tagging ora apre CmeEditorView (Redazione CME).
+                // MappingView legacy (Sorgenti A/B/C) resta nel codebase ma non più raggiungibile
+                // dal menu principale — da smembrare/rimuovere in un plan successivo (R5 spec Tagging refactor).
+                QtoViewKey.Tagging => new CmeEditorView(),
 
                 QtoViewKey.ComputoStructure => new ComputoStructureView(),
 
