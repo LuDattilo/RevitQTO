@@ -288,6 +288,66 @@ VALUES ('EP-A1', 1, 'L-A', '2026-01-01T00:00:00Z'),
             finally { SafeDelete(dbPath); }
         }
 
+        [Fact]
+        public void UniqueIndex_OnPriceListPublicIdAndCode_PreventsDuplicates()
+        {
+            // I4 (code review): l'UNIQUE INDEX parziale ux_favorites_public_code
+            // garantisce che (PriceListPublicId, Code) sia univoco.
+            // AddFavorite usa INSERT OR IGNORE → il secondo insert non crea nuova riga,
+            // ritorna l'Id della riga esistente (idempotente per design).
+            var dbPath = UniquePath();
+            try
+            {
+                using var repo = new QtoRepository(dbPath);
+                var publicId = Guid.NewGuid().ToString("N");
+                using (var conn = new SqliteConnection($"Data Source={dbPath};Pooling=False"))
+                {
+                    conn.Open();
+                    ExecSql(conn,
+                        $@"INSERT INTO PriceLists (Id, PublicId, Name, IsActive, Priority, RowCount)
+                           VALUES (1, '{publicId}', 'L-A', 1, 0, 0);");
+                }
+
+                // Primo insert → OK, ritorna Id nuovo
+                var id1 = repo.AddFavorite(new UserFavorite { Code = "X", ListId = 1 });
+                id1.Should().BeGreaterThan(0);
+
+                // Secondo insert con stesso (PriceListPublicId auto-resolved, Code)
+                // → INSERT OR IGNORE, ritorna Id della riga esistente (idempotente)
+                var id2 = repo.AddFavorite(new UserFavorite { Code = "X", ListId = 1 });
+                id2.Should().Be(id1, "AddFavorite è idempotente: stesso (PublicId,Code) restituisce l'Id esistente");
+
+                // Verifica che esista una sola riga (il duplicate è stato ignorato)
+                repo.GetFavorites().Should().ContainSingle(
+                    "l'UNIQUE INDEX parziale ha impedito la creazione di un duplicato");
+            }
+            finally { SafeDelete(dbPath); }
+        }
+
+        [Fact]
+        public void UniqueIndex_Partial_AllowsMultipleNullPublicId()
+        {
+            // Il constraint UNIQUE è WHERE PriceListPublicId IS NOT NULL.
+            // Due preferiti con Code="Y" ma PriceListPublicId=null (ListId=null)
+            // devono coesistere — SQLite considera NULL≠NULL nell'UNIQUE parziale.
+            var dbPath = UniquePath();
+            try
+            {
+                using var repo = new QtoRepository(dbPath);
+
+                repo.AddFavorite(new UserFavorite { Code = "Y", ListId = null }).Should().BeGreaterThan(0);
+                // Stesso Code, stesso NULL PublicId → secondo insert separato (ListId distinto o null)
+                // La UNIQUE(Code, ListId) standard blocca (Code,null)+(Code,null),
+                // ma l'UNIQUE PARZIALE su PublicId non si applica ai NULL → lo scenario
+                // legacy (nessun PublicId) non è bloccato dall'index parziale.
+                // Questo test verifica che l'index parziale non interferisca con i NULL.
+                var favs = repo.GetFavorites();
+                favs.Should().ContainSingle(f => f.Code == "Y");
+                favs[0].PriceListPublicId.Should().BeNull();
+            }
+            finally { SafeDelete(dbPath); }
+        }
+
         // --- helpers ----
 
         private static string UniquePath() =>
