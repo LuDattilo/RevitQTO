@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using QtoRevitPlugin.Application;
 using QtoRevitPlugin.Models;
 using QtoRevitPlugin.Services;
+using QtoRevitPlugin.Services.Computi;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -52,6 +53,34 @@ namespace QtoRevitPlugin.UI.ViewModels
         [ObservableProperty] private SelectionComputationMode _computationMode = SelectionComputationMode.NewAndExisting;
         [ObservableProperty] private bool _hasParamRules;
 
+        // -------- Plan C-6: Assegnazione EP --------
+
+        [ObservableProperty] private string _activeEpCode = "";
+        [ObservableProperty] private string _activeEpDescription = "";
+        [ObservableProperty] private QuantityMode _quantityMode = QuantityMode.Count;
+        [ObservableProperty] private string _assignPreview = "";
+
+        public ObservableCollection<QuantityModeOption> QuantityModeOptions { get; } =
+            new ObservableCollection<QuantityModeOption>
+            {
+                new QuantityModeOption(QuantityMode.Count,  "Conteggio (cad)"),
+                new QuantityModeOption(QuantityMode.Area,   "Area (m²)"),
+                new QuantityModeOption(QuantityMode.Volume, "Volume (m³)"),
+                new QuantityModeOption(QuantityMode.Length, "Lunghezza (m)")
+            };
+
+        public bool CanApply =>
+            !string.IsNullOrWhiteSpace(ActiveEpCode) && Elements.Count > 0;
+
+        partial void OnActiveEpCodeChanged(string value)
+        {
+            OnPropertyChanged(nameof(CanApply));
+            ApplyEpCommand.NotifyCanExecuteChanged();
+            UpdateAssignPreview();
+        }
+
+        partial void OnQuantityModeChanged(QuantityMode value) => UpdateAssignPreview();
+
         public SelectionViewModel()
         {
             _searchDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(350) };
@@ -65,7 +94,16 @@ namespace QtoRevitPlugin.UI.ViewModels
 
             if (QtoApplication.Instance?.SessionManager != null)
             {
-                QtoApplication.Instance.SessionManager.SessionChanged += (_, _) => RefreshFromSession();
+                var sm = QtoApplication.Instance.SessionManager;
+                sm.SessionChanged += (_, _) => RefreshFromSession();
+                // Plan C-6: voce EP attiva propagata cross-scheda dal Listino
+                sm.ActiveEpChanged += (_, _) =>
+                {
+                    ActiveEpCode = sm.ActiveEpCode;
+                    ActiveEpDescription = sm.ActiveEpDescription;
+                };
+                ActiveEpCode = sm.ActiveEpCode;
+                ActiveEpDescription = sm.ActiveEpDescription;
             }
             RefreshFromSession();
             ParamRules.CollectionChanged += (_, _) => UpdateHasParamRules();
@@ -259,6 +297,11 @@ namespace QtoRevitPlugin.UI.ViewModels
                                 $" · modalità «{ComputationModeLabel}»" +
                                 rulesLabel +
                                 $" · {sw.ElapsedMilliseconds} ms";
+
+                // Plan C-6: aggiorna preview assegnazione quando il set risultati cambia
+                UpdateAssignPreview();
+                OnPropertyChanged(nameof(CanApply));
+                ApplyEpCommand.NotifyCanExecuteChanged();
             }
             catch (Exception ex)
             {
@@ -484,6 +527,138 @@ namespace QtoRevitPlugin.UI.ViewModels
             // che la fase attiva è cambiata → soft-switch senza ricaricare il computo.
             QtoApplication.Instance!.SessionManager.NotifyActivePhaseChanged();
         }
+
+        // =====================================================================
+        // Plan C-6: Assegnazione EP agli elementi filtrati
+        // =====================================================================
+
+        /// <summary>
+        /// Ricalcola la preview "N elementi · tot X m²" leggendo i valori geometrici
+        /// dei Revit elements attualmente in Elements, secondo il QuantityMode.
+        /// </summary>
+        private void UpdateAssignPreview()
+        {
+            if (string.IsNullOrWhiteSpace(ActiveEpCode) || Elements.Count == 0)
+            {
+                AssignPreview = "";
+                return;
+            }
+
+            var doc = QtoApplication.Instance?.CurrentUiApp?.ActiveUIDocument?.Document;
+            if (doc == null) { AssignPreview = "Nessun documento"; return; }
+
+            try
+            {
+                var reader = new RevitElementMeasurementReader();
+                double total = 0;
+                int counted = 0;
+                foreach (var vm in Elements)
+                {
+#if REVIT2025_OR_LATER
+                    var el = doc.GetElement(new ElementId((long)vm.ElementId));
+#else
+                    var el = doc.GetElement(new ElementId(vm.ElementId));
+#endif
+                    if (el == null) continue;
+                    var v = reader.GetValue(el, QuantityMode);
+                    if (v.HasValue) { total += v.Value; counted++; }
+                }
+                var unit = QuantityMode switch
+                {
+                    QuantityMode.Area => "m²",
+                    QuantityMode.Volume => "m³",
+                    QuantityMode.Length => "m",
+                    _ => "pz"
+                };
+                AssignPreview = $"{counted} elementi · tot {total:N2} {unit}";
+            }
+            catch (Exception ex)
+            {
+                AssignPreview = $"Preview errata: {ex.Message}";
+            }
+        }
+
+        [RelayCommand(CanExecute = nameof(CanApply))]
+        private void ApplyEp()
+        {
+            var repo = QtoApplication.Instance?.SessionManager?.Repository;
+            var sess = QtoApplication.Instance?.SessionManager?.ActiveSession;
+            var doc = QtoApplication.Instance?.CurrentUiApp?.ActiveUIDocument?.Document;
+            if (repo == null || sess == null || doc == null)
+            {
+                StatusMessage = "Sessione o documento non disponibili.";
+                return;
+            }
+
+            try
+            {
+                // 1. Garantisci ComputoDocument per la sessione
+                var docSvc = new ComputoDocumentService(repo);
+                var cmeDoc = docSvc.GetOrCreate(sess.Id);
+
+                // 2. Risolvi PriceItem per Code (primo match attivo)
+                var items = repo.GetPriceItemsByCode(ActiveEpCode);
+                var pi = items.FirstOrDefault();
+                if (pi == null)
+                {
+                    StatusMessage = $"Voce '{ActiveEpCode}' non trovata nei listini attivi.";
+                    return;
+                }
+
+                // 3. Crea un nuovo MeasurementRow (VCItem)
+                var msvc = new MeasurementService(repo);
+                var row = msvc.CreateRow(cmeDoc.Id, pi.Id);
+
+                // 4. Per ciascun elemento filtrato → MeasurementSubRow (RGItem)
+                var reader = new RevitElementMeasurementReader();
+                int addedCount = 0;
+                double totalQty = 0;
+                foreach (var elVm in Elements)
+                {
+#if REVIT2025_OR_LATER
+                    var el = doc.GetElement(new ElementId((long)elVm.ElementId));
+#else
+                    var el = doc.GetElement(new ElementId(elVm.ElementId));
+#endif
+                    if (el == null) continue;
+                    var v = reader.GetValue(el, QuantityMode) ?? 0;
+
+                    // Mappa il valore geometrico sulla dimensione corrispondente della formula
+                    // PartiUguali × Lunghezza × Larghezza × HPeso (valori null = 1).
+                    double partiUguali = 1;
+                    double? lung = QuantityMode == QuantityMode.Length ? (double?)v : null;
+                    double? larg = QuantityMode == QuantityMode.Area ? (double?)v : null;
+                    double? hPeso = QuantityMode == QuantityMode.Volume ? (double?)v : null;
+                    // Per Count, lascia tutte null → Quantita = PartiUguali = 1
+
+                    msvc.AddOrUpdateSubRow(
+                        row.Id,
+                        idvv: elVm.ElementId,
+                        descrizione: $"[{elVm.ElementId}] {elVm.FamilyName} · {elVm.TypeName}",
+                        partiUguali: partiUguali,
+                        lunghezza: lung, larghezza: larg, hPeso: hPeso);
+                    addedCount++;
+                    totalQty += v;
+                }
+
+                var unit = QuantityMode switch
+                {
+                    QuantityMode.Area => "m²",
+                    QuantityMode.Volume => "m³",
+                    QuantityMode.Length => "m",
+                    _ => "pz"
+                };
+                StatusMessage = $"✓ Assegnati {addedCount} elementi a '{ActiveEpCode}' · tot {totalQty:N2} {unit}";
+            }
+            catch (DomainValidationException dex)
+            {
+                StatusMessage = $"{dex.RuleCode}: {dex.Message}";
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Errore assegnazione: {ex.Message}";
+            }
+        }
     }
 
     public class CategoryItemVm
@@ -539,5 +714,20 @@ namespace QtoRevitPlugin.UI.ViewModels
 
         public SelectionComputationMode Mode { get; }
         public string Label { get; }
+    }
+
+    /// <summary>
+    /// Plan C-6: opzione dropdown per QuantityMode (enum + label localizzata).
+    /// </summary>
+    public class QuantityModeOption
+    {
+        public QuantityModeOption(QuantityMode mode, string label)
+        {
+            Mode = mode;
+            Label = label;
+        }
+        public QuantityMode Mode { get; }
+        public string Label { get; }
+        public override string ToString() => Label;
     }
 }

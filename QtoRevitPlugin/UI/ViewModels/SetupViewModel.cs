@@ -246,6 +246,8 @@ namespace QtoRevitPlugin.UI.ViewModels
             {
                 SelectedProjectFavorite = null;
                 SelectedPersonalFavorite = null;
+                // Plan C-6: propaga voce EP attiva cross-scheda
+                QtoApplication.Instance?.SessionManager?.SetActiveEp(value.Code, value.ShortDesc);
             }
             SelectedDetailItem = value?.ToDetail();
         }
@@ -257,6 +259,8 @@ namespace QtoRevitPlugin.UI.ViewModels
                 SelectedSearchResult = null;
                 SelectedPersonalFavorite = null;
                 SelectedDetailItem = value.ToDetail();
+                // Plan C-6: propaga voce EP attiva cross-scheda
+                QtoApplication.Instance?.SessionManager?.SetActiveEp(value.Code, value.Description);
             }
         }
 
@@ -267,6 +271,8 @@ namespace QtoRevitPlugin.UI.ViewModels
                 SelectedSearchResult = null;
                 SelectedProjectFavorite = null;
                 SelectedDetailItem = value.ToDetail();
+                // Plan C-6: propaga voce EP attiva cross-scheda
+                QtoApplication.Instance?.SessionManager?.SetActiveEp(value.Code, value.Description);
             }
         }
 

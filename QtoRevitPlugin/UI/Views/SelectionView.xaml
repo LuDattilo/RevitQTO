@@ -5,11 +5,12 @@
 
     <Grid Background="{DynamicResource PanelBgBrush}">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />   <!-- 0: titolo + popout -->
+            <RowDefinition Height="Auto" />   <!-- 1: filtri (ScrollViewer MaxHeight 360) -->
+            <RowDefinition Height="Auto" />   <!-- 2: toolbar isola/nascondi/reset -->
+            <RowDefinition Height="*" />      <!-- 3: DataGrid risultati -->
+            <RowDefinition Height="Auto" />   <!-- 4: card Assegna EP (Plan C-6) -->
+            <RowDefinition Height="Auto" />   <!-- 5: status bar -->
         </Grid.RowDefinitions>
 
         <!-- Titolo + bottone pop-out -->
@@ -315,8 +316,68 @@
             </DataGrid>
         </Border>
 
+        <!-- Plan C-6: Card ASSEGNA EP (tra DataGrid risultati e status bar) -->
+        <Border Grid.Row="4" Margin="16,4,16,4" Padding="10,8"
+                Background="{DynamicResource PanelSubBrush}"
+                BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1" CornerRadius="4">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Riga 1: voce attiva + descrizione -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal">
+                    <TextBlock Text="ASSEGNA VOCE EP"
+                               FontFamily="{DynamicResource FontMono}"
+                               FontSize="9" FontWeight="Bold"
+                               Foreground="{DynamicResource InkMutedBrush}"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding ActiveEpCode, StringFormat=' · {0}'}"
+                               Margin="6,0,0,0" FontWeight="SemiBold" FontSize="11"
+                               Foreground="{DynamicResource InkDefaultBrush}"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding ActiveEpDescription}"
+                               Margin="8,0,0,0" FontSize="10" FontStyle="Italic"
+                               Foreground="{DynamicResource InkMutedBrush}"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" MaxWidth="400"/>
+                </StackPanel>
+
+                <!-- Riga 2: ComboBox QuantityMode (scelta unica compatta) -->
+                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,6,0,0">
+                    <TextBlock Text="Quantità per istanza:" FontSize="10"
+                               Foreground="{DynamicResource InkMutedBrush}"
+                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <ComboBox Width="180"
+                              Style="{DynamicResource CmbField}"
+                              ItemsSource="{Binding QuantityModeOptions}"
+                              SelectedValuePath="Mode"
+                              DisplayMemberPath="Label"
+                              SelectedValue="{Binding QuantityMode, Mode=TwoWay}"/>
+                </StackPanel>
+
+                <!-- Riga 3: preview + bottone applica -->
+                <Grid Grid.Row="2" Margin="0,8,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="{Binding AssignPreview}"
+                               FontSize="11" FontStyle="Italic"
+                               Foreground="{DynamicResource BrandAccentDeepBrush}"
+                               VerticalAlignment="Center"/>
+                    <Button Grid.Column="1" Content="Assegna agli elementi filtrati"
+                            Command="{Binding ApplyEpCommand}"
+                            Style="{DynamicResource BtnPrimary}"
+                            Padding="10,5" FontSize="11"/>
+                </Grid>
+            </Grid>
+        </Border>
+
         <!-- Status bar -->
-        <Border Grid.Row="4" Background="{DynamicResource PanelSubBrush}"
+        <Border Grid.Row="5" Background="{DynamicResource PanelSubBrush}"
                 BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="0,1,0,0"
                 Padding="16,8">
             <TextBlock Text="{Binding StatusMessage}"

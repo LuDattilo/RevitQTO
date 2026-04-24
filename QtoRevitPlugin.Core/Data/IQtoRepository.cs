@@ -73,6 +73,13 @@ namespace QtoRevitPlugin.Data
         System.Collections.Generic.IReadOnlyList<PriceItem> GetPriceItems(
             System.Collections.Generic.IReadOnlyList<int> ids);
 
+        /// <summary>
+        /// Plan C-6: lookup esatto per Code (usato da ApplyEp per risolvere la voce EP attiva).
+        /// Ritorna i match (potrebbero essercene multipli se la stessa Code esiste in più PriceList
+        /// attive). Solo i listini attivi (IsActive=1).
+        /// </summary>
+        System.Collections.Generic.IReadOnlyList<PriceItem> GetPriceItemsByCode(string code);
+
         // EmbeddingCache (AI — modulo opzionale). Cache vettori per voci di listino,
         // pre-calcolati al primo load e invalidati al cambio modello o listino.
         /// <summary>True se esiste un embedding per (priceItemId, modelName).</summary>

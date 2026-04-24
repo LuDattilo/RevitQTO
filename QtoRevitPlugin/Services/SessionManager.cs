@@ -38,6 +38,36 @@ namespace QtoRevitPlugin.Services
 
         public event EventHandler<SessionChangedEventArgs>? SessionChanged;
 
+        // -------- Plan C-6: voce EP attiva (condivisa cross-scheda Listino ↔ Selezione) --------
+
+        private string _activeEpCode = "";
+        public string ActiveEpCode
+        {
+            get => _activeEpCode;
+            private set
+            {
+                if (_activeEpCode == value) return;
+                _activeEpCode = value ?? "";
+                ActiveEpChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        private string _activeEpDescription = "";
+        public string ActiveEpDescription => _activeEpDescription;
+
+        /// <summary>
+        /// Emesso quando cambia la voce EP corrente (tipicamente selezione nel Listino).
+        /// Gli ascoltatori (SelectionView > card Assegna EP) si aggiornano.
+        /// </summary>
+        public event EventHandler? ActiveEpChanged;
+
+        /// <summary>Chiamato dal ViewModel Listino quando cambia la selezione voce.</summary>
+        public void SetActiveEp(string code, string description)
+        {
+            _activeEpDescription = description ?? "";
+            ActiveEpCode = code ?? "";
+        }
+
         // =====================================================================
         // Operazioni file
         // =====================================================================

@@ -404,6 +404,19 @@ WHERE p.Id IN @Ids;";
                         .ToList();
         }
 
+        public IReadOnlyList<PriceItem> GetPriceItemsByCode(string code)
+        {
+            if (string.IsNullOrWhiteSpace(code)) return new List<PriceItem>();
+            const string sql = @"
+SELECT p.*, pl.Name AS ListName
+FROM PriceItems p
+JOIN PriceLists pl ON pl.Id = p.PriceListId
+WHERE p.Code = @c AND pl.IsActive = 1;";
+            return _conn.Query<PriceItemRow>(sql, new { c = code })
+                        .Select(r => r.ToPriceItem())
+                        .ToList();
+        }
+
         /// <summary>
         /// Sanitizza la query utente e la converte in sintassi FTS5 prefix-match per ogni token.
         /// Rimuove caratteri problematici ("*()^-) e produce 'word1* word2*' (AND implicito).
