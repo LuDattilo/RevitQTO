@@ -59,6 +59,7 @@ namespace QtoRevitPlugin.UI.ViewModels
         [ObservableProperty] private string _activeEpDescription = "";
         [ObservableProperty] private QuantityMode _quantityMode = QuantityMode.Count;
         [ObservableProperty] private string _assignPreview = "";
+        [ObservableProperty] private string _assignButtonText = "Assegna";
 
         /// <summary>Elementi selezionati nel DataGrid (aggiornati dal code-behind via SetSelectedElements).</summary>
         public ObservableCollection<ElementRowVm> SelectedElements { get; } = new();
@@ -598,25 +599,28 @@ namespace QtoRevitPlugin.UI.ViewModels
         /// <summary>
         /// Ricalcola la preview "N selezionati · tot X m²" leggendo i valori geometrici
         /// degli elementi ATTUALMENTE SELEZIONATI nel DataGrid (non dell'intera tabella filtrata).
+        /// Aggiorna anche il testo dinamico del bottone (AssignButtonText).
         /// </summary>
         private void UpdateAssignPreview()
         {
             if (SelectedElements.Count == 0)
             {
                 AssignPreview = Elements.Count > 0
-                    ? "Seleziona una o più righe per l'assegnazione"
+                    ? $"⚠ Nessuna riga selezionata · filtrati {Elements.Count} · usa Ctrl/Shift+Click per multi-selezione"
                     : "";
+                AssignButtonText = "Assegna";
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(ActiveEpCode))
             {
-                AssignPreview = $"{SelectedElements.Count} selezionati · seleziona una voce dal Listino";
+                AssignPreview = $"✓ {SelectedElements.Count} selezionati · seleziona una voce dal Listino";
+                AssignButtonText = $"Assegna {SelectedElements.Count}";
                 return;
             }
 
             var doc = QtoApplication.Instance?.CurrentUiApp?.ActiveUIDocument?.Document;
-            if (doc == null) { AssignPreview = "Nessun documento"; return; }
+            if (doc == null) { AssignPreview = "Nessun documento"; AssignButtonText = "Assegna"; return; }
 
             try
             {
@@ -641,11 +645,15 @@ namespace QtoRevitPlugin.UI.ViewModels
                     QuantityMode.Length => "m",
                     _ => "pz"
                 };
-                AssignPreview = $"{counted} selezionati · tot {total:N2} {unit}";
+                AssignPreview = $"✓ Selezionati: {counted} · totale {total:N2} {unit}";
+                AssignButtonText = counted == 1
+                    ? "Assegna 1 elemento"
+                    : $"Assegna {counted} elementi";
             }
             catch (Exception ex)
             {
                 AssignPreview = $"Preview errata: {ex.Message}";
+                AssignButtonText = "Assegna";
             }
         }
 

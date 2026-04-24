@@ -16,6 +16,27 @@
     <!-- Plan C-5: converter per binding RadioButton ↔ enum property -->
     <conv:EnumToBooleanConverter x:Key="EnumToBool"/>
 
+    <!-- Plan C-6 feedback: RowStyle per DataGrid con evidenziazione teal brand
+         invece del blu opaco di sistema. Applicato a SelectionView + SetupListinoView. -->
+    <Style x:Key="BrandDataGridRowStyle" TargetType="DataGridRow">
+        <Style.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="#B2EBF2"/>
+                <Setter Property="Foreground" Value="#212121"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+    <Style x:Key="BrandDataGridCellStyle" TargetType="DataGridCell">
+        <Style.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="#B2EBF2"/>
+                <Setter Property="Foreground" Value="#212121"/>
+                <Setter Property="BorderThickness" Value="0"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
     <!-- ============================================================
          BRAND — teal-cyan RevitCortex
          ============================================================ -->

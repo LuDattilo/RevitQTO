@@ -183,9 +183,34 @@
                                       FontSize="11" Background="White" BorderThickness="1"
                                       BorderBrush="{DynamicResource EdgeLightBrush}"
                                       MaxHeight="380"
+                                      RowDetailsVisibilityMode="VisibleWhenSelected"
+                                      RowStyle="{StaticResource BrandDataGridRowStyle}"
+                                      CellStyle="{StaticResource BrandDataGridCellStyle}"
                                       MouseDoubleClick="OnSearchResultDoubleClick"
                                       PreviewMouseLeftButtonDown="OnSearchResultMouseDown"
                                       MouseMove="OnSearchResultMouseMove">
+                                <DataGrid.RowDetailsTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{DynamicResource PanelSubBrush}"
+                                                BorderBrush="{DynamicResource BrandAccentBrush}"
+                                                BorderThickness="0,0,0,1" Padding="12,6">
+                                            <StackPanel>
+                                                <TextBlock FontSize="10" FontWeight="Bold"
+                                                           Foreground="{DynamicResource BrandAccentDeepBrush}">
+                                                    <Run Text="{Binding Code, Mode=OneWay}" FontFamily="Consolas"/>
+                                                    <Run Text=" · "/>
+                                                    <Run Text="{Binding UnitPriceFormatted, Mode=OneWay}"/>
+                                                    <Run Text=" · "/>
+                                                    <Run Text="{Binding ListName, Mode=OneWay}"/>
+                                                </TextBlock>
+                                                <TextBlock Text="{Binding Description}"
+                                                           FontSize="11" TextWrapping="Wrap"
+                                                           Margin="0,2,0,0"
+                                                           Foreground="{DynamicResource InkDefaultBrush}"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </DataGrid.RowDetailsTemplate>
                                 <DataGrid.Columns>
                                     <!-- Cell-★ button: toggle preferito (default = Project scope sul primo add) -->
                                     <DataGridTemplateColumn Header="★" Width="48" IsReadOnly="True"
@@ -337,8 +362,33 @@
                                           FontSize="11" Background="White" BorderThickness="1"
                                           BorderBrush="{DynamicResource EdgeLightBrush}"
                                           MaxHeight="380"
+                                          RowDetailsVisibilityMode="VisibleWhenSelected"
+                                          RowStyle="{StaticResource BrandDataGridRowStyle}"
+                                          CellStyle="{StaticResource BrandDataGridCellStyle}"
                                           Visibility="{Binding ProjectFavoritesIsEmpty,
                                                        Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                                    <DataGrid.RowDetailsTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{DynamicResource PanelSubBrush}"
+                                                    BorderBrush="{DynamicResource BrandAccentBrush}"
+                                                    BorderThickness="0,0,0,1" Padding="12,6">
+                                                <StackPanel>
+                                                    <TextBlock FontSize="10" FontWeight="Bold"
+                                                               Foreground="{DynamicResource BrandAccentDeepBrush}">
+                                                        <Run Text="{Binding Code, Mode=OneWay}" FontFamily="Consolas"/>
+                                                        <Run Text=" · "/>
+                                                        <Run Text="{Binding UnitPriceFormatted, Mode=OneWay}"/>
+                                                        <Run Text=" · "/>
+                                                        <Run Text="{Binding ListName, Mode=OneWay}"/>
+                                                    </TextBlock>
+                                                    <TextBlock Text="{Binding Description}"
+                                                               FontSize="11" TextWrapping="Wrap"
+                                                               Margin="0,2,0,0"
+                                                               Foreground="{DynamicResource InkDefaultBrush}"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </DataGrid.RowDetailsTemplate>
                                     <DataGrid.Columns>
                                         <!-- Colonna "Usato": ✓ verde se assegnato nel computo -->
                                         <DataGridTemplateColumn Header="Usato" Width="58" SortMemberPath="IsUsedInComputo">
@@ -517,8 +567,33 @@
                                           FontSize="11" Background="White" BorderThickness="1"
                                           BorderBrush="{DynamicResource EdgeLightBrush}"
                                           MaxHeight="380"
+                                          RowDetailsVisibilityMode="VisibleWhenSelected"
+                                          RowStyle="{StaticResource BrandDataGridRowStyle}"
+                                          CellStyle="{StaticResource BrandDataGridCellStyle}"
                                           Visibility="{Binding PersonalFavoritesIsEmpty,
                                                        Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                                    <DataGrid.RowDetailsTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{DynamicResource PanelSubBrush}"
+                                                    BorderBrush="{DynamicResource BrandAccentBrush}"
+                                                    BorderThickness="0,0,0,1" Padding="12,6">
+                                                <StackPanel>
+                                                    <TextBlock FontSize="10" FontWeight="Bold"
+                                                               Foreground="{DynamicResource BrandAccentDeepBrush}">
+                                                        <Run Text="{Binding Code, Mode=OneWay}" FontFamily="Consolas"/>
+                                                        <Run Text=" · "/>
+                                                        <Run Text="{Binding UnitPriceFormatted, Mode=OneWay}"/>
+                                                        <Run Text=" · "/>
+                                                        <Run Text="{Binding ListName, Mode=OneWay}"/>
+                                                    </TextBlock>
+                                                    <TextBlock Text="{Binding Description}"
+                                                               FontSize="11" TextWrapping="Wrap"
+                                                               Margin="0,2,0,0"
+                                                               Foreground="{DynamicResource InkDefaultBrush}"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </DataGrid.RowDetailsTemplate>
                                     <DataGrid.Columns>
                                         <DataGridTemplateColumn Header="Usato" Width="58" SortMemberPath="IsUsedInComputo">
                                             <DataGridTemplateColumn.CellTemplate>

@@ -32,10 +32,10 @@
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <Grid>
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />   <!-- card filtri (con ScrollViewer annidato MaxHeight=360) -->
-                <RowDefinition Height="Auto" />   <!-- toolbar isola/nascondi/reset -->
-                <RowDefinition Height="Auto" />   <!-- DataGrid risultati -->
-                <RowDefinition Height="Auto" />   <!-- card Assegna EP (Plan C-6) -->
+                <RowDefinition Height="Auto" />   <!-- 0: card filtri (ScrollViewer annidato MaxHeight=360) -->
+                <RowDefinition Height="Auto" />   <!-- 1: toolbar isola/nascondi/reset -->
+                <RowDefinition Height="Auto" />   <!-- 2: card Assegna EP (Plan C-6) — SOPRA il DataGrid -->
+                <RowDefinition Height="Auto" />   <!-- 3: DataGrid risultati -->
             </Grid.RowDefinitions>
 
         <!-- Filtro: Fase Revit + Modalità computo + Categoria + Filtri parametrici -->
@@ -289,8 +289,8 @@
                     Foreground="{DynamicResource InkDimBrush}" />
         </StackPanel>
 
-        <!-- DataGrid risultati -->
-        <Border Grid.Row="2" Margin="16,0,16,8" MinHeight="300"
+        <!-- DataGrid risultati (Row 3 — spostato sotto la card Assegna EP per miglior UX) -->
+        <Border Grid.Row="3" Margin="16,0,16,8" MinHeight="300"
                 BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1">
             <DataGrid x:Name="GridElements"
                       ItemsSource="{Binding Elements}"
@@ -314,6 +314,8 @@
                         <EventSetter Event="MouseRightButtonUp" Handler="OnColumnHeaderRightClick"/>
                     </Style>
                 </DataGrid.ColumnHeaderStyle>
+                <DataGrid.RowStyle><StaticResource ResourceKey="BrandDataGridRowStyle"/></DataGrid.RowStyle>
+                <DataGrid.CellStyle><StaticResource ResourceKey="BrandDataGridCellStyle"/></DataGrid.CellStyle>
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Id"            Binding="{Binding ElementId}"           Width="70"  FontFamily="Consolas" />
                     <DataGridTextColumn Header="Famiglia"      Binding="{Binding FamilyName}"          Width="*" />
@@ -325,8 +327,9 @@
             </DataGrid>
         </Border>
 
-        <!-- Plan C-6: Card ASSEGNA EP (tra DataGrid risultati e status bar) -->
-        <Border Grid.Row="3" Margin="16,4,16,4" Padding="10,8"
+        <!-- Plan C-6: Card ASSEGNA EP posta SOPRA il DataGrid (Row 2).
+             Workflow top-down: filtri → toolbar → Assegna EP → tabella risultati. -->
+        <Border Grid.Row="2" Margin="16,4,16,4" Padding="10,8"
                 Background="{DynamicResource PanelSubBrush}"
                 BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1" CornerRadius="4">
             <Grid>
@@ -367,20 +370,22 @@
                               SelectedValue="{Binding QuantityMode, Mode=TwoWay}"/>
                 </StackPanel>
 
-                <!-- Riga 3: preview + bottone applica -->
+                <!-- Riga 3: preview + bottone applica (testo e preview dinamici in base alla selezione) -->
                 <Grid Grid.Row="2" Margin="0,8,0,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="{Binding AssignPreview}"
-                               FontSize="11" FontStyle="Italic"
+                               FontSize="11" FontWeight="SemiBold"
                                Foreground="{DynamicResource BrandAccentDeepBrush}"
-                               VerticalAlignment="Center"/>
-                    <Button Grid.Column="1" Content="Assegna agli elementi filtrati"
+                               VerticalAlignment="Center"
+                               TextWrapping="Wrap"/>
+                    <Button Grid.Column="1" Content="{Binding AssignButtonText}"
                             Command="{Binding ApplyEpCommand}"
                             Style="{DynamicResource BtnPrimary}"
-                            Padding="10,5" FontSize="11"/>
+                            Padding="12,6" FontSize="11" FontWeight="SemiBold"
+                            ToolTip="Assegna la voce EP corrente alle righe selezionate nel DataGrid (Ctrl/Shift+Click per multi-selezione)"/>
                 </Grid>
             </Grid>
         </Border>
