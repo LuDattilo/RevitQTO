@@ -620,9 +620,12 @@ namespace QtoRevitPlugin.UI.ViewModels
                     foreach (var s in similar)
                         AssignEpLogger.Log($"  · listId={s.PriceListId} · code=[{s.Code}] · list={s.ListName}");
 
+                    var logHint = AssignEpLogger.LastError != null
+                        ? $" LOGGER ERROR: {AssignEpLogger.LastError}"
+                        : $" Log: {AssignEpLogger.LogPath}";
                     StatusMessage = similar.Count > 0
-                        ? $"Voce '{codeLookup}' non trovata esatta. {similar.Count} codici simili nel DB (vedi log): es. '{similar[0].Code}'"
-                        : $"Voce '{codeLookup}' (len={codeLookup.Length}) non trovata. Listino disattivato? (log: {AssignEpLogger.LogPath})";
+                        ? $"Voce '{codeLookup}' non trovata esatta. {similar.Count} codici simili: es. '{similar[0].Code}'.{logHint}"
+                        : $"Voce '{codeLookup}' (len={codeLookup.Length}) non trovata. Listino disattivato?{logHint}";
                     AssignEpLogger.Log($"ABORT: {StatusMessage}");
                     return;
                 }

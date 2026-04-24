@@ -5,16 +5,43 @@ namespace QtoRevitPlugin.Services
 {
     /// <summary>
     /// Plan C-6 debug: logger append-only per diagnosticare il flusso Assegna EP.
-    /// File: %TEMP%\QtoRevitPlugin\assignep.log — ruota a 5 MB.
-    /// Thread-safe via lock (chiamate non frequenti, overhead irrilevante).
+    /// File: Desktop\QtoRevitPlugin-assignep.log (il più visibile/accessibile per l'utente).
+    /// Thread-safe via lock.
     /// </summary>
     public static class AssignEpLogger
     {
         private static readonly object _sync = new object();
         private const long MaxBytes = 5 * 1024 * 1024;
 
-        public static string LogPath { get; } =
-            Path.Combine(Path.GetTempPath(), "QtoRevitPlugin", "assignep.log");
+        /// <summary>
+        /// Path del log. Priorità: Desktop (massima visibilità per l'utente) → TEMP (fallback).
+        /// Scelta fatta runtime perché GetFolderPath(Desktop) può fallire su sessioni particolari.
+        /// </summary>
+        public static string LogPath { get; } = ResolveLogPath();
+
+        private static string ResolveLogPath()
+        {
+            try
+            {
+                var desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+                if (!string.IsNullOrEmpty(desktop) && Directory.Exists(desktop))
+                    return Path.Combine(desktop, "QtoRevitPlugin-assignep.log");
+            }
+            catch { }
+            // Fallback 1: %APPDATA%\QtoRevitPlugin\assignep.log
+            try
+            {
+                var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                if (!string.IsNullOrEmpty(appData))
+                {
+                    var dir = Path.Combine(appData, "QtoRevitPlugin");
+                    return Path.Combine(dir, "assignep.log");
+                }
+            }
+            catch { }
+            // Fallback 2: TEMP
+            return Path.Combine(Path.GetTempPath(), "QtoRevitPlugin-assignep.log");
+        }
 
         public static void Log(string message)
         {
@@ -36,10 +63,16 @@ namespace QtoRevitPlugin.Services
                     File.AppendAllText(LogPath, $"[{ts}] {message}{Environment.NewLine}");
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Logger non deve mai throware. Best-effort.
+                // Non mangiamo l'errore in silenzio: lo scriviamo nel StatusMessage di chi chiama
+                // via proprietà LastError. Se il logger stesso fallisce, l'utente vede comunque
+                // il codice di errore e il path tentato nella UI.
+                LastError = $"Log errore su '{LogPath}': {ex.GetType().Name} {ex.Message}";
             }
         }
+
+        /// <summary>Se il logger fallisce, contiene il motivo. Letto dalla UI per debug.</summary>
+        public static string? LastError { get; private set; }
     }
 }
