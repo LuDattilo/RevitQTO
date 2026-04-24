@@ -113,17 +113,34 @@ namespace QtoRevitPlugin.UI.ViewModels
                 QtoApplication.Instance.SessionManager.SessionChanged += OnSessionChanged;
 
             RefreshActivePhaseLabel();
+            LoadFromDb();
+        }
+
+        /// <summary>Carica RoomMappings e ManualItems dal DB della sessione attiva.</summary>
+        private void LoadFromDb()
+        {
+            var repo = QtoApplication.Instance?.SessionManager?.Repository;
+            var sessionId = QtoApplication.Instance?.SessionManager?.ActiveSession?.Id ?? 0;
+            if (repo == null || sessionId <= 0) return;
+
+            RoomMappings.Clear();
+            foreach (var cfg in repo.GetRoomMappingConfigs(sessionId))
+                RoomMappings.Add(RoomMappingConfigVm.FromModel(cfg));
+
+            ManualItems.Clear();
+            foreach (var item in repo.GetManualItems(sessionId))
+                ManualItems.Add(ManualItemVm.FromModel(item));
+
+            RecalcManualTotal();
         }
 
         private void OnSessionChanged(object? sender, SessionChangedEventArgs e)
         {
-            // Aggiorna la label di fase per ogni evento di sessione (Created/
-            // Resumed cambiano il contesto, PhaseChanged cambia il filtro).
             RefreshActivePhaseLabel();
 
-            // Per PhaseChanged ricarichiamo la tab Famiglie se c'è una categoria
-            // attiva, così l'utente vede immediatamente l'aggregazione filtrata
-            // sulla nuova fase — niente click manuale richiesto.
+            if (e.Kind is SessionChangeKind.Created or SessionChangeKind.Resumed or SessionChangeKind.Forked)
+                LoadFromDb();
+
             if (e.Kind == SessionChangeKind.PhaseChanged && SelectedFamilyCategory != null)
                 RefreshFamilyTypes();
         }
@@ -307,32 +324,42 @@ namespace QtoRevitPlugin.UI.ViewModels
                 return;
             }
 
+            var repo = QtoApplication.Instance?.SessionManager?.Repository;
+            var sessionId = QtoApplication.Instance?.SessionManager?.ActiveSession?.Id ?? 0;
+
             if (EditingRoomMapping.Id == 0)
             {
-                // Nuovo — assegna Id fittizio locale per distinguere nelle update
-                EditingRoomMapping.Id = NextLocalId(RoomMappings.Select(r => r.Id));
+                if (repo != null && sessionId > 0)
+                    EditingRoomMapping.Id = repo.InsertRoomMappingConfig(EditingRoomMapping.ToModel(sessionId));
+                else
+                    EditingRoomMapping.Id = NextLocalId(RoomMappings.Select(r => r.Id));
                 RoomMappings.Add(EditingRoomMapping);
-                RoomStatus = $"Aggiunta formula «{EditingRoomMapping.EpCode}» (non ancora persistita · Sprint 5).";
+                RoomStatus = $"Aggiunta formula «{EditingRoomMapping.EpCode}».";
             }
             else
             {
+                if (repo != null)
+                    repo.UpdateRoomMappingConfig(EditingRoomMapping.ToModel(sessionId));
                 var existing = RoomMappings.FirstOrDefault(r => r.Id == EditingRoomMapping.Id);
                 if (existing != null)
                 {
                     var idx = RoomMappings.IndexOf(existing);
                     RoomMappings[idx] = EditingRoomMapping;
-                    RoomStatus = $"Aggiornata formula «{EditingRoomMapping.EpCode}» (non ancora persistita · Sprint 5).";
+                    RoomStatus = $"Aggiornata formula «{EditingRoomMapping.EpCode}».";
                 }
             }
             EditingRoomMapping = null;
             RoomTestResult = string.Empty;
         }
 
-        /// <summary>Elimina la formula selezionata dalla lista in-memory.</summary>
+        /// <summary>Elimina la formula selezionata dalla lista e dal DB.</summary>
         public void DeleteRoomMapping()
         {
             if (SelectedRoomMapping == null) return;
             var removed = SelectedRoomMapping.EpCode;
+            var repo = QtoApplication.Instance?.SessionManager?.Repository;
+            if (repo != null && SelectedRoomMapping.Id > 0)
+                repo.DeleteRoomMappingConfig(SelectedRoomMapping.Id);
             RoomMappings.Remove(SelectedRoomMapping);
             SelectedRoomMapping = null;
             RoomStatus = $"Eliminata formula «{removed}».";
@@ -443,19 +470,23 @@ namespace QtoRevitPlugin.UI.ViewModels
                 return;
             }
 
-            // IsNew distingue creazione vs update (indipendente dall'Id che potrà
-            // collidere con rowid SQLite dopo la persistenza).
+            var repo = QtoApplication.Instance?.SessionManager?.Repository;
+            var sessionId = QtoApplication.Instance?.SessionManager?.ActiveSession?.Id ?? 0;
+
             if (EditingManualItem.IsNew)
             {
-                EditingManualItem.Id = NextLocalId(ManualItems.Select(m => m.Id));
-                ManualItems.Add(EditingManualItem);
-                // Dopo l'inserimento in-memory la voce NON è più "nuova" per futuri edit:
-                // IsNew tornerà a true solo su duplica o nuovo Add esplicito.
+                if (repo != null && sessionId > 0)
+                    EditingManualItem.Id = repo.InsertManualItem(EditingManualItem.ToModel(sessionId));
+                else
+                    EditingManualItem.Id = NextLocalId(ManualItems.Select(m => m.Id));
                 EditingManualItem.IsNew = false;
-                ManualStatus = $"Aggiunta voce «{EditingManualItem.EpCode}» (non ancora persistita · Sprint 5).";
+                ManualItems.Add(EditingManualItem);
+                ManualStatus = $"Aggiunta voce «{EditingManualItem.EpCode}».";
             }
             else
             {
+                if (repo != null)
+                    repo.UpdateManualItem(EditingManualItem.ToModel(sessionId));
                 var existing = ManualItems.FirstOrDefault(m => m.Id == EditingManualItem.Id);
                 if (existing != null)
                 {
@@ -484,6 +515,9 @@ namespace QtoRevitPlugin.UI.ViewModels
         {
             if (SelectedManualItem == null) return;
             var removed = SelectedManualItem.EpCode;
+            var repo = QtoApplication.Instance?.SessionManager?.Repository;
+            if (repo != null && SelectedManualItem.Id > 0)
+                repo.DeleteManualItem(SelectedManualItem.Id);
             ManualItems.Remove(SelectedManualItem);
             SelectedManualItem = null;
             ManualStatus = $"Eliminata voce «{removed}».";
@@ -603,7 +637,7 @@ namespace QtoRevitPlugin.UI.ViewModels
             RoomNameFilter = this.RoomNameFilter
         };
 
-        /// <summary>Converte in model persistibile (Sprint 5 userà questo per InsertRoomMapping).</summary>
+        /// <summary>Converte in model persistibile.</summary>
         public RoomMappingConfig ToModel() => new()
         {
             Id = this.Id,
@@ -613,6 +647,24 @@ namespace QtoRevitPlugin.UI.ViewModels
             Formula = this.Formula,
             TargetCategory = this.TargetCategory,
             RoomNameFilter = this.RoomNameFilter
+        };
+
+        public RoomMappingConfig ToModel(int sessionId)
+        {
+            var m = ToModel();
+            m.SessionId = sessionId;
+            return m;
+        }
+
+        public static RoomMappingConfigVm FromModel(RoomMappingConfig cfg) => new RoomMappingConfigVm
+        {
+            Id = cfg.Id,
+            EpCode = cfg.EpCode,
+            EpDescription = cfg.EpDescription,
+            Unit = cfg.Unit,
+            Formula = cfg.Formula,
+            TargetCategory = cfg.TargetCategory,
+            RoomNameFilter = cfg.RoomNameFilter
         };
     }
 
@@ -672,6 +724,25 @@ namespace QtoRevitPlugin.UI.ViewModels
             Quantity = this.Quantity,
             UnitPrice = this.UnitPrice,
             Notes = this.Notes
+        };
+
+        public ManualQuantityEntry ToModel(int sessionId)
+        {
+            var m = ToModel();
+            m.SessionId = sessionId;
+            return m;
+        }
+
+        public static ManualItemVm FromModel(ManualQuantityEntry item) => new ManualItemVm
+        {
+            Id = item.Id,
+            IsNew = false,
+            EpCode = item.EpCode,
+            EpDescription = item.EpDescription,
+            Unit = item.Unit,
+            Quantity = item.Quantity,
+            UnitPrice = item.UnitPrice,
+            Notes = item.Notes
         };
     }
 }
