@@ -77,6 +77,11 @@ namespace QtoRevitPlugin.Data
             // Sprint 10 step 2 (v8): seed OG/OS per DB nuovi
             SeedSoaCategoriesIfEmpty(conn, tx);
 
+            // Plan C-0 (v12): estende PriceItems con colonne XPWE anche su DB nuovi.
+            // Il DDL base di PriceItems resta invariato (backward-compat con import esistenti);
+            // le colonne aggiuntive sono applicate via ALTER TABLE idempotenti.
+            ApplyV12PriceItemExtensions(conn, tx);
+
             // Registra versione iniziale
             using (var versionCmd = conn.CreateCommand())
             {
@@ -247,6 +252,16 @@ namespace QtoRevitPlugin.Data
                 ExecuteStatement(conn, tx, DatabaseSchema.MigrateV10ToV11_BackfillPublicId);
             }
 
+            // v11→v12 (Plan C-0): modulo Computi PriMus-compliant.
+            // Estende PriceItems con 17 colonne XPWE-style. Le 7 tabelle nuove
+            // (ComputoDocuments, ChapterNodes, CategoryNodes, WbsNodes,
+            // MeasurementRows, MeasurementSubRows, XpweExportJobs) vengono create
+            // dal loop InitialStatements soprastante (idempotenti IF NOT EXISTS).
+            if (dbVersion < 12)
+            {
+                ApplyV12PriceItemExtensions(conn, tx);
+            }
+
             using (var insert = conn.CreateCommand())
             {
                 insert.Transaction = tx;
@@ -352,6 +367,61 @@ namespace QtoRevitPlugin.Data
                 chars[i] = Array.IndexOf(invalid, name[i]) >= 0 ? '_' : name[i];
             }
             return new string(chars).Trim();
+        }
+
+        /// <summary>
+        /// Helper per la migrazione v11→v12: aggiunge una colonna a PriceItems se non esiste.
+        /// SQLite ALTER TABLE non supporta IF NOT EXISTS → check preventivo via PRAGMA table_info.
+        /// </summary>
+        private static void EnsurePriceItemColumn(
+            SqliteConnection conn, SqliteTransaction tx, string columnName, string alterStatement)
+        {
+            if (!ColumnExists(conn, tx, "PriceItems", columnName))
+            {
+                ExecuteStatement(conn, tx, alterStatement);
+            }
+        }
+
+        /// <summary>
+        /// Applica le 17 colonne XPWE-style a PriceItems. Idempotente: può essere chiamato sia
+        /// da ApplyInitialSchema (DB nuovo) sia da MigrateIfNeeded (DB v11 preesistente).
+        /// </summary>
+        private static void ApplyV12PriceItemExtensions(SqliteConnection conn, SqliteTransaction tx)
+        {
+            EnsurePriceItemColumn(conn, tx, "Prezzo2",
+                DatabaseSchema.MigrateV11ToV12_ExtendPriceItemsPrezzo2);
+            EnsurePriceItemColumn(conn, tx, "Prezzo3",
+                DatabaseSchema.MigrateV11ToV12_ExtendPriceItemsPrezzo3);
+            EnsurePriceItemColumn(conn, tx, "Prezzo4",
+                DatabaseSchema.MigrateV11ToV12_ExtendPriceItemsPrezzo4);
+            EnsurePriceItemColumn(conn, tx, "Prezzo5",
+                DatabaseSchema.MigrateV11ToV12_ExtendPriceItemsPrezzo5);
+            EnsurePriceItemColumn(conn, tx, "SpCapId",
+                DatabaseSchema.MigrateV11ToV12_ExtendPriceItemsSpCapId);
+            EnsurePriceItemColumn(conn, tx, "CapId",
+                DatabaseSchema.MigrateV11ToV12_ExtendPriceItemsCapId);
+            EnsurePriceItemColumn(conn, tx, "SbCapId",
+                DatabaseSchema.MigrateV11ToV12_ExtendPriceItemsSbCapId);
+            EnsurePriceItemColumn(conn, tx, "WbsCapNodeId",
+                DatabaseSchema.MigrateV11ToV12_ExtendPriceItemsWbsCapNodeId);
+            EnsurePriceItemColumn(conn, tx, "IncMDO",
+                DatabaseSchema.MigrateV11ToV12_ExtendPriceItemsIncMDO);
+            EnsurePriceItemColumn(conn, tx, "IncMAT",
+                DatabaseSchema.MigrateV11ToV12_ExtendPriceItemsIncMAT);
+            EnsurePriceItemColumn(conn, tx, "IncSIC",
+                DatabaseSchema.MigrateV11ToV12_ExtendPriceItemsIncSIC);
+            EnsurePriceItemColumn(conn, tx, "Flags",
+                DatabaseSchema.MigrateV11ToV12_ExtendPriceItemsFlags);
+            EnsurePriceItemColumn(conn, tx, "CnfQt",
+                DatabaseSchema.MigrateV11ToV12_ExtendPriceItemsCnfQt);
+            EnsurePriceItemColumn(conn, tx, "AdrInternet",
+                DatabaseSchema.MigrateV11ToV12_ExtendPriceItemsAdrInternet);
+            EnsurePriceItemColumn(conn, tx, "TipoRisorsa",
+                DatabaseSchema.MigrateV11ToV12_ExtendPriceItemsTipoRisorsa);
+            EnsurePriceItemColumn(conn, tx, "Articolo",
+                DatabaseSchema.MigrateV11ToV12_ExtendPriceItemsArticolo);
+            EnsurePriceItemColumn(conn, tx, "DataEP",
+                DatabaseSchema.MigrateV11ToV12_ExtendPriceItemsDataEP);
         }
     }
 }

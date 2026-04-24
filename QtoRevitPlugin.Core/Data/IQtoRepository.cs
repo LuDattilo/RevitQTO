@@ -1,4 +1,5 @@
 using QtoRevitPlugin.Models;
+using QtoRevitPlugin.Models.Computi;
 using System.Collections.Generic;
 
 namespace QtoRevitPlugin.Data
@@ -120,6 +121,41 @@ namespace QtoRevitPlugin.Data
         /// <summary>Salva o aggiorna per Name (UNIQUE implicito logico). Ritorna l'Id.</summary>
         int UpsertSelectionRulePreset(SelectionRulePreset preset);
         void DeleteSelectionRulePreset(int id);
+
+        // -------------------- Modulo Computi (schema v12) --------------------
+
+        int InsertComputoDocument(ComputoDocument doc);
+        ComputoDocument? GetComputoDocumentBySession(int workSessionId);
+        void UpdateComputoDocument(ComputoDocument doc);
+
+        int InsertChapterNode(ChapterNode node);
+        IReadOnlyList<ChapterNode> GetChapterNodes(int documentId);
+        void UpdateChapterNode(ChapterNode node);
+        void DeleteChapterNode(int id);
+
+        int InsertCategoryNode(CategoryNode node);
+        IReadOnlyList<CategoryNode> GetCategoryNodes(int documentId);
+        void UpdateCategoryNode(CategoryNode node);
+        void DeleteCategoryNode(int id);
+
+        int InsertWbsNode(WbsNode node);
+        IReadOnlyList<WbsNode> GetWbsNodes(int documentId, string? kind = null);
+        void UpdateWbsNode(WbsNode node);
+        void DeleteWbsNode(int id);
+
+        int InsertMeasurementRow(MeasurementRow row);
+        IReadOnlyList<MeasurementRow> GetMeasurementRows(int documentId);
+        void UpdateMeasurementRow(MeasurementRow row);
+        void DeleteMeasurementRow(int id);
+        void RecalcMeasurementRowQuantita(int rowId);
+
+        int InsertMeasurementSubRow(MeasurementSubRow subRow);
+        IReadOnlyList<MeasurementSubRow> GetMeasurementSubRows(int measurementRowId);
+        void UpdateMeasurementSubRow(MeasurementSubRow subRow);
+        void DeleteMeasurementSubRow(int id);
+
+        int InsertXpweExportJob(XpweExportJob job);
+        IReadOnlyList<XpweExportJob> GetXpweExportJobs(int documentId);
     }
 
     public interface IFavoritesRepository
