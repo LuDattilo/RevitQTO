@@ -825,6 +825,7 @@ CREATE TABLE IF NOT EXISTS XpweExportJobs (
         // ALTER TABLE ADD COLUMN non è idempotente in SQLite: check preventivo
         // via PRAGMA in DatabaseInitializer / Migration.cs.
 
+        public const string MigrateV11ToV12_ExtendPriceItemsPrezzo1 = "ALTER TABLE PriceItems ADD COLUMN Prezzo1 REAL NOT NULL DEFAULT 0;";
         public const string MigrateV11ToV12_ExtendPriceItemsPrezzo2 = "ALTER TABLE PriceItems ADD COLUMN Prezzo2 REAL NOT NULL DEFAULT 0;";
         public const string MigrateV11ToV12_ExtendPriceItemsPrezzo3 = "ALTER TABLE PriceItems ADD COLUMN Prezzo3 REAL NOT NULL DEFAULT 0;";
         public const string MigrateV11ToV12_ExtendPriceItemsPrezzo4 = "ALTER TABLE PriceItems ADD COLUMN Prezzo4 REAL NOT NULL DEFAULT 0;";
@@ -841,6 +842,7 @@ CREATE TABLE IF NOT EXISTS XpweExportJobs (
         public const string MigrateV11ToV12_ExtendPriceItemsAdrInternet = "ALTER TABLE PriceItems ADD COLUMN AdrInternet TEXT NULL;";
         public const string MigrateV11ToV12_ExtendPriceItemsTipoRisorsa = "ALTER TABLE PriceItems ADD COLUMN TipoRisorsa INTEGER NOT NULL DEFAULT 0;";
         public const string MigrateV11ToV12_ExtendPriceItemsArticolo = "ALTER TABLE PriceItems ADD COLUMN Articolo TEXT NULL;";
+        public const string MigrateV11ToV12_ExtendPriceItemsTariffa = "ALTER TABLE PriceItems ADD COLUMN Tariffa TEXT NULL;";
         public const string MigrateV11ToV12_ExtendPriceItemsDataEP = "ALTER TABLE PriceItems ADD COLUMN DataEP TEXT NULL;";
     }
 }

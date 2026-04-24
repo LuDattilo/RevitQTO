@@ -354,11 +354,11 @@ namespace QtoRevitPlugin.UI.ViewModels
 
                 ProjectFavorites.Clear();
                 foreach (var item in _projectFavoritesSet.Items)
-                    ProjectFavorites.Add(new FavoriteItemRow(item, FavoriteScope.Project));
+                    ProjectFavorites.Add(MakeRow(item, FavoriteScope.Project));
 
                 PersonalFavorites.Clear();
                 foreach (var item in _personalFavoritesSet.Items)
-                    PersonalFavorites.Add(new FavoriteItemRow(item, FavoriteScope.Personal));
+                    PersonalFavorites.Add(MakeRow(item, FavoriteScope.Personal));
 
                 RefreshFavoritesUsage();
                 RefreshFavoriteHeaders();
@@ -533,6 +533,54 @@ namespace QtoRevitPlugin.UI.ViewModels
             RemoveFromScope(row.Code, row.Scope);
         }
 
+        /// <summary>
+        /// Duplica un preferito creando una copia personalizzata (IsCustom=true) con codice univoco.
+        /// La copia è editabile inline; la voce originale del listino resta invariata.
+        /// </summary>
+        [RelayCommand]
+        private void DuplicateFavorite(FavoriteItemRow? row)
+        {
+            if (row == null) return;
+
+            var targetSet = row.Scope == FavoriteScope.Project ? _projectFavoritesSet : _personalFavoritesSet;
+
+            // Genera codice univoco: {Codice}-C1, -C2, ...
+            string baseCode = (row.Model.OriginalCode ?? row.Code).TrimEnd();
+            string newCode = baseCode;
+            int suffix = 1;
+            var existingCodes = new System.Collections.Generic.HashSet<string>(
+                targetSet.Items.Select(i => i.Code), StringComparer.OrdinalIgnoreCase);
+            while (existingCodes.Contains(newCode))
+                newCode = $"{baseCode}-C{suffix++}";
+
+            var clone = new FavoriteItem
+            {
+                Code = newCode,
+                ShortDesc = row.Model.ShortDesc,
+                Description = row.Model.Description,
+                Unit = row.Model.Unit,
+                UnitPrice = row.Model.UnitPrice,
+                ListName = row.Model.ListName,
+                ListId = row.Model.ListId,
+                AddedAt = DateTime.UtcNow,
+                Note = row.Model.Note,
+                IsCustom = true,
+                OriginalCode = baseCode
+            };
+
+            targetSet.Items.Add(clone);
+            var newRow = new FavoriteItemRow(clone, row.Scope);
+            newRow.EditChanged += (_, _) => PersistAndRefresh();
+
+            if (row.Scope == FavoriteScope.Project)
+                ProjectFavorites.Add(newRow);
+            else
+                PersonalFavorites.Add(newRow);
+
+            RefreshFavoriteHeaders();
+            PersistAndRefresh();
+        }
+
         /// <summary>Rimuove TUTTI i preferiti progetto non usati nel computo (con conferma).</summary>
         [RelayCommand]
         private void RemoveUnusedProjectFavorites()
@@ -685,16 +733,24 @@ namespace QtoRevitPlugin.UI.ViewModels
                 $"Rimoss{(unused.Count == 1 ? "o" : "i")} {unused.Count} preferit{(unused.Count == 1 ? "o" : "i")} {label} inutilizzat{(unused.Count == 1 ? "o" : "i")}. Il listino è intatto.");
         }
 
+        private FavoriteItemRow MakeRow(FavoriteItem item, FavoriteScope scope)
+        {
+            var row = new FavoriteItemRow(item, scope);
+            if (item.IsCustom)
+                row.EditChanged += (_, _) => PersistAndRefresh();
+            return row;
+        }
+
         private void PersistAndRefresh()
         {
             // Rebuild UI first — a save failure must not prevent the UI from reflecting the new state.
             ProjectFavorites.Clear();
             foreach (var item in _projectFavoritesSet.Items)
-                ProjectFavorites.Add(new FavoriteItemRow(item, FavoriteScope.Project));
+                ProjectFavorites.Add(MakeRow(item, FavoriteScope.Project));
 
             PersonalFavorites.Clear();
             foreach (var item in _personalFavoritesSet.Items)
-                PersonalFavorites.Add(new FavoriteItemRow(item, FavoriteScope.Personal));
+                PersonalFavorites.Add(MakeRow(item, FavoriteScope.Personal));
 
             RefreshFavoritesUsage();
             RefreshFavoriteHeaders();
@@ -808,6 +864,12 @@ namespace QtoRevitPlugin.UI.ViewModels
             Unit = item.Unit;
             UnitPrice = item.UnitPrice;
             ListName = item.ListName;
+
+            // Plan C-4 (XPWE): campi aggiuntivi per DataGrid potenziato
+            Prezzo2 = item.Prezzo2;
+            IncMDO = item.IncMDO;
+            IncMAT = item.IncMAT;
+            IncSIC = item.IncSIC;
         }
 
         public int Id { get; }
@@ -821,6 +883,16 @@ namespace QtoRevitPlugin.UI.ViewModels
         public string Unit { get; }
         public double UnitPrice { get; }
         public string ListName { get; }
+
+        // Plan C-4: campi XPWE esposti per DataGrid (readonly)
+        public double Prezzo2 { get; }
+        public double IncMDO { get; }
+        public double IncMAT { get; }
+        public double IncSIC { get; }
+        public string Prezzo2Formatted => Prezzo2 > 0 ? $"€ {Prezzo2:N2}" : "—";
+        public string IncMDOFormatted => IncMDO > 0 ? $"{IncMDO:N1}%" : "—";
+        public string IncMATFormatted => IncMAT > 0 ? $"{IncMAT:N1}%" : "—";
+        public string IncSICFormatted => IncSIC > 0 ? $"{IncSIC:N1}%" : "—";
 
         /// <summary>
         /// Scope del preferito se la voce è nei preferiti; null altrimenti.
@@ -889,6 +961,9 @@ namespace QtoRevitPlugin.UI.ViewModels
         {
             Model = item;
             Scope = scope;
+            _editDescription = item.Description;
+            _editUnit = item.Unit;
+            _editUnitPrice = item.UnitPrice;
         }
 
         public string Code => Model.Code;
@@ -902,6 +977,18 @@ namespace QtoRevitPlugin.UI.ViewModels
         public string AddedAtShort => AddedAt == default ? "" : AddedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
         public string UnitPriceFormatted => UnitPrice > 0 ? $"€ {UnitPrice:N2}" : "—";
         public string ScopeBadge => Scope == FavoriteScope.Project ? "Proj" : "Pers";
+        public bool IsCustom => Model.IsCustom;
+
+        // Campi editabili solo per voci custom — sincronizzati sul Model quando cambiano
+        [ObservableProperty] private string _editDescription;
+        [ObservableProperty] private string _editUnit;
+        [ObservableProperty] private double _editUnitPrice;
+
+        partial void OnEditDescriptionChanged(string value) { if (Model.IsCustom) { Model.Description = value; EditChanged?.Invoke(this, EventArgs.Empty); } }
+        partial void OnEditUnitChanged(string value) { if (Model.IsCustom) { Model.Unit = value; EditChanged?.Invoke(this, EventArgs.Empty); } }
+        partial void OnEditUnitPriceChanged(double value) { if (Model.IsCustom) { Model.UnitPrice = value; EditChanged?.Invoke(this, EventArgs.Empty); } }
+
+        public event EventHandler? EditChanged;
 
         [ObservableProperty] private bool _isUsedInComputo;
 

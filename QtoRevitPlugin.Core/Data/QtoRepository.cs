@@ -1648,6 +1648,27 @@ WHERE Id=@Id;";
             public int IsNP { get; set; }
             public string? ListName { get; set; }
 
+            // Plan C-4 / schema v12: campi XPWE. Nullable per tolleranza DB pre-migrazione.
+            public string? Articolo { get; set; }
+            public string? Tariffa { get; set; }
+            public double? Prezzo1 { get; set; }
+            public double? Prezzo2 { get; set; }
+            public double? Prezzo3 { get; set; }
+            public double? Prezzo4 { get; set; }
+            public double? Prezzo5 { get; set; }
+            public int? SpCapId { get; set; }
+            public int? CapId { get; set; }
+            public int? SbCapId { get; set; }
+            public int? WbsCapNodeId { get; set; }
+            public double? IncMDO { get; set; }
+            public double? IncMAT { get; set; }
+            public double? IncSIC { get; set; }
+            public int? TipoRisorsa { get; set; }
+            public int? Flags { get; set; }
+            public string? CnfQt { get; set; }
+            public string? AdrInternet { get; set; }
+            public string? DataEP { get; set; }
+
             public PriceItem ToPriceItem() => new()
             {
                 Id = Id,
@@ -1662,7 +1683,28 @@ WHERE Id=@Id;";
                 UnitPrice = UnitPrice ?? 0d,
                 Notes = Notes ?? string.Empty,
                 IsNP = IsNP != 0,
-                ListName = ListName ?? string.Empty
+                ListName = ListName ?? string.Empty,
+
+                // Plan C-4: campi XPWE
+                Articolo = Articolo,
+                Tariffa = Tariffa,
+                Prezzo1 = Prezzo1 ?? 0d,
+                Prezzo2 = Prezzo2 ?? 0d,
+                Prezzo3 = Prezzo3 ?? 0d,
+                Prezzo4 = Prezzo4 ?? 0d,
+                Prezzo5 = Prezzo5 ?? 0d,
+                SpCapId = SpCapId,
+                CapId = CapId,
+                SbCapId = SbCapId,
+                WbsCapNodeId = WbsCapNodeId,
+                IncMDO = IncMDO ?? 0d,
+                IncMAT = IncMAT ?? 0d,
+                IncSIC = IncSIC ?? 0d,
+                TipoRisorsa = TipoRisorsa ?? 0,
+                Flags = Flags ?? 512,
+                CnfQt = CnfQt,
+                AdrInternet = AdrInternet,
+                DataEP = DataEP
             };
         }
 

@@ -388,6 +388,8 @@ namespace QtoRevitPlugin.Data
         /// </summary>
         private static void ApplyV12PriceItemExtensions(SqliteConnection conn, SqliteTransaction tx)
         {
+            EnsurePriceItemColumn(conn, tx, "Prezzo1",
+                DatabaseSchema.MigrateV11ToV12_ExtendPriceItemsPrezzo1);
             EnsurePriceItemColumn(conn, tx, "Prezzo2",
                 DatabaseSchema.MigrateV11ToV12_ExtendPriceItemsPrezzo2);
             EnsurePriceItemColumn(conn, tx, "Prezzo3",
@@ -420,6 +422,8 @@ namespace QtoRevitPlugin.Data
                 DatabaseSchema.MigrateV11ToV12_ExtendPriceItemsTipoRisorsa);
             EnsurePriceItemColumn(conn, tx, "Articolo",
                 DatabaseSchema.MigrateV11ToV12_ExtendPriceItemsArticolo);
+            EnsurePriceItemColumn(conn, tx, "Tariffa",
+                DatabaseSchema.MigrateV11ToV12_ExtendPriceItemsTariffa);
             EnsurePriceItemColumn(conn, tx, "DataEP",
                 DatabaseSchema.MigrateV11ToV12_ExtendPriceItemsDataEP);
         }

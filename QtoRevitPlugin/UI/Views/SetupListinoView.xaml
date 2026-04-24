@@ -227,6 +227,10 @@
                                     <DataGridTextColumn Header="Descrizione" Binding="{Binding ShortDescTrimmed}"  Width="*" />
                                     <DataGridTextColumn Header="U.M."        Binding="{Binding Unit}"              Width="50" />
                                     <DataGridTextColumn Header="Prezzo"      Binding="{Binding UnitPriceFormatted}" Width="80" />
+                                    <!-- Plan C-4 · colonne XPWE (readonly, solo se valorizzate) -->
+                                    <DataGridTextColumn Header="P.2"         Binding="{Binding Prezzo2Formatted}"  Width="70" FontSize="10" />
+                                    <DataGridTextColumn Header="MDO%"        Binding="{Binding IncMDOFormatted}"   Width="55" FontSize="10" />
+                                    <DataGridTextColumn Header="SIC%"        Binding="{Binding IncSICFormatted}"   Width="55" FontSize="10" />
                                     <DataGridTextColumn Header="Listino"     Binding="{Binding ListName}"          Width="100" FontSize="10" />
                                 </DataGrid.Columns>
                                 <DataGrid.ContextMenu>
@@ -331,7 +335,7 @@
                                           AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
                                           HeadersVisibility="Column" GridLinesVisibility="None" RowHeight="24"
                                           FontSize="11" Background="White" BorderThickness="1"
-                                          BorderBrush="{DynamicResource EdgeLightBrush}" IsReadOnly="True"
+                                          BorderBrush="{DynamicResource EdgeLightBrush}"
                                           MaxHeight="380"
                                           Visibility="{Binding ProjectFavoritesIsEmpty,
                                                        Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
@@ -357,12 +361,48 @@
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
-                                        <DataGridTextColumn Header="Codice"      Binding="{Binding Code}"               Width="130" FontFamily="Consolas"/>
-                                        <DataGridTextColumn Header="Descrizione" Binding="{Binding Description}"        Width="*"/>
-                                        <DataGridTextColumn Header="U.M."        Binding="{Binding Unit}"               Width="50"/>
-                                        <DataGridTextColumn Header="Prezzo"      Binding="{Binding UnitPriceFormatted}" Width="80"/>
-                                        <DataGridTextColumn Header="Listino"     Binding="{Binding ListName}"           Width="110" FontSize="10"/>
-                                        <DataGridTextColumn Header="Aggiunto"    Binding="{Binding AddedAtShort}"       Width="115" FontSize="10"/>
+                                        <DataGridTextColumn Header="Codice"      Binding="{Binding Code}"               Width="130" FontFamily="Consolas" IsReadOnly="True"/>
+                                        <DataGridTemplateColumn Header="Descrizione" Width="*" SortMemberPath="Description">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <TextBlock Text="{Binding Description}" VerticalAlignment="Center" Padding="2,0"
+                                                                   Visibility="{Binding IsCustom, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}"/>
+                                                        <TextBox Text="{Binding EditDescription, UpdateSourceTrigger=LostFocus}"
+                                                                 BorderThickness="0" Padding="2,0" VerticalAlignment="Center"
+                                                                 Visibility="{Binding IsCustom, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTemplateColumn Header="U.M." Width="50" SortMemberPath="Unit">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <TextBlock Text="{Binding Unit}" VerticalAlignment="Center" Padding="2,0"
+                                                                   Visibility="{Binding IsCustom, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}"/>
+                                                        <TextBox Text="{Binding EditUnit, UpdateSourceTrigger=LostFocus}"
+                                                                 BorderThickness="0" Padding="2,0" VerticalAlignment="Center"
+                                                                 Visibility="{Binding IsCustom, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTemplateColumn Header="Prezzo" Width="80" SortMemberPath="UnitPrice">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <TextBlock Text="{Binding UnitPriceFormatted}" VerticalAlignment="Center" Padding="2,0"
+                                                                   Visibility="{Binding IsCustom, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}"/>
+                                                        <TextBox Text="{Binding EditUnitPrice, UpdateSourceTrigger=LostFocus, StringFormat=N2}"
+                                                                 BorderThickness="0" Padding="2,0" VerticalAlignment="Center"
+                                                                 Visibility="{Binding IsCustom, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="Listino"     Binding="{Binding ListName}"           Width="110" FontSize="10" IsReadOnly="True"/>
+                                        <DataGridTextColumn Header="Aggiunto"    Binding="{Binding AddedAtShort}"       Width="115" FontSize="10" IsReadOnly="True"/>
                                     </DataGrid.Columns>
                                     <DataGrid.ContextMenu>
                                         <ContextMenu>
@@ -377,6 +417,12 @@
                                                       CommandParameter="{Binding PlacementTarget.SelectedItem,
                                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                             <Separator/>
+                                            <MenuItem Header="⧉ Duplica voce (personalizzabile)"
+                                                      Command="{Binding PlacementTarget.Tag.DuplicateFavoriteCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                      CommandParameter="{Binding PlacementTarget.SelectedItem,
+                                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                      ToolTip="Crea una copia con codice -C1 editabile: descrizione, u.m. e prezzo modificabili."/>
                                             <MenuItem Header="→ Sposta in PERSONALI"
                                                       Command="{Binding PlacementTarget.Tag.MoveFavoriteToPersonalCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
@@ -469,7 +515,7 @@
                                           AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
                                           HeadersVisibility="Column" GridLinesVisibility="None" RowHeight="24"
                                           FontSize="11" Background="White" BorderThickness="1"
-                                          BorderBrush="{DynamicResource EdgeLightBrush}" IsReadOnly="True"
+                                          BorderBrush="{DynamicResource EdgeLightBrush}"
                                           MaxHeight="380"
                                           Visibility="{Binding PersonalFavoritesIsEmpty,
                                                        Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
@@ -494,12 +540,48 @@
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
-                                        <DataGridTextColumn Header="Codice"      Binding="{Binding Code}"               Width="130" FontFamily="Consolas"/>
-                                        <DataGridTextColumn Header="Descrizione" Binding="{Binding Description}"        Width="*"/>
-                                        <DataGridTextColumn Header="U.M."        Binding="{Binding Unit}"               Width="50"/>
-                                        <DataGridTextColumn Header="Prezzo"      Binding="{Binding UnitPriceFormatted}" Width="80"/>
-                                        <DataGridTextColumn Header="Listino"     Binding="{Binding ListName}"           Width="110" FontSize="10"/>
-                                        <DataGridTextColumn Header="Aggiunto"    Binding="{Binding AddedAtShort}"       Width="115" FontSize="10"/>
+                                        <DataGridTextColumn Header="Codice"      Binding="{Binding Code}"               Width="130" FontFamily="Consolas" IsReadOnly="True"/>
+                                        <DataGridTemplateColumn Header="Descrizione" Width="*" SortMemberPath="Description">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <TextBlock Text="{Binding Description}" VerticalAlignment="Center" Padding="2,0"
+                                                                   Visibility="{Binding IsCustom, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}"/>
+                                                        <TextBox Text="{Binding EditDescription, UpdateSourceTrigger=LostFocus}"
+                                                                 BorderThickness="0" Padding="2,0" VerticalAlignment="Center"
+                                                                 Visibility="{Binding IsCustom, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTemplateColumn Header="U.M." Width="50" SortMemberPath="Unit">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <TextBlock Text="{Binding Unit}" VerticalAlignment="Center" Padding="2,0"
+                                                                   Visibility="{Binding IsCustom, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}"/>
+                                                        <TextBox Text="{Binding EditUnit, UpdateSourceTrigger=LostFocus}"
+                                                                 BorderThickness="0" Padding="2,0" VerticalAlignment="Center"
+                                                                 Visibility="{Binding IsCustom, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTemplateColumn Header="Prezzo" Width="80" SortMemberPath="UnitPrice">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <TextBlock Text="{Binding UnitPriceFormatted}" VerticalAlignment="Center" Padding="2,0"
+                                                                   Visibility="{Binding IsCustom, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}"/>
+                                                        <TextBox Text="{Binding EditUnitPrice, UpdateSourceTrigger=LostFocus, StringFormat=N2}"
+                                                                 BorderThickness="0" Padding="2,0" VerticalAlignment="Center"
+                                                                 Visibility="{Binding IsCustom, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="Listino"     Binding="{Binding ListName}"           Width="110" FontSize="10" IsReadOnly="True"/>
+                                        <DataGridTextColumn Header="Aggiunto"    Binding="{Binding AddedAtShort}"       Width="115" FontSize="10" IsReadOnly="True"/>
                                     </DataGrid.Columns>
                                     <DataGrid.ContextMenu>
                                         <ContextMenu>
@@ -514,6 +596,12 @@
                                                       CommandParameter="{Binding PlacementTarget.SelectedItem,
                                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                             <Separator/>
+                                            <MenuItem Header="⧉ Duplica voce (personalizzabile)"
+                                                      Command="{Binding PlacementTarget.Tag.DuplicateFavoriteCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                      CommandParameter="{Binding PlacementTarget.SelectedItem,
+                                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                      ToolTip="Crea una copia con codice -C1 editabile: descrizione, u.m. e prezzo modificabili."/>
                                             <MenuItem Header="→ Sposta in PROGETTO"
                                                       Command="{Binding PlacementTarget.Tag.MoveFavoriteToProjectCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
