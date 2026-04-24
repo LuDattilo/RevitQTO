@@ -29,6 +29,11 @@
 
         <TextBlock Grid.Row="2" Text="Intestazione" FontSize="14" FontWeight="Bold" Margin="0,12,0,6"/>
         <StackPanel Grid.Row="3">
+            <TextBlock Text="Template grafico:" Margin="0,0,0,2"/>
+            <ComboBox ItemsSource="{Binding AvailableTemplates}"
+                      SelectedItem="{Binding SelectedTemplate, Mode=TwoWay}"
+                      DisplayMemberPath="DisplayName"
+                      Margin="0,0,0,10"/>
             <TextBlock Text="Titolo:"/>
             <TextBox Text="{Binding Titolo, Mode=TwoWay}" Margin="0,0,0,6"/>
             <TextBlock Text="Committente:"/>

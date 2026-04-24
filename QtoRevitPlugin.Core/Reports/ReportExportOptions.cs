@@ -15,6 +15,9 @@ namespace QtoRevitPlugin.Reports
         public bool GroupByChapter { get; set; } = true;
         public string? CompanyLogoPath { get; set; }
 
+        /// <summary>Template grafico da applicare. Null = default hardcoded dell'exporter.</summary>
+        public ExportTemplate? Template { get; set; }
+
         // Intestazione base
         public string Titolo { get; set; } = "";
         public string Committente { get; set; } = "";

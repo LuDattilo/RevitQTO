@@ -41,11 +41,17 @@ namespace QtoRevitPlugin.UI.ViewModels
         [ObservableProperty] private bool _includeDeletedAndSuperseded;
         [ObservableProperty] private string _companyLogoPath = "";
         [ObservableProperty] private string _statusMessage = "";
+        [ObservableProperty] private ExportTemplate? _selectedTemplate;
+        public System.Collections.Generic.List<ExportTemplate> AvailableTemplates { get; }
 
         public IReadOnlyList<IReportExporter> AvailableExporters => _exporters;
 
         public ExportWizardViewModel()
         {
+            var tplRepo = new ExportTemplateRepository(ExportTemplateRepository.GetDefaultFolder());
+            AvailableTemplates = tplRepo.LoadAll();
+            SelectedTemplate = tplRepo.GetDefault();
+
             SelectedExporter = _exporters[0];
 
             // Sprint 10 (CRIT-E1): pre-popola i campi intestazione leggendo
@@ -142,7 +148,8 @@ namespace QtoRevitPlugin.UI.ViewModels
                     Provincia = Provincia,
                     IncludeAuditFields = IncludeAuditFields,
                     IncludeDeletedAndSuperseded = IncludeDeletedAndSuperseded,
-                    CompanyLogoPath = string.IsNullOrWhiteSpace(CompanyLogoPath) ? null : CompanyLogoPath
+                    CompanyLogoPath = string.IsNullOrWhiteSpace(CompanyLogoPath) ? null : CompanyLogoPath,
+                    Template = SelectedTemplate
                 };
 
                 await Task.Run(() =>
