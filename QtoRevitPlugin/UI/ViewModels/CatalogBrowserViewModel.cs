@@ -11,6 +11,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Windows.Threading;
 
 namespace QtoRevitPlugin.UI.ViewModels
 {
@@ -25,6 +26,7 @@ namespace QtoRevitPlugin.UI.ViewModels
     {
         private readonly FileFavoritesRepository _favoritesRepo;
         private readonly MappingRulesService _mappingRulesService;
+        private readonly DispatcherTimer _filterDebounce;
         private QtoRepository? _qtoRepository;
         private IUserContext? _userContext;
 
@@ -56,6 +58,8 @@ namespace QtoRevitPlugin.UI.ViewModels
         {
             _favoritesRepo = new FileFavoritesRepository(FileFavoritesRepository.GetDefaultGlobalDir());
             _mappingRulesService = new MappingRulesService();
+            _filterDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+            _filterDebounce.Tick += OnFilterDebounceTick;
             _userContext = QtoApplication.Instance?.UserContext;
             _qtoRepository = QtoApplication.Instance?.SessionManager?.Repository;
             LoadAvailableLists();
@@ -94,7 +98,18 @@ namespace QtoRevitPlugin.UI.ViewModels
             if (value != null) BuildTreeForList(value.Id);
         }
 
-        partial void OnFilterTextChanged(string value) => ApplyFilter(value);
+        partial void OnFilterTextChanged(string value)
+        {
+            // Debounce 300ms: evita scan O(n) su 23k voci per ogni keystroke.
+            _filterDebounce.Stop();
+            _filterDebounce.Start();
+        }
+
+        private void OnFilterDebounceTick(object? sender, EventArgs e)
+        {
+            _filterDebounce.Stop();
+            ApplyFilter(FilterText);
+        }
 
         private void BuildTreeForList(int listId)
         {
