@@ -419,6 +419,99 @@ WHERE TRIM(p.Code) = TRIM(@c) COLLATE NOCASE AND pl.IsActive = 1;";
                         .ToList();
         }
 
+        /// <summary>
+        /// Plan C-6: insert singolo di un PriceItem con tutti i campi v12 (XPWE) preservati.
+        /// Usato per copiare voci da UserLibrary al .cme del progetto.
+        /// Override PriceListId con quello passato (la lista di destinazione può essere diversa
+        /// da source.PriceListId perché stiamo attraversando DB diversi).
+        /// </summary>
+        public PriceItem InsertPriceItemSingle(PriceItem source, int targetPriceListId)
+        {
+            const string sql = @"
+                INSERT INTO PriceItems
+                    (PriceListId, Code, SuperChapter, Chapter, SubChapter, Description, ShortDesc,
+                     Unit, UnitPrice, Notes, IsNP,
+                     Articolo, Tariffa, Prezzo1, Prezzo2, Prezzo3, Prezzo4, Prezzo5,
+                     SpCapId, CapId, SbCapId, WbsCapNodeId,
+                     IncMDO, IncMAT, IncSIC, TipoRisorsa, Flags, CnfQt, AdrInternet, DataEP)
+                VALUES
+                    (@PriceListId, @Code, @SuperChapter, @Chapter, @SubChapter, @Description, @ShortDesc,
+                     @Unit, @UnitPrice, @Notes, @IsNP,
+                     @Articolo, @Tariffa, @Prezzo1, @Prezzo2, @Prezzo3, @Prezzo4, @Prezzo5,
+                     @SpCapId, @CapId, @SbCapId, @WbsCapNodeId,
+                     @IncMDO, @IncMAT, @IncSIC, @TipoRisorsa, @Flags, @CnfQt, @AdrInternet, @DataEP);
+                SELECT last_insert_rowid();";
+            var id = _conn.ExecuteScalar<int>(sql, new
+            {
+                PriceListId = targetPriceListId,
+                source.Code,
+                source.SuperChapter,
+                source.Chapter,
+                source.SubChapter,
+                source.Description,
+                source.ShortDesc,
+                source.Unit,
+                source.UnitPrice,
+                source.Notes,
+                IsNP = source.IsNP ? 1 : 0,
+                source.Articolo,
+                source.Tariffa,
+                source.Prezzo1,
+                source.Prezzo2,
+                source.Prezzo3,
+                source.Prezzo4,
+                source.Prezzo5,
+                source.SpCapId,
+                source.CapId,
+                source.SbCapId,
+                source.WbsCapNodeId,
+                source.IncMDO,
+                source.IncMAT,
+                source.IncSIC,
+                source.TipoRisorsa,
+                source.Flags,
+                source.CnfQt,
+                source.AdrInternet,
+                source.DataEP
+            });
+            var copy = new PriceItem
+            {
+                Id = id,
+                PriceListId = targetPriceListId,
+                Code = source.Code,
+                SuperChapter = source.SuperChapter,
+                Chapter = source.Chapter,
+                SubChapter = source.SubChapter,
+                Description = source.Description,
+                ShortDesc = source.ShortDesc,
+                Unit = source.Unit,
+                UnitPrice = source.UnitPrice,
+                Notes = source.Notes,
+                IsNP = source.IsNP,
+                ListName = "",  // sarà popolato su lettura successiva tramite JOIN
+                Articolo = source.Articolo,
+                Tariffa = source.Tariffa,
+                Prezzo1 = source.Prezzo1,
+                Prezzo2 = source.Prezzo2,
+                Prezzo3 = source.Prezzo3,
+                Prezzo4 = source.Prezzo4,
+                Prezzo5 = source.Prezzo5,
+                SpCapId = source.SpCapId,
+                CapId = source.CapId,
+                SbCapId = source.SbCapId,
+                WbsCapNodeId = source.WbsCapNodeId,
+                IncMDO = source.IncMDO,
+                IncMAT = source.IncMAT,
+                IncSIC = source.IncSIC,
+                TipoRisorsa = source.TipoRisorsa,
+                Flags = source.Flags,
+                CnfQt = source.CnfQt,
+                AdrInternet = source.AdrInternet,
+                DataEP = source.DataEP
+            };
+            return copy;
+        }
+
         public IReadOnlyList<PriceItem> SearchPriceItemsByCodeLike(string code, int limit)
         {
             if (string.IsNullOrWhiteSpace(code)) return new List<PriceItem>();

@@ -533,6 +533,49 @@ namespace QtoRevitPlugin.UI.ViewModels
         // =====================================================================
 
         /// <summary>
+        /// Copia (upsert) un PriceItem dalla UserLibrary al .cme della sessione corrente.
+        /// Crea anche il PriceList se non esiste (match per Name + Source). Idempotente:
+        /// se la voce è già presente nel .cme (match per Code dentro lo stesso listino),
+        /// ritorna quella esistente invece di duplicare.
+        /// </summary>
+        private static PriceItem CopyPriceItemToCmeRepo(PriceItem source, QtoRevitPlugin.Data.QtoRepository cmeRepo)
+        {
+            // 1. GetOrCreate PriceList nel .cme (match per ListName del source).
+            var listName = string.IsNullOrWhiteSpace(source.ListName) ? "Listino importato" : source.ListName;
+            var allLists = cmeRepo.GetPriceLists();
+            var targetList = allLists.FirstOrDefault(l =>
+                string.Equals(l.Name, listName, StringComparison.OrdinalIgnoreCase));
+            if (targetList == null)
+            {
+                targetList = new PriceList
+                {
+                    Name = listName,
+                    Source = "UserLibrary",
+                    IsActive = true,
+                    Priority = 0,
+                    ImportedAt = DateTime.UtcNow,
+                    RowCount = 0
+                };
+                cmeRepo.InsertPriceList(targetList);
+                AssignEpLogger.Log($"  Nuovo PriceList nel .cme · id={targetList.Id} name='{listName}'");
+            }
+
+            // 2. Check esistenza nella lista target (idempotenza)
+            var existing = cmeRepo.GetPriceItemsByCode(source.Code)
+                                  .FirstOrDefault(p => p.PriceListId == targetList.Id);
+            if (existing != null)
+            {
+                AssignEpLogger.Log($"  PriceItem già presente nel .cme · id={existing.Id}");
+                return existing;
+            }
+
+            // 3. INSERT nuovo PriceItem nel .cme copiando i campi
+            var inserted = cmeRepo.InsertPriceItemSingle(source, targetList.Id);
+            AssignEpLogger.Log($"  Insert PriceItem nel .cme · id={inserted.Id}");
+            return inserted;
+        }
+
+        /// <summary>
         /// Ricalcola la preview "N elementi · tot X m²" leggendo i valori geometrici
         /// dei Revit elements attualmente in Elements, secondo il QuantityMode.
         /// </summary>
@@ -601,35 +644,60 @@ namespace QtoRevitPlugin.UI.ViewModels
                 var cmeDoc = docSvc.GetOrCreate(sess.Id);
                 AssignEpLogger.Log($"ComputoDocument · id={cmeDoc.Id} · tipo={cmeDoc.TipoDocumento}");
 
-                // 2. Risolvi PriceItem per Code (primo match attivo).
+                // 2. Risolvi PriceItem per Code.
+                // Il Listino (ricerca ibrida + preferiti) popola ActiveEpCode con voci che
+                // vivono nella UserLibrary globale (%AppData%\QtoPlugin\UserLibrary.db),
+                // NON nel .cme del progetto (SessionManager.Repository). Il MeasurementRow
+                // che creeremo ha FK su PriceItems.Id del .cme → serve "copiare" la voce
+                // dal UserLibrary al .cme la prima volta che viene usata.
                 var codeLookup = (ActiveEpCode ?? "").Trim();
                 AssignEpLogger.Log($"Lookup voce EP · code=[{codeLookup}] len={codeLookup.Length}");
-                // Log ogni char come hex per individuare caratteri invisibili (NBSP, zero-width, ecc.)
                 var hex = string.Join(" ", codeLookup.Select(c => ((int)c).ToString("X2")));
                 AssignEpLogger.Log($"  bytes: {hex}");
 
+                // 2a. Prima cerca nel .cme (già copiata in passato? idempotenza)
                 var items = repo.GetPriceItemsByCode(codeLookup);
-                AssignEpLogger.Log($"GetPriceItemsByCode · matches={items.Count}");
+                AssignEpLogger.Log($"GetPriceItemsByCode su .cme · matches={items.Count}");
 
-                var pi = items.FirstOrDefault();
+                PriceItem? pi = items.FirstOrDefault();
+
+                // 2b. Se non c'è nel .cme, cerca nella UserLibrary globale e copia
                 if (pi == null)
                 {
-                    // FALLBACK: LIKE cerca se c'è qualcosa di simile (es. prefisso diverso)
-                    var similar = repo.SearchPriceItemsByCodeLike(codeLookup, 5);
-                    AssignEpLogger.Log($"Fallback LIKE · {similar.Count} simili:");
-                    foreach (var s in similar)
-                        AssignEpLogger.Log($"  · listId={s.PriceListId} · code=[{s.Code}] · list={s.ListName}");
+                    var userLib = QtoApplication.Instance?.UserLibrary?.Library;
+                    if (userLib == null)
+                    {
+                        AssignEpLogger.Log("ABORT: UserLibrary non inizializzata");
+                        StatusMessage = "UserLibrary non disponibile. Riavvia Revit.";
+                        return;
+                    }
+                    var userItems = userLib.GetPriceItemsByCode(codeLookup);
+                    AssignEpLogger.Log($"GetPriceItemsByCode su UserLibrary · matches={userItems.Count}");
 
-                    var logHint = AssignEpLogger.LastError != null
-                        ? $" LOGGER ERROR: {AssignEpLogger.LastError}"
-                        : $" Log: {AssignEpLogger.LogPath}";
-                    StatusMessage = similar.Count > 0
-                        ? $"Voce '{codeLookup}' non trovata esatta. {similar.Count} codici simili: es. '{similar[0].Code}'.{logHint}"
-                        : $"Voce '{codeLookup}' (len={codeLookup.Length}) non trovata. Listino disattivato?{logHint}";
-                    AssignEpLogger.Log($"ABORT: {StatusMessage}");
-                    return;
+                    var sourcePi = userItems.FirstOrDefault();
+                    if (sourcePi == null)
+                    {
+                        var similar = userLib.SearchPriceItemsByCodeLike(codeLookup, 5);
+                        AssignEpLogger.Log($"Fallback LIKE su UserLibrary · {similar.Count} simili:");
+                        foreach (var s in similar)
+                            AssignEpLogger.Log($"  · listId={s.PriceListId} · code=[{s.Code}] · list={s.ListName}");
+
+                        var logHint = AssignEpLogger.LastError != null
+                            ? $" LOGGER ERROR: {AssignEpLogger.LastError}"
+                            : $" Log: {AssignEpLogger.LogPath}";
+                        StatusMessage = similar.Count > 0
+                            ? $"Voce '{codeLookup}' non trovata esatta. {similar.Count} simili in UserLibrary: es. '{similar[0].Code}'.{logHint}"
+                            : $"Voce '{codeLookup}' non trovata né in .cme né in UserLibrary.{logHint}";
+                        AssignEpLogger.Log($"ABORT: {StatusMessage}");
+                        return;
+                    }
+
+                    // Copia la voce nel .cme (idempotente: se il listino non esiste, lo crea con lo stesso Name)
+                    AssignEpLogger.Log($"Copy UserLibrary → .cme · source id={sourcePi.Id} listId={sourcePi.PriceListId} list={sourcePi.ListName}");
+                    pi = CopyPriceItemToCmeRepo(sourcePi, repo);
+                    AssignEpLogger.Log($"Copied PriceItem → .cme id={pi.Id} listId={pi.PriceListId}");
                 }
-                AssignEpLogger.Log($"PriceItem trovato · id={pi.Id} · listId={pi.PriceListId} · list={pi.ListName}");
+                AssignEpLogger.Log($"PriceItem risolto · id={pi.Id} · listId={pi.PriceListId} · list={pi.ListName}");
 
                 // 3. Crea un nuovo MeasurementRow (VCItem)
                 var msvc = new MeasurementService(repo);
