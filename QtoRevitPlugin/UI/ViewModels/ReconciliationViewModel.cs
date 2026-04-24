@@ -8,7 +8,7 @@ using System.Linq;
 
 namespace QtoRevitPlugin.UI.ViewModels
 {
-    public partial class ReconciliationViewModel : ObservableObject
+    public partial class ReconciliationViewModel : ViewModelBase
     {
         private readonly IQtoRepository _repo;
         private readonly IUserContext _userContext;
@@ -23,7 +23,6 @@ namespace QtoRevitPlugin.UI.ViewModels
         public int AddedCount => AddedItems.Count;
 
         [ObservableProperty] private int _acceptedCount;
-        [ObservableProperty] private bool _isApplying;
 
         public ReconciliationViewModel(ModelDiffResult diff, IQtoRepository repo, IUserContext userContext)
         {
@@ -92,13 +91,14 @@ namespace QtoRevitPlugin.UI.ViewModels
             OnPropertyChanged(nameof(ModifiedCount));
         }
 
-        private bool CanApply() => AcceptedCount > 0 && !IsApplying;
+        private bool CanApply() => AcceptedCount > 0 && !IsBusy;
+
+        partial void OnIsBusyChanged(bool value) => ApplyBatchCommand.NotifyCanExecuteChanged();
 
         [RelayCommand(CanExecute = nameof(CanApply))]
         private async System.Threading.Tasks.Task ApplyBatchAsync()
         {
-            IsApplying = true;
-            try
+            await SetBusy(async () =>
             {
                 var ops = DeletedItems.Where(d => d.Accepted).Select(BuildDeletedOp)
                     .Concat(ModifiedItems.Where(d => d.Accepted).Select(BuildModifiedOp))
@@ -109,15 +109,7 @@ namespace QtoRevitPlugin.UI.ViewModels
                 System.Windows.MessageBox.Show(
                     $"{ops.Count} modifiche applicate.", "Riconciliazione",
                     System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
-            }
-            catch (System.Exception ex)
-            {
-                QtoRevitPlugin.Services.CrashLogger.WriteException("AcceptDiffBatch", ex);
-                System.Windows.MessageBox.Show(
-                    $"Errore durante l'applicazione: {ex.Message}", "Errore",
-                    System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
-            }
-            finally { IsApplying = false; }
+            }, context: "AcceptDiffBatch");
         }
 
         private SupersedeOp BuildDeletedOp(DiffEntryViewModel vm)

@@ -11,7 +11,7 @@ using System.Windows;
 
 namespace QtoRevitPlugin.UI.ViewModels
 {
-    public partial class ExportWizardViewModel : ObservableObject
+    public partial class ExportWizardViewModel : ViewModelBase
     {
         private readonly List<IReportExporter> _exporters = new List<IReportExporter>
         {
@@ -40,7 +40,6 @@ namespace QtoRevitPlugin.UI.ViewModels
         [ObservableProperty] private bool _includeAuditFields;
         [ObservableProperty] private bool _includeDeletedAndSuperseded;
         [ObservableProperty] private string _companyLogoPath = "";
-        [ObservableProperty] private bool _isExporting;
         [ObservableProperty] private string _statusMessage = "";
 
         public IReadOnlyList<IReportExporter> AvailableExporters => _exporters;
@@ -120,9 +119,10 @@ namespace QtoRevitPlugin.UI.ViewModels
             };
             if (dlg.ShowDialog() != true) return;
 
-            IsExporting = true;
             StatusMessage = "Esportazione in corso...";
-            try
+            var outputPath = dlg.FileName;
+
+            await SetBusy(async () =>
             {
                 var options = new ReportExportOptions
                 {
@@ -149,33 +149,19 @@ namespace QtoRevitPlugin.UI.ViewModels
                 {
                     var builder = new ReportDataSetBuilder(repo);
                     var dataset = builder.Build(session.Id, options);
-                    SelectedExporter.Export(dataset, dlg.FileName, options);
+                    SelectedExporter.Export(dataset, outputPath, options);
                 });
 
-                StatusMessage = $"Esportato in: {dlg.FileName}";
-                MessageBox.Show($"Export completato:\n{dlg.FileName}", "Export",
+                StatusMessage = $"Esportato in: {outputPath}";
+                MessageBox.Show($"Export completato:\n{outputPath}", "Export",
                     MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-            catch (Exception ex)
+            }, context: "ExportAsync");
+
+            // Cleanup file parziale se export fallito
+            if (!IsBusy && File.Exists(outputPath) && new FileInfo(outputPath).Length == 0)
             {
-                QtoRevitPlugin.Services.CrashLogger.WriteException("ExportAsync", ex);
-                StatusMessage = $"Errore: {ex.Message}";
-                // Cleanup file parziale
-                // MED-E3: logga eventuale fallimento cleanup (file bloccato da altro processo
-                // es. Excel aperto). Il log non rilancia — l'eccezione principale è già gestita.
-                if (File.Exists(dlg.FileName))
-                {
-                    try { File.Delete(dlg.FileName); }
-                    catch (Exception cleanupEx)
-                    {
-                        QtoRevitPlugin.Services.CrashLogger.WriteException(
-                            "ExportAsync.CleanupPartialFile", cleanupEx);
-                    }
-                }
-                MessageBox.Show($"Errore durante l'export: {ex.Message}", "Errore",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                try { File.Delete(outputPath); } catch { }
             }
-            finally { IsExporting = false; }
         }
     }
 }
