@@ -268,6 +268,42 @@ namespace QtoRevitPlugin.UI.ViewModels
             }
         }
 
+        [RelayCommand]
+        private void MoveUp() => MoveSelectedBy(-1);
+
+        [RelayCommand]
+        private void MoveDown() => MoveSelectedBy(+1);
+
+        private void MoveSelectedBy(int offset)
+        {
+            if (_repo == null || SelectedNode == null) return;
+
+            var siblings = _repo.GetComputoChapters(_sessionId)
+                .Where(c => c.ParentChapterId == SelectedNode.Model.ParentChapterId
+                         && c.Level == SelectedNode.Model.Level)
+                .OrderBy(c => c.SortOrder).ThenBy(c => c.Code)
+                .ToList();
+
+            var idx = siblings.FindIndex(c => c.Id == SelectedNode.Model.Id);
+            if (idx < 0) return;
+            var targetIdx = idx + offset;
+            if (targetIdx < 0 || targetIdx >= siblings.Count) return;
+
+            var current = siblings[idx];
+            var target = siblings[targetIdx];
+
+            if (current.SortOrder == target.SortOrder)
+                for (int i = 0; i < siblings.Count; i++) siblings[i].SortOrder = i;
+
+            var tmp = current.SortOrder;
+            current.SortOrder = target.SortOrder;
+            target.SortOrder = tmp;
+
+            _repo.UpdateComputoChapter(current);
+            _repo.UpdateComputoChapter(target);
+            Reload();
+        }
+
         private string NextCode(string? parentCode, int level)
         {
             var siblings = _repo!.GetComputoChapters(_sessionId)
