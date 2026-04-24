@@ -27,9 +27,7 @@
             <TabItem Header="Informazioni">
                 <views:ProjectInfoView />
             </TabItem>
-            <TabItem Header="Listino">
-                <views:SetupListinoView />
-            </TabItem>
+            <!-- Rimosso tab 'Listino' (duplicato con la scheda principale 'Listino' nel menu). -->
             <TabItem Header="Struttura Computo">
                 <views:ComputoStructureView />
             </TabItem>
