@@ -687,6 +687,20 @@ namespace QtoRevitPlugin.UI.ViewModels
 
         private void PersistAndRefresh()
         {
+            // Rebuild UI first — a save failure must not prevent the UI from reflecting the new state.
+            ProjectFavorites.Clear();
+            foreach (var item in _projectFavoritesSet.Items)
+                ProjectFavorites.Add(new FavoriteItemRow(item, FavoriteScope.Project));
+
+            PersonalFavorites.Clear();
+            foreach (var item in _personalFavoritesSet.Items)
+                PersonalFavorites.Add(new FavoriteItemRow(item, FavoriteScope.Personal));
+
+            RefreshFavoritesUsage();
+            RefreshFavoriteHeaders();
+            SyncFavoriteFlagsOnSearchResults();
+
+            // Persist to disk (failures are non-fatal).
             try
             {
                 _favoritesRepository.SaveGlobal(_personalFavoritesSet);
@@ -694,18 +708,6 @@ namespace QtoRevitPlugin.UI.ViewModels
                 var cmePath = QtoApplication.Instance?.SessionManager?.ActiveFilePath;
                 if (!string.IsNullOrWhiteSpace(cmePath))
                     _favoritesRepository.SaveForProject(cmePath!, _projectFavoritesSet);
-
-                ProjectFavorites.Clear();
-                foreach (var item in _projectFavoritesSet.Items)
-                    ProjectFavorites.Add(new FavoriteItemRow(item, FavoriteScope.Project));
-
-                PersonalFavorites.Clear();
-                foreach (var item in _personalFavoritesSet.Items)
-                    PersonalFavorites.Add(new FavoriteItemRow(item, FavoriteScope.Personal));
-
-                RefreshFavoritesUsage();
-                RefreshFavoriteHeaders();
-                SyncFavoriteFlagsOnSearchResults();
             }
             catch (Exception ex)
             {

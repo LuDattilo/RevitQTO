@@ -30,7 +30,9 @@
         </Grid>
 
         <!-- Contenuto principale -->
-        <Border Grid.Row="1" Style="{DynamicResource CardStyle}" Margin="16,4,16,8">
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                      Padding="0">
+        <Border Style="{DynamicResource CardStyle}" Margin="16,4,16,8">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />   <!-- Toolbar listini -->
@@ -38,7 +40,7 @@
                     <RowDefinition Height="Auto" />   <!-- Status message -->
                     <RowDefinition Height="Auto" />   <!-- Separator -->
                     <RowDefinition Height="Auto" />   <!-- Section label -->
-                    <RowDefinition Height="*" />      <!-- Area ricerca/preferiti (TabControl) -->
+                    <RowDefinition Height="Auto" />   <!-- Area ricerca/preferiti (TabControl) -->
                 </Grid.RowDefinitions>
 
                 <Grid Grid.Row="0">
@@ -124,8 +126,8 @@
                 <Grid Grid.Row="5" Margin="0,6,0,0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />  <!-- SearchBox + scope combo + badge -->
-                        <RowDefinition Height="*" MinHeight="160" />  <!-- TabControl -->
-                        <RowDefinition Height="3" />     <!-- Splitter -->
+                        <RowDefinition Height="Auto" MinHeight="200" />  <!-- TabControl -->
+                        <RowDefinition Height="3" />     <!-- Splitter (non-functional in scroll context) -->
                         <RowDefinition Height="Auto" MinHeight="90" MaxHeight="180" /> <!-- Dettaglio -->
                         <RowDefinition Height="Auto" /> <!-- Status -->
                     </Grid.RowDefinitions>
@@ -180,6 +182,7 @@
                                       HeadersVisibility="Column" GridLinesVisibility="Horizontal" RowHeight="24"
                                       FontSize="11" Background="White" BorderThickness="1"
                                       BorderBrush="{DynamicResource EdgeLightBrush}"
+                                      MaxHeight="380"
                                       MouseDoubleClick="OnSearchResultDoubleClick"
                                       PreviewMouseLeftButtonDown="OnSearchResultMouseDown"
                                       MouseMove="OnSearchResultMouseMove">
@@ -329,6 +332,7 @@
                                           HeadersVisibility="Column" GridLinesVisibility="None" RowHeight="24"
                                           FontSize="11" Background="White" BorderThickness="1"
                                           BorderBrush="{DynamicResource EdgeLightBrush}" IsReadOnly="True"
+                                          MaxHeight="380"
                                           Visibility="{Binding ProjectFavoritesIsEmpty,
                                                        Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                                     <DataGrid.Columns>
@@ -466,6 +470,7 @@
                                           HeadersVisibility="Column" GridLinesVisibility="None" RowHeight="24"
                                           FontSize="11" Background="White" BorderThickness="1"
                                           BorderBrush="{DynamicResource EdgeLightBrush}" IsReadOnly="True"
+                                          MaxHeight="380"
                                           Visibility="{Binding PersonalFavoritesIsEmpty,
                                                        Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                                     <DataGrid.Columns>
@@ -580,6 +585,7 @@
                 </Grid>
             </Grid>
         </Border>
+        </ScrollViewer>
 
         <Border Grid.Row="2" Background="{DynamicResource PanelSubBrush}"
                 BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="0,1,0,0"
