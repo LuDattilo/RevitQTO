@@ -16,7 +16,7 @@ namespace QtoRevitPlugin.Data
     /// gestire il ciclo di vita e esporre i metodi CRUD per ogni entità.
     /// La connessione è keep-alive per la durata della sessione (performance flush &lt; 5ms).
     /// </summary>
-    public class QtoRepository : IQtoRepository, IDisposable
+    public partial class QtoRepository : IQtoRepository, IDisposable
     {
         private readonly SqliteConnection _conn;
         private bool _disposed;
@@ -155,1561 +155,193 @@ namespace QtoRevitPlugin.Data
 
         // =====================================================================
         // Listini (PriceLists + PriceItems + FTS5)
+        // (delegato a QtoRepository.PriceLists.cs)
         // =====================================================================
 
-        /// <summary>
-        /// Inserisce un nuovo listino (PriceLists), ritorna l'Id auto-increment generato.
-        /// Se <see cref="PriceList.PublicId"/> è vuoto, viene generato un GUID stabile (usato
-        /// dal ProjectPriceListSnapshot nel .rvt per riferimenti portabili cross-PC).
-        /// </summary>
-        public int InsertPriceList(PriceList list)
-        {
-            if (string.IsNullOrWhiteSpace(list.PublicId))
-                list.PublicId = Guid.NewGuid().ToString("D");
-
-            const string sql = @"
-                INSERT INTO PriceLists
-                    (PublicId, Name, Source, Version, Region, IsActive, Priority, ImportedAt, RowCount)
-                VALUES
-                    (@PublicId, @Name, @Source, @Version, @Region, @IsActive, @Priority, @ImportedAt, @RowCount);
-                SELECT last_insert_rowid();";
-
-            var id = _conn.ExecuteScalar<long>(sql, new
-            {
-                list.PublicId,
-                list.Name,
-                list.Source,
-                list.Version,
-                list.Region,
-                IsActive = list.IsActive ? 1 : 0,
-                list.Priority,
-                ImportedAt = list.ImportedAt == default ? (DateTime?)null : list.ImportedAt,
-                list.RowCount
-            });
-
-            list.Id = (int)id;
-            return list.Id;
-        }
-
-        /// <summary>
-        /// Inserimento batch di voci in transazione. Al completamento dell'ultimo batch esegue RebuildPriceItemsFts.
-        /// Ritorna il numero totale di voci inserite. Usa INSERT OR IGNORE per duplicati (PriceListId, Code).
-        /// </summary>
-        public int InsertPriceItemsBatch(int priceListId, IEnumerable<PriceItem> items, int batchSize = 500)
-        {
-            if (items == null) throw new ArgumentNullException(nameof(items));
-            if (batchSize <= 0) batchSize = 500;
-
-            const string sql = @"
-                INSERT OR IGNORE INTO PriceItems
-                    (PriceListId, Code, SuperChapter, Chapter, SubChapter,
-                     Description, ShortDesc, Unit, UnitPrice, Notes, IsNP)
-                VALUES
-                    (@PriceListId, @Code, @SuperChapter, @Chapter, @SubChapter,
-                     @Description, @ShortDesc, @Unit, @UnitPrice, @Notes, @IsNP);";
-
-            int totalInserted = 0;
-            using var tx = _conn.BeginTransaction();
-
-            var buffer = new List<object>(batchSize);
-            foreach (var it in items)
-            {
-                buffer.Add(new
-                {
-                    PriceListId = priceListId,
-                    it.Code,
-                    it.SuperChapter,
-                    it.Chapter,
-                    it.SubChapter,
-                    it.Description,
-                    it.ShortDesc,
-                    it.Unit,
-                    it.UnitPrice,
-                    it.Notes,
-                    IsNP = it.IsNP ? 1 : 0
-                });
-
-                if (buffer.Count >= batchSize)
-                {
-                    totalInserted += _conn.Execute(sql, buffer, tx);
-                    buffer.Clear();
-                }
-            }
-
-            // Flush ultimo chunk
-            if (buffer.Count > 0)
-            {
-                totalInserted += _conn.Execute(sql, buffer, tx);
-                buffer.Clear();
-            }
-
-            // Aggiorna metadati listino (RowCount = somma di quanto presente, non solo inserito ora)
-            const string updateListSql = @"
-                UPDATE PriceLists
-                SET RowCount = (SELECT COUNT(*) FROM PriceItems WHERE PriceListId = @pid),
-                    ImportedAt = @ts
-                WHERE Id = @pid;";
-            _conn.Execute(updateListSql, new { pid = priceListId, ts = DateTime.UtcNow }, tx);
-
-            tx.Commit();
-
-            // Rebuild FTS fuori dalla transazione principale: 'rebuild' è un comando meta su virtual table
-            RebuildPriceItemsFts();
-
-            return totalInserted;
-        }
-
-        /// <summary>
-        /// Rebuild esplicito dell'indice FTS5 su PriceItems_FTS.
-        /// Chiamata automaticamente da InsertPriceItemsBatch a fine import.
-        /// Può essere chiamata anche manualmente (es. dopo restore DB).
-        /// </summary>
-        public void RebuildPriceItemsFts()
-        {
-            _conn.Execute("INSERT INTO PriceItems_FTS(PriceItems_FTS) VALUES('rebuild');");
-        }
-
-        /// <summary>
-        /// Elimina definitivamente un listino e tutte le sue voci (ON DELETE CASCADE su PriceItems).
-        /// Rebuild FTS necessario dopo (invocato automaticamente).
-        /// </summary>
-        public void DeletePriceList(int priceListId)
-        {
-            _conn.Execute("DELETE FROM PriceLists WHERE Id = @id;", new { id = priceListId });
-            RebuildPriceItemsFts();
-        }
-
-        /// <summary>Aggiorna IsActive/Priority di un listino (soft-toggle senza rimuovere dati).</summary>
-        public void UpdatePriceListFlags(int priceListId, bool isActive, int priority)
-        {
-            _conn.Execute(@"
-                UPDATE PriceLists
-                SET IsActive = @isActive, Priority = @priority
-                WHERE Id = @id;",
-                new { id = priceListId, isActive = isActive ? 1 : 0, priority });
-        }
-
-        /// <summary>Ritorna tutti i listini (attivi e non), ordinati per Priority ascendente.</summary>
-        public IReadOnlyList<PriceList> GetPriceLists()
-        {
-            const string sql = @"
-                SELECT Id, PublicId, Name, Source, Version, Region,
-                       IsActive, Priority, ImportedAt, RowCount
-                FROM PriceLists
-                ORDER BY Priority ASC, Name ASC;";
-
-            return _conn.Query<PriceListRow>(sql)
-                        .Select(r => r.ToPriceList())
-                        .ToList();
-        }
-
-        /// <summary>
-        /// Livello 1 ricerca: match esatto (case-insensitive) per Code nei listini attivi.
-        /// </summary>
-        public IReadOnlyList<PriceItem> FindByCodeExact(string code)
-        {
-            if (string.IsNullOrWhiteSpace(code))
-                return Array.Empty<PriceItem>();
-
-            const string sql = @"
-                SELECT p.*, pl.Name AS ListName
-                FROM PriceItems p
-                JOIN PriceLists pl ON pl.Id = p.PriceListId
-                WHERE LOWER(p.Code) = LOWER(@code) AND pl.IsActive = 1
-                ORDER BY pl.Priority ASC;";
-
-            return _conn.Query<PriceItemRow>(sql, new { code })
-                        .Select(r => r.ToPriceItem())
-                        .ToList();
-        }
-
-        /// <summary>
-        /// Livello 2 ricerca: FTS5 MATCH su Description + ShortDesc + Chapter.
-        /// Query sanitizzata per evitare errori FTS5 syntax (rimuovi caratteri speciali).
-        /// Limit di default 50 risultati.
-        /// </summary>
-        public IReadOnlyList<PriceItem> SearchFts(string query, int limit = 50)
-        {
-            var ftsQuery = BuildFtsQuery(query);
-            if (string.IsNullOrEmpty(ftsQuery))
-                return Array.Empty<PriceItem>();
-
-            // FTS5 richiede il nome letterale della virtual table nell'operator MATCH
-            // (non è ammesso l'alias). L'alias funziona invece per rowid/rank.
-            const string sql = @"
-                SELECT p.*, pl.Name AS ListName
-                FROM PriceItems_FTS
-                JOIN PriceItems  p  ON p.Id = PriceItems_FTS.rowid
-                JOIN PriceLists  pl ON pl.Id = p.PriceListId
-                WHERE PriceItems_FTS MATCH @query AND pl.IsActive = 1
-                ORDER BY rank
-                LIMIT @limit;";
-
-            return _conn.Query<PriceItemRow>(sql, new { query = ftsQuery, limit })
-                        .Select(r => r.ToPriceItem())
-                        .ToList();
-        }
-
-        /// <summary>
-        /// Carica tutte le voci di UN listino specifico, ordinate per gerarchia
-        /// (SuperChapter → Chapter → SubChapter → Code). Usato dal CatalogBrowserWindow
-        /// per costruire il TreeView di anteprima.
-        /// </summary>
-        public IReadOnlyList<PriceItem> GetPriceItemsByList(int priceListId)
-        {
-            const string sql = @"
-                SELECT p.*, pl.Name AS ListName
-                FROM PriceItems p
-                JOIN PriceLists pl ON pl.Id = p.PriceListId
-                WHERE p.PriceListId = @id
-                ORDER BY p.SuperChapter, p.Chapter, p.SubChapter, p.Code;";
-
-            return _conn.Query<PriceItemRow>(sql, new { id = priceListId })
-                        .Select(r => r.ToPriceItem())
-                        .ToList();
-        }
-
-        /// <summary>
-        /// Carica tutte le voci appartenenti a listini attivi. Usato dal
-        /// <c>PriceItemSearchService</c> per la ricerca fuzzy (livello 3 Levenshtein) come cache one-shot.
-        /// Per listini standard (&lt; 30k voci) è un'operazione &lt; 50ms.
-        /// </summary>
-        public IReadOnlyList<PriceItem> GetAllActivePriceItems()
-        {
-            const string sql = @"
-                SELECT p.*, pl.Name AS ListName
-                FROM PriceItems p
-                JOIN PriceLists pl ON pl.Id = p.PriceListId
-                WHERE pl.IsActive = 1
-                ORDER BY pl.Priority ASC, p.Code ASC;";
-
-            return _conn.Query<PriceItemRow>(sql)
-                        .Select(r => r.ToPriceItem())
-                        .ToList();
-        }
-
-        public IReadOnlyList<PriceItem> GetPriceItems(IReadOnlyList<int> ids)
-        {
-            if (ids == null || ids.Count == 0) return new List<PriceItem>();
-
-            // Dapper espande IN @Ids in parametri posizionali
-            const string sql = @"
-SELECT p.*, pl.Name AS ListName
-FROM PriceItems p
-JOIN PriceLists pl ON pl.Id = p.PriceListId
-WHERE p.Id IN @Ids;";
-
-            return _conn.Query<PriceItemRow>(sql, new { Ids = ids })
-                        .Select(r => r.ToPriceItem())
-                        .ToList();
-        }
-
-        public IReadOnlyList<PriceItem> GetPriceItemsByCode(string code)
-        {
-            if (string.IsNullOrWhiteSpace(code)) return new List<PriceItem>();
-            // COLLATE NOCASE rende la LIKE case-insensitive (PriMus e import custom possono
-            // differire per maiuscole/minuscole del Code). TRIM per tollerare eventuali spazi.
-            const string sql = @"
-SELECT p.*, pl.Name AS ListName
-FROM PriceItems p
-JOIN PriceLists pl ON pl.Id = p.PriceListId
-WHERE TRIM(p.Code) = TRIM(@c) COLLATE NOCASE AND pl.IsActive = 1;";
-            return _conn.Query<PriceItemRow>(sql, new { c = code.Trim() })
-                        .Select(r => r.ToPriceItem())
-                        .ToList();
-        }
-
-        /// <summary>
-        /// Plan C-6: insert singolo di un PriceItem con tutti i campi v12 (XPWE) preservati.
-        /// Usato per copiare voci da UserLibrary al .cme del progetto.
-        /// Override PriceListId con quello passato (la lista di destinazione può essere diversa
-        /// da source.PriceListId perché stiamo attraversando DB diversi).
-        /// </summary>
-        public PriceItem InsertPriceItemSingle(PriceItem source, int targetPriceListId)
-        {
-            const string sql = @"
-                INSERT INTO PriceItems
-                    (PriceListId, Code, SuperChapter, Chapter, SubChapter, Description, ShortDesc,
-                     Unit, UnitPrice, Notes, IsNP,
-                     Articolo, Tariffa, Prezzo1, Prezzo2, Prezzo3, Prezzo4, Prezzo5,
-                     SpCapId, CapId, SbCapId, WbsCapNodeId,
-                     IncMDO, IncMAT, IncSIC, TipoRisorsa, Flags, CnfQt, AdrInternet, DataEP)
-                VALUES
-                    (@PriceListId, @Code, @SuperChapter, @Chapter, @SubChapter, @Description, @ShortDesc,
-                     @Unit, @UnitPrice, @Notes, @IsNP,
-                     @Articolo, @Tariffa, @Prezzo1, @Prezzo2, @Prezzo3, @Prezzo4, @Prezzo5,
-                     @SpCapId, @CapId, @SbCapId, @WbsCapNodeId,
-                     @IncMDO, @IncMAT, @IncSIC, @TipoRisorsa, @Flags, @CnfQt, @AdrInternet, @DataEP);
-                SELECT last_insert_rowid();";
-            var id = _conn.ExecuteScalar<int>(sql, new
-            {
-                PriceListId = targetPriceListId,
-                source.Code,
-                source.SuperChapter,
-                source.Chapter,
-                source.SubChapter,
-                source.Description,
-                source.ShortDesc,
-                source.Unit,
-                source.UnitPrice,
-                source.Notes,
-                IsNP = source.IsNP ? 1 : 0,
-                source.Articolo,
-                source.Tariffa,
-                source.Prezzo1,
-                source.Prezzo2,
-                source.Prezzo3,
-                source.Prezzo4,
-                source.Prezzo5,
-                source.SpCapId,
-                source.CapId,
-                source.SbCapId,
-                source.WbsCapNodeId,
-                source.IncMDO,
-                source.IncMAT,
-                source.IncSIC,
-                source.TipoRisorsa,
-                source.Flags,
-                source.CnfQt,
-                source.AdrInternet,
-                source.DataEP
-            });
-            var copy = new PriceItem
-            {
-                Id = id,
-                PriceListId = targetPriceListId,
-                Code = source.Code,
-                SuperChapter = source.SuperChapter,
-                Chapter = source.Chapter,
-                SubChapter = source.SubChapter,
-                Description = source.Description,
-                ShortDesc = source.ShortDesc,
-                Unit = source.Unit,
-                UnitPrice = source.UnitPrice,
-                Notes = source.Notes,
-                IsNP = source.IsNP,
-                ListName = "",  // sarà popolato su lettura successiva tramite JOIN
-                Articolo = source.Articolo,
-                Tariffa = source.Tariffa,
-                Prezzo1 = source.Prezzo1,
-                Prezzo2 = source.Prezzo2,
-                Prezzo3 = source.Prezzo3,
-                Prezzo4 = source.Prezzo4,
-                Prezzo5 = source.Prezzo5,
-                SpCapId = source.SpCapId,
-                CapId = source.CapId,
-                SbCapId = source.SbCapId,
-                WbsCapNodeId = source.WbsCapNodeId,
-                IncMDO = source.IncMDO,
-                IncMAT = source.IncMAT,
-                IncSIC = source.IncSIC,
-                TipoRisorsa = source.TipoRisorsa,
-                Flags = source.Flags,
-                CnfQt = source.CnfQt,
-                AdrInternet = source.AdrInternet,
-                DataEP = source.DataEP
-            };
-            return copy;
-        }
-
-        public IReadOnlyList<PriceItem> SearchPriceItemsByCodeLike(string code, int limit)
-        {
-            if (string.IsNullOrWhiteSpace(code)) return new List<PriceItem>();
-            // Ricerca fuzzy: estrae 8 caratteri centrali dal codice (se lungo >12)
-            // e cerca LIKE '%core%'. Utile per diagnosticare discrepanze prefisso/suffisso.
-            var trim = code.Trim();
-            var core = trim.Length > 12
-                ? trim.Substring(trim.Length / 2 - 4, 8)
-                : trim;
-            const string sql = @"
-SELECT p.*, pl.Name AS ListName
-FROM PriceItems p
-JOIN PriceLists pl ON pl.Id = p.PriceListId
-WHERE p.Code LIKE @pat COLLATE NOCASE
-LIMIT @lim;";
-            return _conn.Query<PriceItemRow>(sql, new { pat = "%" + core + "%", lim = limit })
-                        .Select(r => r.ToPriceItem())
-                        .ToList();
-        }
-
-        /// <summary>
-        /// Sanitizza la query utente e la converte in sintassi FTS5 prefix-match per ogni token.
-        /// Rimuove caratteri problematici ("*()^-) e produce 'word1* word2*' (AND implicito).
-        /// Ritorna stringa vuota se non restano token validi.
-        /// </summary>
-        private static string BuildFtsQuery(string? raw)
-        {
-            if (string.IsNullOrWhiteSpace(raw)) return string.Empty;
-
-            // A questo punto raw è non-null (IsNullOrWhiteSpace ha già filtrato); netstandard2.0
-            // non ha [NotNullWhen] su quell'overload, quindi disambiguo esplicitamente.
-            var src = raw!;
-
-            // Stripper caratteri FTS5 problematici: virgolette, star, parentesi, caret, trattino, colon
-            var cleaned = new StringBuilder(src.Length);
-            foreach (var ch in src)
-            {
-                if (ch == '"' || ch == '*' || ch == '(' || ch == ')' ||
-                    ch == '^' || ch == '-' || ch == ':')
-                {
-                    cleaned.Append(' ');
-                }
-                else
-                {
-                    cleaned.Append(ch);
-                }
-            }
-
-            var tokens = cleaned.ToString()
-                .Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
-                .Where(t => t.Length > 0)
-                .ToArray();
-
-            if (tokens.Length == 0) return string.Empty;
-
-            // Ogni token → prefix match; AND implicito fra token in FTS5
-            return string.Join(" ", tokens.Select(t => t + "*"));
-        }
-
         // =====================================================================
-        // QtoAssignments
+        // Data layer (QtoAssignments, ChangeLog, Snapshots, Chapters, ProjectInfo,
+        // Favorites, Embeddings, NuoviPrezzi, ManualItems, RoomMappings, SelectionRules)
+        // (delegato a QtoRepository.Data.cs)
+        // =====================================================================
+        // Row DTO per Query<dynamic> → Query<Tipizzato>
         // =====================================================================
 
-        public int InsertAssignment(QtoAssignment assignment) => InsertAssignment(assignment, null);
-
-        public int InsertAssignment(QtoAssignment assignment, IDbTransaction? tx)
-        {
-            const string sql = @"
-                INSERT INTO QtoAssignments
-                    (SessionId, ElementId, UniqueId, Category, FamilyName, PhaseCreated, PhaseDemolished,
-                     EpCode, EpDescription, Quantity, QuantityGross, QuantityDeducted, Unit, UnitPrice,
-                     RuleApplied, Source, AssignedAt, ModifiedAt, IsDeleted, IsExcluded, ExclusionReason,
-                     CreatedBy, CreatedAt, ModifiedBy, Version, AuditStatus, ComputoChapterId)
-                VALUES
-                    (@SessionId, @ElementId, @UniqueId, @Category, @FamilyName, @PhaseCreated, @PhaseDemolished,
-                     @EpCode, @EpDescription, @Quantity, @QuantityGross, @QuantityDeducted, @Unit, @UnitPrice,
-                     @RuleApplied, @Source, @AssignedAt, @ModifiedAt, @IsDeleted, @IsExcluded, @ExclusionReason,
-                     @CreatedBy, @CreatedAt, @ModifiedBy, @Version, @AuditStatus, @ComputoChapterId);
-                SELECT last_insert_rowid();";
-
-            var id = _conn.ExecuteScalar<long>(sql, new
-            {
-                assignment.SessionId,
-                assignment.ElementId,
-                assignment.UniqueId,
-                assignment.Category,
-                assignment.FamilyName,
-                assignment.PhaseCreated,
-                assignment.PhaseDemolished,
-                assignment.EpCode,
-                assignment.EpDescription,
-                assignment.Quantity,
-                assignment.QuantityGross,
-                assignment.QuantityDeducted,
-                assignment.Unit,
-                assignment.UnitPrice,
-                RuleApplied = assignment.RuleApplied,
-                Source = assignment.Source.ToString(),
-                assignment.AssignedAt,
-                assignment.ModifiedAt,
-                IsDeleted = assignment.IsDeleted ? 1 : 0,
-                IsExcluded = assignment.IsExcluded ? 1 : 0,
-                assignment.ExclusionReason,
-                assignment.CreatedBy,
-                assignment.CreatedAt,
-                assignment.ModifiedBy,
-                assignment.Version,
-                AuditStatus = assignment.AuditStatus.ToString(),
-                assignment.ComputoChapterId
-            }, tx);
-
-            assignment.Id = (int)id;
-            return assignment.Id;
-        }
-
-        public void UpdateAssignment(QtoAssignment assignment)
-        {
-            const string sql = @"
-                UPDATE QtoAssignments SET
-                    EpCode = @EpCode,
-                    EpDescription = @EpDescription,
-                    Quantity = @Quantity,
-                    QuantityGross = @QuantityGross,
-                    QuantityDeducted = @QuantityDeducted,
-                    Unit = @Unit,
-                    UnitPrice = @UnitPrice,
-                    RuleApplied = @RuleApplied,
-                    ModifiedAt = @ModifiedAt,
-                    IsDeleted = @IsDeleted,
-                    IsExcluded = @IsExcluded,
-                    ExclusionReason = @ExclusionReason,
-                    ModifiedBy = @ModifiedBy,
-                    Version = @Version,
-                    AuditStatus = @AuditStatus
-                WHERE Id = @Id;";
-
-            _conn.Execute(sql, new
-            {
-                assignment.Id,
-                assignment.EpCode,
-                assignment.EpDescription,
-                assignment.Quantity,
-                assignment.QuantityGross,
-                assignment.QuantityDeducted,
-                assignment.Unit,
-                assignment.UnitPrice,
-                assignment.RuleApplied,
-                assignment.ModifiedAt,
-                IsDeleted = assignment.IsDeleted ? 1 : 0,
-                IsExcluded = assignment.IsExcluded ? 1 : 0,
-                assignment.ExclusionReason,
-                assignment.ModifiedBy,
-                assignment.Version,
-                AuditStatus = assignment.AuditStatus.ToString()
-            });
-        }
-
-        public IReadOnlyList<QtoAssignment> GetAssignments(int sessionId)
-        {
-            const string sql = "SELECT * FROM QtoAssignments WHERE SessionId = @sessionId AND IsDeleted = 0;";
-            var rows = _conn.Query<dynamic>(sql, new { sessionId });
-            var result = new List<QtoAssignment>();
-            foreach (var row in rows)
-            {
-                result.Add(new QtoAssignment
-                {
-                    Id = (int)row.Id,
-                    SessionId = (int)row.SessionId,
-                    ElementId = (int)row.ElementId,
-                    UniqueId = row.UniqueId ?? "",
-                    Category = row.Category ?? "",
-                    FamilyName = row.FamilyName ?? "",
-                    PhaseCreated = row.PhaseCreated ?? "",
-                    PhaseDemolished = row.PhaseDemolished ?? "",
-                    EpCode = row.EpCode ?? "",
-                    EpDescription = row.EpDescription ?? "",
-                    Quantity = (double)row.Quantity,
-                    QuantityGross = (double)(row.QuantityGross ?? 0.0),
-                    QuantityDeducted = (double)(row.QuantityDeducted ?? 0.0),
-                    Unit = row.Unit ?? "",
-                    UnitPrice = (double)row.UnitPrice,
-                    RuleApplied = row.RuleApplied ?? "",
-                    Source = Enum.TryParse<QtoSource>((string?)row.Source, out var src) ? src : QtoSource.RevitElement,
-                    AssignedAt = row.AssignedAt is string ats ? DateTime.Parse(ats) : DateTime.UtcNow,
-                    ModifiedAt = row.ModifiedAt is string mts ? (DateTime?)DateTime.Parse(mts) : null,
-                    IsDeleted = ((int?)row.IsDeleted ?? 0) != 0,
-                    IsExcluded = ((int?)row.IsExcluded ?? 0) != 0,
-                    ExclusionReason = row.ExclusionReason ?? "",
-                    CreatedBy = row.CreatedBy ?? "",
-                    CreatedAt = row.CreatedAt is string cats ? DateTime.Parse(cats) : DateTime.UtcNow,
-                    ModifiedBy = row.ModifiedBy,
-                    Version = (int)(row.Version ?? 1),
-                    AuditStatus = Enum.TryParse<AssignmentStatus>((string?)row.AuditStatus, out var ast) ? ast : AssignmentStatus.Active,
-                    ComputoChapterId = row.ComputoChapterId == null ? (int?)null : (int)(long)row.ComputoChapterId
-                });
-            }
-            return result;
-        }
-
-        // =====================================================================
-        // ChangeLog
-        // =====================================================================
-
-        public void AppendChangeLog(ChangeLogEntry entry) => AppendChangeLog(entry, null);
-
-        public void AppendChangeLog(ChangeLogEntry entry, IDbTransaction? tx)
-        {
-            const string sql = @"
-                INSERT INTO ChangeLog
-                    (SessionId, ElementUniqueId, PriceItemCode, ChangeType, OldValueJson, NewValueJson, UserId, Timestamp)
-                VALUES
-                    (@SessionId, @ElementUniqueId, @PriceItemCode, @ChangeType, @OldValueJson, @NewValueJson, @UserId, @Timestamp);";
-
-            _conn.Execute(sql, new
-            {
-                entry.SessionId,
-                entry.ElementUniqueId,
-                entry.PriceItemCode,
-                entry.ChangeType,
-                entry.OldValueJson,
-                entry.NewValueJson,
-                entry.UserId,
-                Timestamp = entry.Timestamp.ToString("o")
-            }, tx);
-        }
-
-        public IReadOnlyList<ChangeLogEntry> GetChangeLog(int sessionId)
-        {
-            const string sql = "SELECT * FROM ChangeLog WHERE SessionId = @sessionId ORDER BY ChangeId;";
-            var rows = _conn.Query<dynamic>(sql, new { sessionId });
-            var result = new List<ChangeLogEntry>();
-            foreach (var row in rows)
-            {
-                result.Add(new ChangeLogEntry
-                {
-                    ChangeId = (int)row.ChangeId,
-                    SessionId = (int)row.SessionId,
-                    ElementUniqueId = row.ElementUniqueId ?? "",
-                    PriceItemCode = row.PriceItemCode ?? "",
-                    ChangeType = row.ChangeType ?? "",
-                    OldValueJson = row.OldValueJson,
-                    NewValueJson = row.NewValueJson,
-                    UserId = row.UserId ?? "",
-                    Timestamp = DateTime.Parse(row.Timestamp ?? DateTime.UtcNow.ToString("o"))
-                });
-            }
-            return result;
-        }
-
-        // =====================================================================
-        // ElementSnapshots
-        // =====================================================================
-
-        public void UpsertSnapshot(ElementSnapshot snapshot) => UpsertSnapshot(snapshot, null);
-
-        public void UpsertSnapshot(ElementSnapshot snapshot, IDbTransaction? tx)
-        {
-            const string sql = @"
-                INSERT INTO ElementSnapshots
-                    (SessionId, ElementId, UniqueId, SnapshotHash, SnapshotQty, AssignedEPJson, LastUpdated)
-                VALUES
-                    (@SessionId, @ElementId, @UniqueId, @SnapshotHash, @SnapshotQty, @AssignedEPJson, @LastUpdated)
-                ON CONFLICT(SessionId, UniqueId) DO UPDATE SET
-                    SnapshotHash   = excluded.SnapshotHash,
-                    SnapshotQty    = excluded.SnapshotQty,
-                    AssignedEPJson = excluded.AssignedEPJson,
-                    LastUpdated    = excluded.LastUpdated;";
-
-            _conn.Execute(sql, new
-            {
-                snapshot.SessionId,
-                snapshot.ElementId,
-                snapshot.UniqueId,
-                snapshot.SnapshotHash,
-                snapshot.SnapshotQty,
-                AssignedEPJson = JsonSerializer.Serialize(snapshot.AssignedEP),
-                LastUpdated = snapshot.LastUpdated.ToString("o")
-            }, tx);
-        }
-
-        public IReadOnlyList<ElementSnapshot> GetSnapshots(int sessionId)
-        {
-            const string sql = "SELECT * FROM ElementSnapshots WHERE SessionId = @sessionId;";
-            var rows = _conn.Query<dynamic>(sql, new { sessionId });
-            var result = new List<ElementSnapshot>();
-            foreach (var row in rows)
-            {
-                var epJson = (string?)row.AssignedEPJson ?? "[]";
-                result.Add(new ElementSnapshot
-                {
-                    Id = (int)row.Id,
-                    SessionId = (int)row.SessionId,
-                    ElementId = (int)row.ElementId,
-                    UniqueId = row.UniqueId ?? "",
-                    SnapshotHash = row.SnapshotHash ?? "",
-                    SnapshotQty = (double)row.SnapshotQty,
-                    AssignedEP = JsonSerializer.Deserialize<List<string>>(epJson) ?? new List<string>(),
-                    LastUpdated = DateTime.Parse(row.LastUpdated ?? DateTime.UtcNow.ToString("o"))
-                });
-            }
-            return result;
-        }
-
-        // =====================================================================
-        // ComputoChapters (Sprint 9)
-        // =====================================================================
-
-        public int InsertComputoChapter(ComputoChapter ch)
-        {
-            const string sql = @"
-INSERT INTO ComputoChapters (SessionId, ParentChapterId, Code, Name, Level, SortOrder, SoaCategoryId, CreatedAt)
-VALUES (@SessionId, @ParentChapterId, @Code, @Name, @Level, @SortOrder, @SoaCategoryId, @CreatedAt);
-SELECT last_insert_rowid();";
-            var id = _conn.ExecuteScalar<int>(sql, new
-            {
-                ch.SessionId, ch.ParentChapterId, ch.Code, ch.Name, ch.Level, ch.SortOrder, ch.SoaCategoryId,
-                CreatedAt = ch.CreatedAt.ToString("o", System.Globalization.CultureInfo.InvariantCulture)
-            });
-            ch.Id = id;
-            return id;
-        }
-
-        public void UpdateComputoChapter(ComputoChapter ch)
-        {
-            const string sql = @"
-UPDATE ComputoChapters
-SET ParentChapterId = @ParentChapterId, Code = @Code, Name = @Name,
-    Level = @Level, SortOrder = @SortOrder, SoaCategoryId = @SoaCategoryId
-WHERE Id = @Id;";
-            _conn.Execute(sql, new { ch.Id, ch.ParentChapterId, ch.Code, ch.Name, ch.Level, ch.SortOrder, ch.SoaCategoryId });
-        }
-
-        public void DeleteComputoChapter(int chapterId)
-        {
-            // Foreign keys are OFF by default in SQLite — manually NULL out assignments first
-            _conn.Execute(
-                "UPDATE QtoAssignments SET ComputoChapterId = NULL WHERE ComputoChapterId = @Id;",
-                new { Id = chapterId });
-            _conn.Execute("DELETE FROM ComputoChapters WHERE Id = @Id;", new { Id = chapterId });
-        }
-
-        public IReadOnlyList<ComputoChapter> GetComputoChapters(int sessionId)
-        {
-            const string sql = @"
-SELECT Id, SessionId, ParentChapterId, Code, Name, Level, SortOrder, SoaCategoryId, CreatedAt
-FROM ComputoChapters
-WHERE SessionId = @SessionId
-ORDER BY Level, SortOrder, Code;";
-            return _conn.Query<dynamic>(sql, new { SessionId = sessionId })
-                .Select(r => new ComputoChapter
-                {
-                    Id = (int)(long)r.Id,
-                    SessionId = (int)(long)r.SessionId,
-                    ParentChapterId = r.ParentChapterId == null ? (int?)null : (int)(long)r.ParentChapterId,
-                    Code = (string)r.Code,
-                    Name = (string)r.Name,
-                    Level = (int)(long)r.Level,
-                    SortOrder = (int)(long)r.SortOrder,
-                    SoaCategoryId = r.SoaCategoryId == null ? (int?)null : (int)(long)r.SoaCategoryId,
-                    CreatedAt = System.DateTime.Parse((string)r.CreatedAt, System.Globalization.CultureInfo.InvariantCulture,
-                        System.Globalization.DateTimeStyles.RoundtripKind)
-                })
-                .ToList();
-        }
-
-        public IReadOnlyList<SoaCategory> GetSoaCategories()
-        {
-            const string sql = @"
-SELECT Id, Code, Description, Type, SortOrder
-FROM SoaCategories
-ORDER BY SortOrder;";
-            return _conn.Query<dynamic>(sql)
-                .Select(r => new SoaCategory
-                {
-                    Id = (int)(long)r.Id,
-                    Code = (string)r.Code,
-                    Description = (string)r.Description,
-                    Type = (string)r.Type,
-                    SortOrder = (int)(long)r.SortOrder
-                })
-                .ToList();
-        }
-
-        public void AcceptDiffBatch(IReadOnlyList<SupersedeOp> ops)
-        {
-            if (ops == null || ops.Count == 0) return;
-
-            using var tx = _conn.BeginTransaction();
-            try
-            {
-                foreach (var op in ops)
-                {
-                    if (op.Kind == SupersedeKind.Modified)
-                    {
-                        _conn.Execute(
-                            "UPDATE QtoAssignments SET AuditStatus = 'Superseded', ModifiedAt = @Now WHERE Id = @Id;",
-                            new { Id = op.OldAssignmentId, Now = DateTime.UtcNow }, tx);
-
-                        InsertAssignment(op.NewVersion, tx);
-
-                        UpsertSnapshot(op.NewSnapshot, tx);
-                    }
-                    else if (op.Kind == SupersedeKind.Deleted)
-                    {
-                        _conn.Execute(
-                            "UPDATE QtoAssignments SET AuditStatus = 'Deleted', ModifiedAt = @Now WHERE Id = @Id;",
-                            new { Id = op.OldAssignmentId, Now = DateTime.UtcNow }, tx);
-                    }
-
-                    AppendChangeLog(op.Log, tx);
-                }
-
-                tx.Commit();
-            }
-            catch
-            {
-                tx.Rollback();
-                throw;
-            }
-        }
-
-        // =====================================================================
-        // Transazione esposta per operazioni multi-statement
-        // =====================================================================
-
-        public SqliteTransaction BeginTransaction() => _conn.BeginTransaction();
-
-        // =====================================================================
-        // ProjectInfo (Sprint 10 · schema v7)
-        // =====================================================================
-
-        public ProjectInfo? GetProjectInfo(int sessionId)
-        {
-            const string sql = @"
-SELECT Id, SessionId, DenominazioneOpera, Committente, Impresa, RUP, DirettoreLavori,
-       Luogo, Comune, Provincia, DataComputo, DataPrezzi, RiferimentoPrezzario,
-       CIG, CUP, RibassoPercentuale, LogoPath, UpdatedAt
-FROM ProjectInfo
-WHERE SessionId = @SessionId
-LIMIT 1;";
-            return _conn.Query<dynamic>(sql, new { SessionId = sessionId })
-                .Select(r => new ProjectInfo
-                {
-                    Id = (int)(long)r.Id,
-                    SessionId = (int)(long)r.SessionId,
-                    DenominazioneOpera = (string)r.DenominazioneOpera,
-                    Committente = (string)r.Committente,
-                    Impresa = (string)r.Impresa,
-                    RUP = (string)r.RUP,
-                    DirettoreLavori = (string)r.DirettoreLavori,
-                    Luogo = (string)r.Luogo,
-                    Comune = (string)r.Comune,
-                    Provincia = (string)r.Provincia,
-                    DataComputo = r.DataComputo == null ? (DateTime?)null : DateTime.Parse((string)r.DataComputo, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind),
-                    DataPrezzi = r.DataPrezzi == null ? (DateTime?)null : DateTime.Parse((string)r.DataPrezzi, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind),
-                    RiferimentoPrezzario = (string)r.RiferimentoPrezzario,
-                    CIG = (string)r.CIG,
-                    CUP = (string)r.CUP,
-                    RibassoPercentuale = Convert.ToDecimal(r.RibassoPercentuale),
-                    LogoPath = (string)r.LogoPath,
-                    UpdatedAt = DateTime.Parse((string)r.UpdatedAt, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind)
-                })
-                .FirstOrDefault();
-        }
-
-        public void UpsertProjectInfo(ProjectInfo info)
-        {
-            info.UpdatedAt = DateTime.UtcNow;
-            const string sql = @"
-INSERT INTO ProjectInfo
-    (SessionId, DenominazioneOpera, Committente, Impresa, RUP, DirettoreLavori,
-     Luogo, Comune, Provincia, DataComputo, DataPrezzi, RiferimentoPrezzario,
-     CIG, CUP, RibassoPercentuale, LogoPath, UpdatedAt)
-VALUES
-    (@SessionId, @DenominazioneOpera, @Committente, @Impresa, @RUP, @DirettoreLavori,
-     @Luogo, @Comune, @Provincia, @DataComputo, @DataPrezzi, @RiferimentoPrezzario,
-     @CIG, @CUP, @RibassoPercentuale, @LogoPath, @UpdatedAt)
-ON CONFLICT(SessionId) DO UPDATE SET
-    DenominazioneOpera = excluded.DenominazioneOpera,
-    Committente = excluded.Committente,
-    Impresa = excluded.Impresa,
-    RUP = excluded.RUP,
-    DirettoreLavori = excluded.DirettoreLavori,
-    Luogo = excluded.Luogo,
-    Comune = excluded.Comune,
-    Provincia = excluded.Provincia,
-    DataComputo = excluded.DataComputo,
-    DataPrezzi = excluded.DataPrezzi,
-    RiferimentoPrezzario = excluded.RiferimentoPrezzario,
-    CIG = excluded.CIG,
-    CUP = excluded.CUP,
-    RibassoPercentuale = excluded.RibassoPercentuale,
-    LogoPath = excluded.LogoPath,
-    UpdatedAt = excluded.UpdatedAt;";
-            _conn.Execute(sql, new
-            {
-                info.SessionId,
-                info.DenominazioneOpera,
-                info.Committente,
-                info.Impresa,
-                info.RUP,
-                info.DirettoreLavori,
-                info.Luogo,
-                info.Comune,
-                info.Provincia,
-                DataComputo = info.DataComputo?.ToString("o", System.Globalization.CultureInfo.InvariantCulture),
-                DataPrezzi = info.DataPrezzi?.ToString("o", System.Globalization.CultureInfo.InvariantCulture),
-                info.RiferimentoPrezzario,
-                info.CIG,
-                info.CUP,
-                info.RibassoPercentuale,
-                info.LogoPath,
-                UpdatedAt = info.UpdatedAt.ToString("o", System.Globalization.CultureInfo.InvariantCulture)
-            });
-        }
-
-        // =====================================================================
-        // Conteggi (per RecoveryService · CRIT-2)
-        // =====================================================================
-
-        /// <summary>
-        /// Conta le QtoAssignments attive (AuditStatus=Active, IsDeleted=0) per un progetto
-        /// dato il path .rvt. Usato da RecoveryService per confrontare il conteggio DB
-        /// con quello atteso dal modello (count Extensible Storage), decidendo se il sync
-        /// può essere silenzioso o richiede conferma utente.
-        /// </summary>
-        public int CountActiveAssignmentsForProject(string projectPath)
-        {
-            const string sql = @"
-SELECT COUNT(*)
-FROM QtoAssignments a
-INNER JOIN Sessions s ON s.Id = a.SessionId
-WHERE s.ProjectPath = @ProjectPath
-  AND a.AuditStatus = 'Active'
-  AND a.IsDeleted = 0;";
-            return _conn.ExecuteScalar<int>(sql, new { ProjectPath = projectPath });
-        }
-
-        // =====================================================================
-        // Schema version (utility per diagnostica)
-        // =====================================================================
-
-        public int GetSchemaVersion()
-        {
-            return _conn.ExecuteScalar<int>("SELECT MAX(Version) FROM SchemaInfo;");
-        }
-
-        // =====================================================================
-        // UserFavorites (v10)
-        // =====================================================================
-
-        public IReadOnlyList<UserFavorite> GetFavorites()
-        {
-            // v11: PriceListPublicId è incluso nel SELECT. Dapper mappa
-            // automaticamente TEXT→string? (null se colonna NULL).
-            const string sql = @"
-SELECT Id, PriceItemId, Code, Description, Unit, UnitPrice,
-       ListName, ListId, PriceListPublicId, AddedAt, Note
-FROM UserFavorites
-ORDER BY AddedAt DESC, Code";
-            return _conn.Query<UserFavorite>(sql).ToList();
-        }
-
-        /// <summary>
-        /// Aggiunge un preferito (INSERT OR IGNORE idempotente su UNIQUE(Code, ListId)) e
-        /// ritorna l'Id della riga risultante (nuova o preesistente).
-        ///
-        /// <para>
-        /// Atomicità (rev. 2026-04-23): INSERT + SELECT risoluzione Id sono wrappati in
-        /// una singola transazione. Se l'INSERT produce una nuova riga (<c>changes() &gt; 0</c>)
-        /// uso <c>last_insert_rowid()</c> (fast-path senza secondo SELECT); altrimenti
-        /// risolvo l'Id della riga preesistente con SELECT su (Code, ListId). Sicuro
-        /// anche se due popout multi-monitor chiamano AddFavorite sulla stessa voce.
-        /// </para>
-        /// </summary>
-        public int AddFavorite(UserFavorite fav)
-        {
-            // v11: PriceListPublicId incluso nell'INSERT. Auto-popolato da
-            // PriceLists.PublicId se il chiamante non lo fornisce esplicitamente
-            // (vedi ResolvePublicIdIfMissing sotto).
-            const string insertSql = @"
-INSERT OR IGNORE INTO UserFavorites
-(PriceItemId, Code, Description, Unit, UnitPrice, ListName, ListId, PriceListPublicId, AddedAt, Note)
-VALUES (@PriceItemId, @Code, @Description, @Unit, @UnitPrice, @ListName, @ListId, @PriceListPublicId, @AddedAt, @Note);";
-
-            // SELECT changes() immediatamente dopo INSERT restituisce 1 se la riga è stata
-            // inserita, 0 se la constraint UNIQUE(Code, ListId) ha scattato OR IGNORE.
-            // In SQLite, "SELECT changes()" deve essere eseguito sulla STESSA connessione
-            // dell'INSERT — garantito qui perché usiamo sempre _conn.
-            const string selectBySearchSql = @"
-SELECT Id FROM UserFavorites
-WHERE Code = @Code AND ListId IS @ListId LIMIT 1;";
-
-            using var tx = _conn.BeginTransaction();
-            try
-            {
-                // v11 auto-resolve: se il chiamante non fornisce PriceListPublicId
-                // ma fornisce ListId, guardiamo il PublicId nella tabella PriceLists.
-                // Questo mantiene il dato coerente anche per chiamanti legacy che
-                // non conoscono il nuovo campo.
-                var resolvedPublicId = fav.PriceListPublicId;
-                if (string.IsNullOrWhiteSpace(resolvedPublicId) && fav.ListId.HasValue)
-                {
-                    resolvedPublicId = _conn.ExecuteScalar<string?>(
-                        "SELECT PublicId FROM PriceLists WHERE Id = @Id LIMIT 1;",
-                        new { Id = fav.ListId.Value },
-                        transaction: tx);
-                }
-
-                var inserted = _conn.Execute(insertSql, new
-                {
-                    fav.PriceItemId,
-                    fav.Code,
-                    fav.Description,
-                    fav.Unit,
-                    fav.UnitPrice,
-                    fav.ListName,
-                    fav.ListId,
-                    PriceListPublicId = resolvedPublicId,
-                    AddedAt = fav.AddedAt.ToString("o"),
-                    fav.Note
-                }, transaction: tx);
-
-                int id;
-                if (inserted > 0)
-                {
-                    // Fast-path: nuova riga → last_insert_rowid() è il PK generato
-                    id = _conn.ExecuteScalar<int>("SELECT last_insert_rowid();", transaction: tx);
-                }
-                else
-                {
-                    // Riga esistente (constraint UNIQUE) → risolvi via SELECT
-                    id = _conn.ExecuteScalar<int>(selectBySearchSql,
-                        new { fav.Code, fav.ListId },
-                        transaction: tx);
-                }
-
-                tx.Commit();
-                return id;
-            }
-            catch
-            {
-                try { tx.Rollback(); } catch { /* best-effort */ }
-                throw;
-            }
-        }
-
-        public void RemoveFavorite(int id)
-        {
-            const string sql = "DELETE FROM UserFavorites WHERE Id = @Id";
-            _conn.Execute(sql, new { Id = id });
-        }
-
-        public bool IsFavorite(string code, int? listId)
-        {
-            const string sql = @"
-SELECT COUNT(*) FROM UserFavorites WHERE Code = @Code AND ListId IS @ListId";
-
-            var n = _conn.ExecuteScalar<int>(sql, new { Code = code, ListId = listId });
-            return n > 0;
-        }
-
-        /// <summary>
-        /// Ritorna i codici EP assegnati attivamente nel computo per una sessione.
-        /// NOTA: QtoAssignments vive nel .cme (DB di sessione), NON nell'UserLibrary.db.
-        /// Questo metodo funziona SOLO se invocato su un repository aperto sul .cme
-        /// corretto. Se la tabella QtoAssignments non esiste (es. UserLibrary.db),
-        /// ritorna un HashSet vuoto senza throw.
-        /// </summary>
-        public System.Collections.Generic.HashSet<string> GetUsedEpCodes(int sessionId)
-        {
-            // Guard: se il DB non ha QtoAssignments (es. chiamato su UserLibrary.db),
-            // ritorniamo vuoto invece di lanciare. L'UI chiama questo metodo sul
-            // SessionManager.Repository che è il .cme.
-            var tableExists = _conn.ExecuteScalar<int>(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='QtoAssignments'");
-            if (tableExists == 0) return new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
-
-            const string sql = @"
-SELECT DISTINCT EpCode
-FROM QtoAssignments
-WHERE SessionId = @SessionId AND AuditStatus = 'Active' AND EpCode IS NOT NULL AND EpCode <> ''";
-
-            var codes = _conn.Query<string>(sql, new { SessionId = sessionId });
-            return new System.Collections.Generic.HashSet<string>(codes, System.StringComparer.OrdinalIgnoreCase);
-        }
-
-        /// <summary>
-        /// Bulk-delete preferiti in una transazione. Ritorna il numero di righe cancellate.
-        /// NON tocca PriceItems / PriceLists.
-        /// </summary>
-        public int RemoveFavorites(System.Collections.Generic.IEnumerable<int> favoriteIds)
-        {
-            var ids = favoriteIds?.ToList();
-            if (ids == null || ids.Count == 0) return 0;
-
-            using var tx = _conn.BeginTransaction();
-            int deleted = _conn.Execute(
-                "DELETE FROM UserFavorites WHERE Id IN @Ids",
-                new { Ids = ids },
-                transaction: tx);
-            tx.Commit();
-            return deleted;
-        }
-
-        // =====================================================================
-        // RevitParamMapping (v9) — mapping campi Informazioni Progetto
-        // =====================================================================
-
-        public IReadOnlyList<RevitParamMapping> GetRevitParamMappings(int sessionId)
-        {
-            const string sql = @"
-SELECT Id, SessionId, FieldKey, ParamName, IsBuiltIn, SkipIfFilled
-FROM RevitParamMapping
-WHERE SessionId = @SessionId
-ORDER BY FieldKey;";
-            return _conn.Query<RevitParamMapping>(sql, new { SessionId = sessionId }).ToList();
-        }
-
-        public void UpsertRevitParamMapping(RevitParamMapping mapping)
-        {
-            // UNIQUE(SessionId, FieldKey) nello schema → ON CONFLICT REPLACE
-            const string sql = @"
-INSERT INTO RevitParamMapping (SessionId, FieldKey, ParamName, IsBuiltIn, SkipIfFilled)
-VALUES (@SessionId, @FieldKey, @ParamName, @IsBuiltIn, @SkipIfFilled)
-ON CONFLICT(SessionId, FieldKey) DO UPDATE SET
-    ParamName = excluded.ParamName,
-    IsBuiltIn = excluded.IsBuiltIn,
-    SkipIfFilled = excluded.SkipIfFilled;";
-
-            _conn.Execute(sql, new
-            {
-                mapping.SessionId,
-                mapping.FieldKey,
-                mapping.ParamName,
-                IsBuiltIn = mapping.IsBuiltIn ? 1 : 0,
-                SkipIfFilled = mapping.SkipIfFilled ? 1 : 0
-            });
-        }
-
-        public void DeleteRevitParamMapping(int sessionId, string fieldKey)
-        {
-            const string sql = "DELETE FROM RevitParamMapping WHERE SessionId = @SessionId AND FieldKey = @FieldKey";
-            _conn.Execute(sql, new { SessionId = sessionId, FieldKey = fieldKey });
-        }
-
-        // =====================================================================
-        // EmbeddingCache (AI — modulo opzionale)
-        // =====================================================================
-        //
-        // La tabella è sul .cme (popolata one-shot al caricamento del listino).
-        // Schema: UNIQUE(PriceItemId, ModelName) — un solo embedding per item
-        // per modello. Se l'utente cambia modello, invalidare via
-        // DeleteEmbeddingsForModel + ricalcolo batch dal service AI.
-
-        public bool HasEmbedding(int priceItemId, string modelName)
-        {
-            const string sql = @"
-SELECT COUNT(*) FROM EmbeddingCache
-WHERE PriceItemId = @PriceItemId AND ModelName = @ModelName";
-            return _conn.ExecuteScalar<int>(sql, new { PriceItemId = priceItemId, ModelName = modelName }) > 0;
-        }
-
-        public void UpsertEmbedding(int priceItemId, string modelName, byte[] vectorBlob)
-        {
-            if (vectorBlob == null) throw new ArgumentNullException(nameof(vectorBlob));
-            if (vectorBlob.Length == 0)
-                throw new ArgumentException("Vector blob vuoto.", nameof(vectorBlob));
-
-            const string sql = @"
-INSERT INTO EmbeddingCache (PriceItemId, ModelName, VectorBlob)
-VALUES (@PriceItemId, @ModelName, @VectorBlob)
-ON CONFLICT(PriceItemId, ModelName) DO UPDATE SET
-    VectorBlob = excluded.VectorBlob,
-    CreatedAt  = CURRENT_TIMESTAMP;";
-
-            _conn.Execute(sql, new
-            {
-                PriceItemId = priceItemId,
-                ModelName = modelName,
-                VectorBlob = vectorBlob
-            });
-        }
-
-        public IReadOnlyList<QtoRevitPlugin.AI.EmbeddingEntry> GetEmbeddings(
-            IReadOnlyList<int> priceItemIds,
-            string modelName)
-        {
-            if (priceItemIds == null || priceItemIds.Count == 0)
-                return new List<QtoRevitPlugin.AI.EmbeddingEntry>();
-
-            // Dapper gestisce IN con parametro IEnumerable automaticamente
-            const string sql = @"
-SELECT Id, PriceItemId, ModelName, VectorBlob, CreatedAt
-FROM EmbeddingCache
-WHERE ModelName = @ModelName AND PriceItemId IN @Ids;";
-
-            return _conn.Query<QtoRevitPlugin.AI.EmbeddingEntry>(sql, new
-            {
-                ModelName = modelName,
-                Ids = priceItemIds
-            }).ToList();
-        }
-
-        public int DeleteEmbeddingsForModel(string modelName)
-        {
-            if (string.IsNullOrWhiteSpace(modelName)) return 0;
-            const string sql = "DELETE FROM EmbeddingCache WHERE ModelName = @ModelName;";
-            return _conn.Execute(sql, new { ModelName = modelName });
-        }
-
-        public int DeleteEmbeddingsForPriceList(int priceListId)
-        {
-            // Join necessario perché EmbeddingCache riferisce PriceItems, non PriceLists
-            const string sql = @"
-DELETE FROM EmbeddingCache
-WHERE PriceItemId IN (SELECT Id FROM PriceItems WHERE PriceListId = @PriceListId);";
-            return _conn.Execute(sql, new { PriceListId = priceListId });
-        }
-
-        // =====================================================================
-        // NuoviPrezzi (I8)
-        // =====================================================================
-
-        public IReadOnlyList<NuovoPrezzo> GetNuoviPrezzi(int sessionId)
-        {
-            const string sql = @"
-SELECT Id, SessionId, Code, Description, ShortDesc, Unit,
-       Manodopera, Materiali, Noli, Trasporti,
-       SpGenerali, UtileImpresa, RibassoAsta,
-       Status, NoteAnalisi, CreatedAt
-FROM NuoviPrezzi
-WHERE SessionId = @SessionId
-ORDER BY Code;";
-            return _conn.Query<NpRow>(sql, new { SessionId = sessionId })
-                        .Select(r => r.ToNuovoPrezzo())
-                        .ToList();
-        }
-
-        public int InsertNuovoPrezzo(NuovoPrezzo np)
-        {
-            if (np == null) throw new ArgumentNullException(nameof(np));
-            const string sql = @"
-INSERT INTO NuoviPrezzi
-(SessionId, Code, Description, ShortDesc, Unit,
- Manodopera, Materiali, Noli, Trasporti,
- SpGenerali, UtileImpresa, RibassoAsta,
- UnitPrice, Status, NoteAnalisi, CreatedAt)
-VALUES
-(@SessionId, @Code, @Description, @ShortDesc, @Unit,
- @Manodopera, @Materiali, @Noli, @Trasporti,
- @SpGenerali, @UtileImpresa, @RibassoAsta,
- @UnitPrice, @Status, @NoteAnalisi, @CreatedAt);
-SELECT last_insert_rowid();";
-
-            return _conn.ExecuteScalar<int>(sql, new
-            {
-                np.SessionId, np.Code, np.Description, np.ShortDesc, np.Unit,
-                np.Manodopera, np.Materiali, np.Noli, np.Trasporti,
-                np.SpGenerali, np.UtileImpresa, np.RibassoAsta,
-                UnitPrice = np.UnitPrice, // computed via getter del model
-                Status = np.Status.ToString(),
-                np.NoteAnalisi,
-                CreatedAt = np.CreatedAt.ToString("o")
-            });
-        }
-
-        public void UpdateNuovoPrezzo(NuovoPrezzo np)
-        {
-            if (np == null) throw new ArgumentNullException(nameof(np));
-            const string sql = @"
-UPDATE NuoviPrezzi SET
-    Code = @Code, Description = @Description, ShortDesc = @ShortDesc, Unit = @Unit,
-    Manodopera = @Manodopera, Materiali = @Materiali, Noli = @Noli, Trasporti = @Trasporti,
-    SpGenerali = @SpGenerali, UtileImpresa = @UtileImpresa, RibassoAsta = @RibassoAsta,
-    UnitPrice = @UnitPrice, Status = @Status, NoteAnalisi = @NoteAnalisi
-WHERE Id = @Id;";
-            _conn.Execute(sql, new
-            {
-                np.Id, np.Code, np.Description, np.ShortDesc, np.Unit,
-                np.Manodopera, np.Materiali, np.Noli, np.Trasporti,
-                np.SpGenerali, np.UtileImpresa, np.RibassoAsta,
-                UnitPrice = np.UnitPrice,
-                Status = np.Status.ToString(),
-                np.NoteAnalisi
-            });
-        }
-
-        public void DeleteNuovoPrezzo(int id)
-        {
-            _conn.Execute("DELETE FROM NuoviPrezzi WHERE Id = @Id;", new { Id = id });
-        }
-
-        /// <summary>Row interno per mapping Dapper Status string → enum.</summary>
-        private class NpRow
+        private class AssignmentRow
         {
             public int Id { get; set; }
             public int SessionId { get; set; }
+            public int ElementId { get; set; }
+            public string UniqueId { get; set; } = "";
+            public string Category { get; set; } = "";
+            public string FamilyName { get; set; } = "";
+            public string PhaseCreated { get; set; } = "";
+            public string PhaseDemolished { get; set; } = "";
+            public string EpCode { get; set; } = "";
+            public string EpDescription { get; set; } = "";
+            public double Quantity { get; set; }
+            public double? QuantityGross { get; set; }
+            public double? QuantityDeducted { get; set; }
+            public string Unit { get; set; } = "";
+            public double UnitPrice { get; set; }
+            public string RuleApplied { get; set; } = "";
+            public string Source { get; set; } = "RevitElement";
+            public string AssignedAt { get; set; } = "";
+            public string? ModifiedAt { get; set; }
+            public int? IsDeleted { get; set; }
+            public int? IsExcluded { get; set; }
+            public string ExclusionReason { get; set; } = "";
+            public string CreatedBy { get; set; } = "";
+            public string CreatedAt { get; set; } = "";
+            public string? ModifiedBy { get; set; }
+            public int? Version { get; set; }
+            public string AuditStatus { get; set; } = "Active";
+            public int? ComputoChapterId { get; set; }
+
+            public QtoAssignment ToAssignment() => new()
+            {
+                Id = Id, SessionId = SessionId, ElementId = ElementId,
+                UniqueId = UniqueId, Category = Category, FamilyName = FamilyName,
+                PhaseCreated = PhaseCreated, PhaseDemolished = PhaseDemolished,
+                EpCode = EpCode, EpDescription = EpDescription,
+                Quantity = Quantity, QuantityGross = QuantityGross ?? 0.0, QuantityDeducted = QuantityDeducted ?? 0.0,
+                Unit = Unit, UnitPrice = UnitPrice,
+                RuleApplied = RuleApplied,
+                Source = Enum.TryParse<QtoSource>(Source, out var src) ? src : QtoSource.RevitElement,
+                AssignedAt = !string.IsNullOrWhiteSpace(AssignedAt) && DateTime.TryParse(AssignedAt, out var at) ? at : DateTime.UtcNow,
+                ModifiedAt = !string.IsNullOrWhiteSpace(ModifiedAt) && DateTime.TryParse(ModifiedAt, out var mt) ? mt : null,
+                IsDeleted = (IsDeleted ?? 0) != 0,
+                IsExcluded = (IsExcluded ?? 0) != 0,
+                ExclusionReason = ExclusionReason,
+                CreatedBy = CreatedBy,
+                CreatedAt = !string.IsNullOrWhiteSpace(CreatedAt) && DateTime.TryParse(CreatedAt, out var cat) ? cat : DateTime.UtcNow,
+                ModifiedBy = ModifiedBy,
+                Version = Version ?? 1,
+                AuditStatus = Enum.TryParse<AssignmentStatus>(AuditStatus, out var ast) ? ast : AssignmentStatus.Active,
+                ComputoChapterId = ComputoChapterId
+            };
+        }
+
+        private class ChangeLogRow
+        {
+            public int ChangeId { get; set; }
+            public int SessionId { get; set; }
+            public string ElementUniqueId { get; set; } = "";
+            public string PriceItemCode { get; set; } = "";
+            public string ChangeType { get; set; } = "";
+            public string? OldValueJson { get; set; }
+            public string? NewValueJson { get; set; }
+            public string UserId { get; set; } = "";
+            public string Timestamp { get; set; } = "";
+
+            public ChangeLogEntry ToEntry() => new()
+            {
+                ChangeId = ChangeId, SessionId = SessionId,
+                ElementUniqueId = ElementUniqueId, PriceItemCode = PriceItemCode,
+                ChangeType = ChangeType, OldValueJson = OldValueJson,
+                NewValueJson = NewValueJson, UserId = UserId,
+                Timestamp = DateTime.TryParse(Timestamp, out var ts) ? ts : DateTime.UtcNow
+            };
+        }
+
+        private class SnapshotRow
+        {
+            public int Id { get; set; }
+            public int SessionId { get; set; }
+            public int ElementId { get; set; }
+            public string UniqueId { get; set; } = "";
+            public string SnapshotHash { get; set; } = "";
+            public double SnapshotQty { get; set; }
+            public string? AssignedEPJson { get; set; }
+            public string LastUpdated { get; set; } = "";
+
+            public ElementSnapshot ToSnapshot() => new()
+            {
+                Id = Id, SessionId = SessionId, ElementId = ElementId,
+                UniqueId = UniqueId, SnapshotHash = SnapshotHash,
+                SnapshotQty = SnapshotQty,
+                AssignedEP = System.Text.Json.JsonSerializer.Deserialize<List<string>>(AssignedEPJson ?? "[]") ?? new List<string>(),
+                LastUpdated = DateTime.TryParse(LastUpdated, out var lu) ? lu : DateTime.UtcNow
+            };
+        }
+
+        private class ComputoChapterRow
+        {
+            public long Id { get; set; }
+            public long SessionId { get; set; }
+            public long? ParentChapterId { get; set; }
+            public string Code { get; set; } = "";
+            public string Name { get; set; } = "";
+            public long Level { get; set; }
+            public long SortOrder { get; set; }
+            public long? SoaCategoryId { get; set; }
+            public string CreatedAt { get; set; } = "";
+
+            public ComputoChapter ToChapter() => new()
+            {
+                Id = (int)Id, SessionId = (int)SessionId,
+                ParentChapterId = ParentChapterId != null ? (int)(long)ParentChapterId : null,
+                Code = Code, Name = Name,
+                Level = (int)Level, SortOrder = (int)SortOrder,
+                SoaCategoryId = SoaCategoryId != null ? (int)(long)SoaCategoryId : null,
+                CreatedAt = DateTime.TryParse(CreatedAt, System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.RoundtripKind, out var dt) ? dt : DateTime.UtcNow
+            };
+        }
+
+        private class SoaCategoryRow
+        {
+            public long Id { get; set; }
             public string Code { get; set; } = "";
             public string Description { get; set; } = "";
-            public string? ShortDesc { get; set; }
-            public string? Unit { get; set; }
-            public double Manodopera { get; set; }
-            public double Materiali { get; set; }
-            public double Noli { get; set; }
-            public double Trasporti { get; set; }
-            public double SpGenerali { get; set; }
-            public double UtileImpresa { get; set; }
-            public double RibassoAsta { get; set; }
-            public string Status { get; set; } = "Bozza";
-            public string? NoteAnalisi { get; set; }
-            public DateTime CreatedAt { get; set; }
+            public string Type { get; set; } = "";
+            public long SortOrder { get; set; }
 
-            public NuovoPrezzo ToNuovoPrezzo() => new NuovoPrezzo
+            public SoaCategory ToCategory() => new()
             {
-                Id = Id, SessionId = SessionId, Code = Code, Description = Description,
-                ShortDesc = ShortDesc ?? "", Unit = Unit ?? "",
-                Manodopera = Manodopera, Materiali = Materiali, Noli = Noli, Trasporti = Trasporti,
-                SpGenerali = SpGenerali, UtileImpresa = UtileImpresa, RibassoAsta = RibassoAsta,
-                Status = Enum.TryParse<NpStatus>(Status, out var s) ? s : NpStatus.Bozza,
-                NoteAnalisi = NoteAnalisi ?? "",
-                CreatedAt = CreatedAt
+                Id = (int)Id, Code = Code, Description = Description,
+                Type = Type, SortOrder = (int)SortOrder
             };
         }
 
-        // =====================================================================
-        // ManualItems (I13)
-        // =====================================================================
-
-        public IReadOnlyList<ManualQuantityEntry> GetManualItems(int sessionId)
+        private class ProjectInfoRow
         {
-            const string sql = @"
-SELECT Id, SessionId, EpCode, EpDescription, Unit, Quantity, UnitPrice, Total,
-       Notes, AttachmentPath, CreatedBy, CreatedAt, ModifiedAt, IsDeleted
-FROM ManualItems
-WHERE SessionId = @SessionId AND IsDeleted = 0
-ORDER BY EpCode, Id;";
-            return _conn.Query<ManualItemRow>(sql, new { SessionId = sessionId })
-                        .Select(r => r.ToEntry())
-                        .ToList();
-        }
+            public long Id { get; set; }
+            public long SessionId { get; set; }
+            public string DenominazioneOpera { get; set; } = "";
+            public string Committente { get; set; } = "";
+            public string Impresa { get; set; } = "";
+            public string RUP { get; set; } = "";
+            public string DirettoreLavori { get; set; } = "";
+            public string Luogo { get; set; } = "";
+            public string Comune { get; set; } = "";
+            public string Provincia { get; set; } = "";
+            public string? DataComputo { get; set; }
+            public string? DataPrezzi { get; set; }
+            public string RiferimentoPrezzario { get; set; } = "";
+            public string CIG { get; set; } = "";
+            public string CUP { get; set; } = "";
+            public decimal RibassoPercentuale { get; set; }
+            public string LogoPath { get; set; } = "";
+            public string UpdatedAt { get; set; } = "";
 
-        public int InsertManualItem(ManualQuantityEntry item)
-        {
-            if (item == null) throw new ArgumentNullException(nameof(item));
-            const string sql = @"
-INSERT INTO ManualItems
-(SessionId, EpCode, EpDescription, Quantity, Unit, UnitPrice, Total,
- Notes, AttachmentPath, CreatedBy, CreatedAt, IsDeleted)
-VALUES
-(@SessionId, @EpCode, @EpDescription, @Quantity, @Unit, @UnitPrice, @Total,
- @Notes, @AttachmentPath, @CreatedBy, @CreatedAt, 0);
-SELECT last_insert_rowid();";
-            return _conn.ExecuteScalar<int>(sql, new
+            public ProjectInfo ToProjectInfo() => new()
             {
-                item.SessionId, item.EpCode, item.EpDescription, item.Quantity,
-                item.Unit, item.UnitPrice, Total = item.Total,
-                item.Notes, item.AttachmentPath, item.CreatedBy,
-                CreatedAt = item.CreatedAt.ToString("o")
-            });
-        }
-
-        public void UpdateManualItem(ManualQuantityEntry item)
-        {
-            if (item == null) throw new ArgumentNullException(nameof(item));
-            const string sql = @"
-UPDATE ManualItems SET
-    EpCode = @EpCode, EpDescription = @EpDescription, Quantity = @Quantity,
-    Unit = @Unit, UnitPrice = @UnitPrice, Total = @Total,
-    Notes = @Notes, AttachmentPath = @AttachmentPath,
-    ModifiedAt = @ModifiedAt
-WHERE Id = @Id;";
-            _conn.Execute(sql, new
-            {
-                item.Id, item.EpCode, item.EpDescription, item.Quantity,
-                item.Unit, item.UnitPrice, Total = item.Total,
-                item.Notes, item.AttachmentPath,
-                ModifiedAt = DateTime.UtcNow.ToString("o")
-            });
-        }
-
-        public void DeleteManualItem(int id)
-        {
-            // Soft delete per audit trail
-            _conn.Execute(
-                "UPDATE ManualItems SET IsDeleted = 1, ModifiedAt = @Now WHERE Id = @Id;",
-                new { Id = id, Now = DateTime.UtcNow.ToString("o") });
-        }
-
-        // =====================================================================
-        // RoomMappingConfigs (Sprint 11)
-        // =====================================================================
-
-        public int InsertRoomMappingConfig(RoomMappingConfig cfg)
-        {
-            const string sql = @"
-INSERT INTO RoomMappings (SessionId, EpCode, EpDescription, Unit, Formula, TargetCategory, RoomNameFilter)
-VALUES (@SessionId, @EpCode, @EpDescription, @Unit, @Formula, @TargetCategory, @RoomNameFilter);
-SELECT last_insert_rowid();";
-            return _conn.ExecuteScalar<int>(sql, new
-            {
-                cfg.SessionId,
-                cfg.EpCode,
-                cfg.EpDescription,
-                cfg.Unit,
-                cfg.Formula,
-                TargetCategory = cfg.TargetCategory.ToString(),
-                cfg.RoomNameFilter
-            });
-        }
-
-        public IReadOnlyList<RoomMappingConfig> GetRoomMappingConfigs(int sessionId)
-        {
-            const string sql = @"
-SELECT Id, SessionId, EpCode, EpDescription, Unit, Formula, TargetCategory, RoomNameFilter
-FROM RoomMappings
-WHERE SessionId = @SessionId
-ORDER BY Id;";
-            return _conn.Query<RoomMappingRow>(sql, new { SessionId = sessionId })
-                .Select(r => r.ToConfig())
-                .ToList();
-        }
-
-        public void UpdateRoomMappingConfig(RoomMappingConfig cfg)
-        {
-            const string sql = @"
-UPDATE RoomMappings
-SET EpCode=@EpCode, EpDescription=@EpDescription, Unit=@Unit,
-    Formula=@Formula, TargetCategory=@TargetCategory, RoomNameFilter=@RoomNameFilter
-WHERE Id=@Id;";
-            _conn.Execute(sql, new
-            {
-                cfg.Id,
-                cfg.EpCode,
-                cfg.EpDescription,
-                cfg.Unit,
-                cfg.Formula,
-                TargetCategory = cfg.TargetCategory.ToString(),
-                cfg.RoomNameFilter
-            });
-        }
-
-        public void DeleteRoomMappingConfig(int id)
-        {
-            _conn.Execute("DELETE FROM RoomMappings WHERE Id=@Id;", new { Id = id });
-        }
-
-        private class RoomMappingRow
-        {
-            public int Id { get; set; }
-            public int SessionId { get; set; }
-            public string EpCode { get; set; } = "";
-            public string? EpDescription { get; set; }
-            public string? Unit { get; set; }
-            public string Formula { get; set; } = "";
-            public string TargetCategory { get; set; } = "Rooms";
-            public string? RoomNameFilter { get; set; }
-
-            public RoomMappingConfig ToConfig() => new RoomMappingConfig
-            {
-                Id = Id,
-                SessionId = SessionId,
-                EpCode = EpCode,
-                EpDescription = EpDescription ?? "",
-                Unit = Unit ?? "",
-                Formula = Formula,
-                TargetCategory = TargetCategory == "MEPSpaces"
-                    ? RoomTargetCategory.MEPSpaces
-                    : RoomTargetCategory.Rooms,
-                RoomNameFilter = RoomNameFilter ?? ""
+                Id = (int)Id, SessionId = (int)SessionId,
+                DenominazioneOpera = DenominazioneOpera, Committente = Committente,
+                Impresa = Impresa, RUP = RUP, DirettoreLavori = DirettoreLavori,
+                Luogo = Luogo, Comune = Comune, Provincia = Provincia,
+                DataComputo = !string.IsNullOrWhiteSpace(DataComputo) && DateTime.TryParse(DataComputo,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.RoundtripKind, out var dc) ? dc : null,
+                DataPrezzi = !string.IsNullOrWhiteSpace(DataPrezzi) && DateTime.TryParse(DataPrezzi,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.RoundtripKind, out var dp) ? dp : null,
+                RiferimentoPrezzario = RiferimentoPrezzario,
+                CIG = CIG, CUP = CUP, RibassoPercentuale = RibassoPercentuale,
+                LogoPath = LogoPath,
+                UpdatedAt = DateTime.TryParse(UpdatedAt, System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.RoundtripKind, out var ua) ? ua : DateTime.UtcNow
             };
-        }
-
-        private class ManualItemRow
-        {
-            public int Id { get; set; }
-            public int SessionId { get; set; }
-            public string EpCode { get; set; } = "";
-            public string? EpDescription { get; set; }
-            public string? Unit { get; set; }
-            public double Quantity { get; set; }
-            public double UnitPrice { get; set; }
-            public double Total { get; set; }
-            public string? Notes { get; set; }
-            public string? AttachmentPath { get; set; }
-            public string? CreatedBy { get; set; }
-            public DateTime CreatedAt { get; set; }
-            public DateTime? ModifiedAt { get; set; }
-            public int IsDeleted { get; set; }
-
-            public ManualQuantityEntry ToEntry() => new ManualQuantityEntry
-            {
-                Id = Id, SessionId = SessionId, EpCode = EpCode,
-                EpDescription = EpDescription ?? "", Unit = Unit ?? "",
-                Quantity = Quantity, UnitPrice = UnitPrice,
-                // Total è computed via getter — non serve riassegnarlo
-                Notes = Notes ?? "", AttachmentPath = AttachmentPath ?? "",
-                CreatedBy = CreatedBy ?? "", CreatedAt = CreatedAt, ModifiedAt = ModifiedAt,
-                IsDeleted = IsDeleted != 0
-            };
-        }
-
-        // =====================================================================
-        // SelectionRules (I6) — preset regole di selezione in JSON
-        // =====================================================================
-
-        public IReadOnlyList<(int Id, string Name)> GetSelectionRulePresetNames()
-        {
-            const string sql = "SELECT Id, Name FROM SelectionRules ORDER BY Name;";
-            // Dapper non supporta direttamente ValueTuple → leggiamo in un record privato
-            return _conn.Query<SelectionRuleRow>(sql)
-                .Select(r => (r.Id, r.Name))
-                .ToList();
-        }
-
-        public SelectionRulePreset? GetSelectionRulePreset(int id)
-        {
-            const string sql = "SELECT Id, Name, RuleJson, CreatedAt FROM SelectionRules WHERE Id = @Id;";
-            var row = _conn.QueryFirstOrDefault<SelectionRuleRow>(sql, new { Id = id });
-            if (row == null) return null;
-
-            try
-            {
-                var preset = QtoRevitPlugin.Services.SelectionRulePresetService.Deserialize(row.RuleJson);
-                // Garantisce il nome corrispondente anche se il JSON salvato aveva un nome diverso
-                if (string.IsNullOrEmpty(preset.RuleName)) preset.RuleName = row.Name;
-                return preset;
-            }
-            catch
-            {
-                // JSON corrotto → non throw qui; il chiamante vedrà null e può mostrare errore UI
-                return null;
-            }
-        }
-
-        public int UpsertSelectionRulePreset(SelectionRulePreset preset)
-        {
-            if (preset == null) throw new ArgumentNullException(nameof(preset));
-            if (string.IsNullOrWhiteSpace(preset.RuleName))
-                throw new ArgumentException("Il preset deve avere un RuleName non vuoto.", nameof(preset));
-
-            var json = QtoRevitPlugin.Services.SelectionRulePresetService.Serialize(preset);
-
-            // SelectionRules non ha UNIQUE(Name) nello schema — implementiamo manualmente
-            // l'upsert: cerca per Name, UPDATE se esiste altrimenti INSERT.
-            using var tx = _conn.BeginTransaction();
-            try
-            {
-                var existingId = _conn.ExecuteScalar<int?>(
-                    "SELECT Id FROM SelectionRules WHERE Name = @Name LIMIT 1;",
-                    new { Name = preset.RuleName },
-                    transaction: tx);
-
-                int id;
-                if (existingId.HasValue)
-                {
-                    _conn.Execute(
-                        "UPDATE SelectionRules SET RuleJson = @RuleJson WHERE Id = @Id;",
-                        new { Id = existingId.Value, RuleJson = json },
-                        transaction: tx);
-                    id = existingId.Value;
-                }
-                else
-                {
-                    id = _conn.ExecuteScalar<int>(
-                        @"INSERT INTO SelectionRules (Name, RuleJson, CreatedAt)
-                          VALUES (@Name, @RuleJson, @CreatedAt);
-                          SELECT last_insert_rowid();",
-                        new
-                        {
-                            Name = preset.RuleName,
-                            RuleJson = json,
-                            CreatedAt = DateTime.UtcNow.ToString("o")
-                        },
-                        transaction: tx);
-                }
-
-                tx.Commit();
-                return id;
-            }
-            catch
-            {
-                try { tx.Rollback(); } catch { }
-                throw;
-            }
-        }
-
-        public void DeleteSelectionRulePreset(int id)
-        {
-            _conn.Execute("DELETE FROM SelectionRules WHERE Id = @Id;", new { Id = id });
-        }
-
-        private class SelectionRuleRow
-        {
-            public int Id { get; set; }
-            public string Name { get; set; } = "";
-            public string RuleJson { get; set; } = "";
-            public DateTime CreatedAt { get; set; }
         }
 
         // =====================================================================
@@ -1876,228 +508,5 @@ WHERE Id=@Id;";
             };
         }
 
-        // =====================================================================
-        // Modulo Computi (schema v12) — Plan C-0
-        // Entità PriMus-compliant: Documento, Capitoli/Categorie/WBS,
-        // Voci Elenco Prezzi, Voci Computo (VCItem) con Misure (RGItem).
-        // =====================================================================
-
-        public int InsertComputoDocument(ComputoDocument doc)
-        {
-            const string sql = @"
-                INSERT INTO ComputoDocuments (
-                    WorkSessionId, TipoDocumento, Versione, Fgs, PercPrezzi,
-                    Comune, Provincia, Oggetto, Committente, Impresa, ParteOpera,
-                    Currency, CreatedAt, UpdatedAt)
-                VALUES (
-                    @WorkSessionId, @TipoDocumento, @Versione, @Fgs, @PercPrezzi,
-                    @Comune, @Provincia, @Oggetto, @Committente, @Impresa, @ParteOpera,
-                    @Currency, @CreatedAt, @UpdatedAt);
-                SELECT last_insert_rowid();";
-            doc.Id = _conn.ExecuteScalar<int>(sql, doc);
-            return doc.Id;
-        }
-
-        public ComputoDocument? GetComputoDocumentBySession(int workSessionId)
-        {
-            const string sql = "SELECT * FROM ComputoDocuments WHERE WorkSessionId = @wsid;";
-            return _conn.QuerySingleOrDefault<ComputoDocument>(sql, new { wsid = workSessionId });
-        }
-
-        public void UpdateComputoDocument(ComputoDocument doc)
-        {
-            const string sql = @"
-                UPDATE ComputoDocuments SET
-                    TipoDocumento = @TipoDocumento, Versione = @Versione, Fgs = @Fgs,
-                    PercPrezzi = @PercPrezzi, Comune = @Comune, Provincia = @Provincia,
-                    Oggetto = @Oggetto, Committente = @Committente, Impresa = @Impresa,
-                    ParteOpera = @ParteOpera, Currency = @Currency, UpdatedAt = @UpdatedAt
-                WHERE Id = @Id;";
-            _conn.Execute(sql, doc);
-        }
-
-        public int InsertChapterNode(ChapterNode node)
-        {
-            const string sql = @"
-                INSERT INTO ChapterNodes (DocumentId, Level, Codice, DesSintetica, DesEstesa,
-                    DataInit, Durata, CodFase, Percentuale, ParentId, SortOrder, IsActive)
-                VALUES (@DocumentId, @Level, @Codice, @DesSintetica, @DesEstesa,
-                    @DataInit, @Durata, @CodFase, @Percentuale, @ParentId, @SortOrder, @IsActive);
-                SELECT last_insert_rowid();";
-            node.Id = _conn.ExecuteScalar<int>(sql, node);
-            return node.Id;
-        }
-
-        public IReadOnlyList<ChapterNode> GetChapterNodes(int documentId)
-        {
-            const string sql = "SELECT * FROM ChapterNodes WHERE DocumentId = @d ORDER BY SortOrder;";
-            return _conn.Query<ChapterNode>(sql, new { d = documentId }).AsList();
-        }
-
-        public void UpdateChapterNode(ChapterNode node)
-        {
-            const string sql = @"
-                UPDATE ChapterNodes SET Level = @Level, Codice = @Codice, DesSintetica = @DesSintetica,
-                    DesEstesa = @DesEstesa, DataInit = @DataInit, Durata = @Durata, CodFase = @CodFase,
-                    Percentuale = @Percentuale, ParentId = @ParentId, SortOrder = @SortOrder, IsActive = @IsActive
-                WHERE Id = @Id;";
-            _conn.Execute(sql, node);
-        }
-
-        public void DeleteChapterNode(int id) =>
-            _conn.Execute("DELETE FROM ChapterNodes WHERE Id = @id;", new { id });
-
-        public int InsertCategoryNode(CategoryNode node)
-        {
-            const string sql = @"
-                INSERT INTO CategoryNodes (DocumentId, Level, Codice, DesSintetica, DesEstesa,
-                    DataInit, Durata, CodFase, Percentuale, ParentId, SortOrder, IsActive)
-                VALUES (@DocumentId, @Level, @Codice, @DesSintetica, @DesEstesa,
-                    @DataInit, @Durata, @CodFase, @Percentuale, @ParentId, @SortOrder, @IsActive);
-                SELECT last_insert_rowid();";
-            node.Id = _conn.ExecuteScalar<int>(sql, node);
-            return node.Id;
-        }
-
-        public IReadOnlyList<CategoryNode> GetCategoryNodes(int documentId)
-        {
-            const string sql = "SELECT * FROM CategoryNodes WHERE DocumentId = @d ORDER BY SortOrder;";
-            return _conn.Query<CategoryNode>(sql, new { d = documentId }).AsList();
-        }
-
-        public void UpdateCategoryNode(CategoryNode node)
-        {
-            const string sql = @"
-                UPDATE CategoryNodes SET Level = @Level, Codice = @Codice, DesSintetica = @DesSintetica,
-                    DesEstesa = @DesEstesa, DataInit = @DataInit, Durata = @Durata, CodFase = @CodFase,
-                    Percentuale = @Percentuale, ParentId = @ParentId, SortOrder = @SortOrder, IsActive = @IsActive
-                WHERE Id = @Id;";
-            _conn.Execute(sql, node);
-        }
-
-        public void DeleteCategoryNode(int id) =>
-            _conn.Execute("DELETE FROM CategoryNodes WHERE Id = @id;", new { id });
-
-        public int InsertWbsNode(WbsNode node)
-        {
-            const string sql = @"
-                INSERT INTO WbsNodes (DocumentId, Kind, Codice, DesSintetica, ParentId, Level, SortOrder, IsActive)
-                VALUES (@DocumentId, @Kind, @Codice, @DesSintetica, @ParentId, @Level, @SortOrder, @IsActive);
-                SELECT last_insert_rowid();";
-            node.Id = _conn.ExecuteScalar<int>(sql, node);
-            return node.Id;
-        }
-
-        public IReadOnlyList<WbsNode> GetWbsNodes(int documentId, string? kind = null)
-        {
-            if (string.IsNullOrEmpty(kind))
-            {
-                const string sql = "SELECT * FROM WbsNodes WHERE DocumentId = @d ORDER BY SortOrder;";
-                return _conn.Query<WbsNode>(sql, new { d = documentId }).AsList();
-            }
-            const string sqlK = "SELECT * FROM WbsNodes WHERE DocumentId = @d AND Kind = @k ORDER BY SortOrder;";
-            return _conn.Query<WbsNode>(sqlK, new { d = documentId, k = kind }).AsList();
-        }
-
-        public void UpdateWbsNode(WbsNode node)
-        {
-            const string sql = @"
-                UPDATE WbsNodes SET Kind = @Kind, Codice = @Codice, DesSintetica = @DesSintetica,
-                    ParentId = @ParentId, Level = @Level, SortOrder = @SortOrder, IsActive = @IsActive
-                WHERE Id = @Id;";
-            _conn.Execute(sql, node);
-        }
-
-        public void DeleteWbsNode(int id) =>
-            _conn.Execute("DELETE FROM WbsNodes WHERE Id = @id;", new { id });
-
-        public int InsertMeasurementRow(MeasurementRow row)
-        {
-            const string sql = @"
-                INSERT INTO MeasurementRows (DocumentId, PriceItemId, Quantita, DataMis, Flags,
-                    SpCatId, CatId, SbCatId, WbsComputoNodeId, SortOrder)
-                VALUES (@DocumentId, @PriceItemId, @Quantita, @DataMis, @Flags,
-                    @SpCatId, @CatId, @SbCatId, @WbsComputoNodeId, @SortOrder);
-                SELECT last_insert_rowid();";
-            row.Id = _conn.ExecuteScalar<int>(sql, row);
-            return row.Id;
-        }
-
-        public IReadOnlyList<MeasurementRow> GetMeasurementRows(int documentId)
-        {
-            const string sql = "SELECT * FROM MeasurementRows WHERE DocumentId = @d ORDER BY SortOrder;";
-            return _conn.Query<MeasurementRow>(sql, new { d = documentId }).AsList();
-        }
-
-        public void UpdateMeasurementRow(MeasurementRow row)
-        {
-            const string sql = @"
-                UPDATE MeasurementRows SET PriceItemId = @PriceItemId, Quantita = @Quantita,
-                    DataMis = @DataMis, Flags = @Flags, SpCatId = @SpCatId, CatId = @CatId,
-                    SbCatId = @SbCatId, WbsComputoNodeId = @WbsComputoNodeId, SortOrder = @SortOrder
-                WHERE Id = @Id;";
-            _conn.Execute(sql, row);
-        }
-
-        public void DeleteMeasurementRow(int id) =>
-            _conn.Execute("DELETE FROM MeasurementRows WHERE Id = @id;", new { id });
-
-        public void RecalcMeasurementRowQuantita(int rowId)
-        {
-            const string sql = @"
-                UPDATE MeasurementRows
-                SET Quantita = (SELECT COALESCE(SUM(Quantita), 0) FROM MeasurementSubRows WHERE MeasurementRowId = @id)
-                WHERE Id = @id;";
-            _conn.Execute(sql, new { id = rowId });
-        }
-
-        public int InsertMeasurementSubRow(MeasurementSubRow subRow)
-        {
-            const string sql = @"
-                INSERT INTO MeasurementSubRows (MeasurementRowId, IDVV, Descrizione,
-                    PartiUguali, Lunghezza, Larghezza, HPeso, Quantita, Flags, SortOrder)
-                VALUES (@MeasurementRowId, @IDVV, @Descrizione, @PartiUguali, @Lunghezza,
-                    @Larghezza, @HPeso, @Quantita, @Flags, @SortOrder);
-                SELECT last_insert_rowid();";
-            subRow.Id = _conn.ExecuteScalar<int>(sql, subRow);
-            return subRow.Id;
-        }
-
-        public IReadOnlyList<MeasurementSubRow> GetMeasurementSubRows(int measurementRowId)
-        {
-            const string sql = "SELECT * FROM MeasurementSubRows WHERE MeasurementRowId = @r ORDER BY SortOrder;";
-            return _conn.Query<MeasurementSubRow>(sql, new { r = measurementRowId }).AsList();
-        }
-
-        public void UpdateMeasurementSubRow(MeasurementSubRow subRow)
-        {
-            const string sql = @"
-                UPDATE MeasurementSubRows SET IDVV = @IDVV, Descrizione = @Descrizione,
-                    PartiUguali = @PartiUguali, Lunghezza = @Lunghezza, Larghezza = @Larghezza,
-                    HPeso = @HPeso, Quantita = @Quantita, Flags = @Flags, SortOrder = @SortOrder
-                WHERE Id = @Id;";
-            _conn.Execute(sql, subRow);
-        }
-
-        public void DeleteMeasurementSubRow(int id) =>
-            _conn.Execute("DELETE FROM MeasurementSubRows WHERE Id = @id;", new { id });
-
-        public int InsertXpweExportJob(XpweExportJob job)
-        {
-            const string sql = @"
-                INSERT INTO XpweExportJobs (DocumentId, ExportedAt, TipoDocumento, XpweVersion,
-                    FilePath, FileChecksum, ValidationReport)
-                VALUES (@DocumentId, @ExportedAt, @TipoDocumento, @XpweVersion,
-                    @FilePath, @FileChecksum, @ValidationReport);
-                SELECT last_insert_rowid();";
-            job.Id = _conn.ExecuteScalar<int>(sql, job);
-            return job.Id;
-        }
-
-        public IReadOnlyList<XpweExportJob> GetXpweExportJobs(int documentId)
-        {
-            const string sql = "SELECT * FROM XpweExportJobs WHERE DocumentId = @d ORDER BY ExportedAt DESC;";
-            return _conn.Query<XpweExportJob>(sql, new { d = documentId }).AsList();
-        }
     }
 }
