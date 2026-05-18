@@ -1,0 +1,242 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1900" viewBox="0 0 1400 1900">
+  <defs>
+    <style>
+      .bg { fill: #ffffff; }
+      .panel { fill: #ffffff; stroke: #e0e0e0; stroke-width: 1.4; }
+      .sub { fill: #f5f5f5; stroke: #e0e0e0; stroke-width: 1.2; }
+      .teal { fill: #00838f; }
+      .tealDeep { fill: #006064; }
+      .soft { fill: #b2ebf2; stroke: #00838f; stroke-width: 1.1; }
+      .chrome { fill: #37474f; }
+      .text { fill: #212121; font-family: "Segoe UI", Arial, sans-serif; }
+      .muted { fill: #666666; font-family: "Segoe UI", Arial, sans-serif; }
+      .dim { fill: #555555; font-family: "Segoe UI", Arial, sans-serif; }
+      .mono { fill: #555555; font-family: Consolas, "Cascadia Mono", monospace; }
+      .title { fill: #212121; font: 600 26px "Segoe UI", Arial, sans-serif; }
+      .section { fill: #666666; font: 700 17px "Segoe UI", Arial, sans-serif; letter-spacing: .2px; }
+      .small { font-size: 15px; }
+      .tiny { font-size: 13px; }
+      .buttonText { fill: #ffffff; font: 700 15px "Segoe UI", Arial, sans-serif; }
+      .toolText { fill: #212121; font: 500 15px "Segoe UI", Arial, sans-serif; }
+      .callout { fill: #ffb300; stroke: #ff8f00; stroke-width: 1; }
+      .calloutText { fill: #212121; font: 700 14px "Segoe UI", Arial, sans-serif; }
+      .tableHead { fill: #f5f5f5; stroke: #e0e0e0; stroke-width: 1; }
+      .row { fill: #ffffff; stroke: #eeeeee; stroke-width: 1; }
+      .rowAlt { fill: #fafafa; stroke: #eeeeee; stroke-width: 1; }
+      .selected { fill: #b2ebf2; stroke: #00838f; stroke-width: 1; }
+      .tab { fill: #f5f5f5; stroke: #e0e0e0; stroke-width: 1.2; }
+      .tabActive { fill: #ffffff; stroke: #00838f; stroke-width: 1.4; }
+      .line { stroke: #e0e0e0; stroke-width: 1.4; }
+      .labelLine { stroke: #ff8f00; stroke-width: 1.2; stroke-dasharray: 4 4; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1400" height="1900"/>
+
+  <!-- outer app pane -->
+  <rect x="48" y="38" width="1304" height="1798" rx="8" class="sub"/>
+
+  <!-- top title -->
+  <text x="76" y="82" class="title">Schermata Listino - ricostruzione da SetupListinoView.xaml</text>
+  <text x="76" y="111" class="muted small">Tavola fedele per indicare modifiche: sezioni, pulsanti, tabelle, tab, menu e pannello dettaglio.</text>
+
+  <!-- header of actual listino view -->
+  <rect x="76" y="140" width="1248" height="52" rx="4" class="bg"/>
+  <text x="98" y="172" class="muted small">Gestione listini prezzi · ricerca ibrida · preferiti progetto/personali</text>
+  <rect x="1160" y="151" width="142" height="30" rx="4" class="bg" stroke="#e0e0e0"/>
+  <text x="1172" y="171" class="dim tiny">⤢ Apri in finestra</text>
+  <circle cx="64" cy="166" r="14" class="callout"/>
+  <text x="60" y="171" class="calloutText">1</text>
+
+  <!-- main card -->
+  <rect x="76" y="210" width="1248" height="1515" rx="4" class="panel"/>
+
+  <!-- library toolbar -->
+  <text x="104" y="250" class="section">LISTINI IN LIBRERIA (PERSISTENTI · CONDIVISI TRA COMPUTI)</text>
+  <rect x="928" y="228" width="150" height="36" rx="4" class="teal"/>
+  <text x="946" y="251" class="buttonText">+ Importa listino…</text>
+  <rect x="1090" y="228" width="140" height="36" rx="4" fill="#ffffff" stroke="#e0e0e0"/>
+  <text x="1106" y="251" class="toolText">Sfoglia listino…</text>
+  <rect x="1240" y="228" width="62" height="36" rx="4" fill="#ffffff" stroke="#e0e0e0"/>
+  <text x="1254" y="251" class="toolText">Elimina</text>
+  <circle cx="64" cy="246" r="14" class="callout"/>
+  <text x="60" y="251" class="calloutText">2</text>
+
+  <!-- price list table -->
+  <rect x="104" y="282" width="1198" height="165" fill="#ffffff" stroke="#e0e0e0"/>
+  <rect x="104" y="282" width="1198" height="30" class="tableHead"/>
+  <text x="119" y="303" class="mono tiny">Attivo</text>
+  <text x="194" y="303" class="mono tiny">Nome</text>
+  <text x="600" y="303" class="mono tiny">Sorgente</text>
+  <text x="720" y="303" class="mono tiny">Regione</text>
+  <text x="840" y="303" class="mono tiny">Voci</text>
+  <text x="930" y="303" class="mono tiny">Prio</text>
+  <text x="1010" y="303" class="mono tiny">Importato</text>
+  <rect x="104" y="312" width="1198" height="28" class="selected"/>
+  <rect x="104" y="340" width="1198" height="28" class="rowAlt"/>
+  <rect x="104" y="368" width="1198" height="28" class="row"/>
+  <rect x="104" y="396" width="1198" height="28" class="rowAlt"/>
+  <text x="122" y="332" class="text tiny">☑</text>
+  <text x="194" y="332" class="text tiny">Prezzario Toscana LLPP 2025</text>
+  <text x="600" y="332" class="text tiny">DCF</text>
+  <text x="720" y="332" class="text tiny">Toscana</text>
+  <text x="840" y="332" class="text tiny">12542</text>
+  <text x="930" y="332" class="text tiny">1</text>
+  <text x="1010" y="332" class="text tiny">25/04/2026</text>
+  <text x="194" y="360" class="muted tiny">Listino comunale</text>
+  <text x="600" y="360" class="muted tiny">CSV</text>
+  <text x="720" y="360" class="muted tiny">Firenze</text>
+  <text x="840" y="360" class="muted tiny">842</text>
+  <text x="930" y="360" class="muted tiny">2</text>
+  <line x1="178" y1="282" x2="178" y2="447" class="line"/>
+  <line x1="585" y1="282" x2="585" y2="447" class="line"/>
+  <line x1="705" y1="282" x2="705" y2="447" class="line"/>
+  <line x1="825" y1="282" x2="825" y2="447" class="line"/>
+  <line x1="915" y1="282" x2="915" y2="447" class="line"/>
+  <line x1="995" y1="282" x2="995" y2="447" class="line"/>
+  <circle cx="64" cy="364" r="14" class="callout"/>
+  <text x="60" y="369" class="calloutText">3</text>
+
+  <text x="104" y="474" class="muted tiny">Listino caricato. 1 listino attivo. Tasto destro sulla tabella per Attiva/Disattiva, Sfoglia voci, Elimina dalla libreria.</text>
+  <line x1="104" y1="502" x2="1302" y2="502" class="line"/>
+
+  <!-- search section -->
+  <text x="104" y="540" class="section">RICERCA IBRIDA · PREFERITI PROGETTO · PREFERITI PERSONALI</text>
+  <circle cx="64" cy="536" r="14" class="callout"/>
+  <text x="60" y="541" class="calloutText">4</text>
+
+  <!-- search row -->
+  <rect x="104" y="566" width="765" height="42" rx="3" fill="#ffffff" stroke="#e0e0e0"/>
+  <text x="122" y="592" class="muted small">SearchBox · cerca codice, descrizione, capitolo...</text>
+  <rect x="882" y="566" width="245" height="42" rx="3" fill="#ffffff" stroke="#e0e0e0"/>
+  <text x="900" y="592" class="text small">Scope: Listino attivo</text>
+  <rect x="1142" y="566" width="160" height="42" rx="3" class="sub"/>
+  <text x="1180" y="592" class="mono small">Hybrid</text>
+  <circle cx="64" cy="587" r="14" class="callout"/>
+  <text x="60" y="592" class="calloutText">5</text>
+
+  <!-- tabs -->
+  <rect x="104" y="628" width="170" height="40" rx="4" class="tabActive"/>
+  <text x="126" y="653" class="text small">Ricerca ibrida</text>
+  <rect x="274" y="628" width="190" height="40" rx="4" class="tab"/>
+  <text x="294" y="653" class="text small">Preferiti progetto</text>
+  <rect x="464" y="628" width="190" height="40" rx="4" class="tab"/>
+  <text x="484" y="653" class="text small">Preferiti personali</text>
+  <circle cx="64" cy="648" r="14" class="callout"/>
+  <text x="60" y="653" class="calloutText">6</text>
+
+  <!-- search results grid -->
+  <rect x="104" y="668" width="1198" height="430" fill="#ffffff" stroke="#e0e0e0"/>
+  <rect x="104" y="668" width="1198" height="32" class="tableHead"/>
+  <text x="124" y="690" class="mono tiny">★</text>
+  <text x="174" y="690" class="mono tiny">Codice</text>
+  <text x="318" y="690" class="mono tiny">Descrizione</text>
+  <text x="748" y="690" class="mono tiny">U.M.</text>
+  <text x="818" y="690" class="mono tiny">Prezzo</text>
+  <text x="922" y="690" class="mono tiny">P.2</text>
+  <text x="1008" y="690" class="mono tiny">MDO%</text>
+  <text x="1080" y="690" class="mono tiny">SIC%</text>
+  <text x="1160" y="690" class="mono tiny">Listino</text>
+
+  <rect x="104" y="700" width="1198" height="30" class="selected"/>
+  <rect x="104" y="730" width="1198" height="30" class="rowAlt"/>
+  <rect x="104" y="760" width="1198" height="30" class="row"/>
+  <rect x="104" y="790" width="1198" height="30" class="rowAlt"/>
+  <rect x="104" y="820" width="1198" height="30" class="row"/>
+  <rect x="104" y="850" width="1198" height="30" class="rowAlt"/>
+  <text x="124" y="721" class="tealDeep tiny">★</text>
+  <text x="174" y="721" class="text tiny">01.A04.005</text>
+  <text x="318" y="721" class="text tiny">Scavo a sezione obbligata eseguito con mezzi meccanici...</text>
+  <text x="748" y="721" class="text tiny">m³</text>
+  <text x="818" y="721" class="text tiny">€ 18,42</text>
+  <text x="922" y="721" class="muted tiny">€ 16,90</text>
+  <text x="1008" y="721" class="muted tiny">28%</text>
+  <text x="1080" y="721" class="muted tiny">3%</text>
+  <text x="1160" y="721" class="muted tiny">Toscana</text>
+  <text x="174" y="751" class="muted tiny">01.B02.010</text>
+  <text x="318" y="751" class="muted tiny">Conglomerato cementizio per strutture di fondazione...</text>
+  <text x="748" y="751" class="muted tiny">m³</text>
+  <text x="818" y="751" class="muted tiny">€ 142,00</text>
+  <text x="174" y="781" class="muted tiny">02.E05.001</text>
+  <text x="318" y="781" class="muted tiny">Muratura in laterizio semipieno spessore variabile...</text>
+  <text x="748" y="781" class="muted tiny">m²</text>
+  <text x="818" y="781" class="muted tiny">€ 54,10</text>
+
+  <!-- row details expanded -->
+  <rect x="104" y="900" width="1198" height="122" class="sub"/>
+  <rect x="104" y="900" width="1198" height="4" class="teal"/>
+  <text x="124" y="930" class="mono small" fill="#006064">01.A04.005 · € 18,42 · m³ · Prezzario Toscana LLPP 2025</text>
+  <text x="124" y="958" class="text small">Scavo a sezione obbligata eseguito con mezzi meccanici, compreso carico, trasporto e scarico.</text>
+  <text x="124" y="986" class="muted tiny">RowDetails: descrizione completa visibile quando la riga è selezionata.</text>
+
+  <line x1="154" y1="668" x2="154" y2="1098" class="line"/>
+  <line x1="298" y1="668" x2="298" y2="1098" class="line"/>
+  <line x1="728" y1="668" x2="728" y2="1098" class="line"/>
+  <line x1="798" y1="668" x2="798" y2="1098" class="line"/>
+  <line x1="902" y1="668" x2="902" y2="1098" class="line"/>
+  <line x1="988" y1="668" x2="988" y2="1098" class="line"/>
+  <line x1="1060" y1="668" x2="1060" y2="1098" class="line"/>
+  <line x1="1140" y1="668" x2="1140" y2="1098" class="line"/>
+  <circle cx="64" cy="884" r="14" class="callout"/>
+  <text x="60" y="889" class="calloutText">7</text>
+
+  <!-- alternate tabs ghost panels -->
+  <rect x="104" y="1120" width="584" height="315" rx="4" class="sub"/>
+  <text x="126" y="1152" class="section">Preferiti progetto</text>
+  <text x="126" y="1178" class="muted tiny">Preferiti legati al file .cme aperto · drag &amp; drop dalla ricerca</text>
+  <rect x="522" y="1134" width="146" height="30" rx="4" fill="#ffffff" stroke="#e0e0e0"/>
+  <text x="538" y="1154" class="toolText tiny">Rimuovi inutilizzati</text>
+  <rect x="126" y="1200" width="540" height="172" fill="#ffffff" stroke="#e0e0e0"/>
+  <rect x="126" y="1200" width="540" height="30" class="tableHead"/>
+  <text x="142" y="1221" class="mono tiny">Usato</text>
+  <text x="204" y="1221" class="mono tiny">Codice</text>
+  <text x="336" y="1221" class="mono tiny">Descrizione</text>
+  <text x="552" y="1221" class="mono tiny">Prezzo</text>
+  <text x="142" y="1254" class="text tiny">✓</text>
+  <text x="204" y="1254" class="text tiny">01.A04.005</text>
+  <text x="336" y="1254" class="muted tiny">Scavo...</text>
+  <text x="552" y="1254" class="muted tiny">€18,42</text>
+  <text x="126" y="1408" class="muted tiny">Menu: Usa nella ricerca, Copia codice, Duplica, Sposta in PERSONALI, Rimuovi, Aggiorna usato.</text>
+
+  <rect x="718" y="1120" width="584" height="315" rx="4" class="sub"/>
+  <text x="740" y="1152" class="section">Preferiti personali</text>
+  <text x="740" y="1178" class="muted tiny">Preferiti globali utente (AppData) · condivisi tra tutti i computi</text>
+  <rect x="1136" y="1134" width="146" height="30" rx="4" fill="#ffffff" stroke="#e0e0e0"/>
+  <text x="1152" y="1154" class="toolText tiny">Rimuovi inutilizzati</text>
+  <rect x="740" y="1200" width="540" height="172" fill="#ffffff" stroke="#e0e0e0"/>
+  <rect x="740" y="1200" width="540" height="30" class="tableHead"/>
+  <text x="756" y="1221" class="mono tiny">Usato</text>
+  <text x="818" y="1221" class="mono tiny">Codice</text>
+  <text x="950" y="1221" class="mono tiny">Descrizione</text>
+  <text x="1166" y="1221" class="mono tiny">Prezzo</text>
+  <text x="756" y="1254" class="muted tiny">—</text>
+  <text x="818" y="1254" class="text tiny">NP-001-C1</text>
+  <text x="950" y="1254" class="muted tiny">Voce personalizzata...</text>
+  <text x="1166" y="1254" class="muted tiny">€96,00</text>
+  <text x="740" y="1408" class="muted tiny">Menu: Usa nella ricerca, Copia codice, Duplica, Sposta in PROGETTO, Rimuovi, Aggiorna usato.</text>
+  <circle cx="64" cy="1265" r="14" class="callout"/>
+  <text x="60" y="1270" class="calloutText">8</text>
+
+  <!-- detail panel -->
+  <rect x="104" y="1468" width="1198" height="178" rx="4" class="sub"/>
+  <text x="126" y="1502" class="mono small" fill="#006064">01.A04.005</text>
+  <text x="248" y="1502" class="muted tiny">Prezzario Toscana LLPP 2025 · Capitolo scavi / Movimento terra</text>
+  <text x="1190" y="1502" text-anchor="end" class="mono small" fill="#006064">€ 18,42</text>
+  <line x1="126" y1="1526" x2="1280" y2="1526" class="line"/>
+  <text x="126" y="1558" class="text small">Scavo a sezione obbligata eseguito con mezzi meccanici, compreso carico, trasporto, scarico, oneri e accessori.</text>
+  <text x="126" y="1586" class="muted tiny">Pannello dettaglio: Code, SourceLabel, UnitPriceFormatted, HierarchyPath, Description.</text>
+  <circle cx="64" cy="1548" r="14" class="callout"/>
+  <text x="60" y="1553" class="calloutText">9</text>
+
+  <text x="104" y="1682" class="muted tiny">SearchStatus: 24 risultati · scope Listino attivo · selezione sincronizzata con pannello dettaglio.</text>
+
+  <!-- footer -->
+  <rect x="76" y="1754" width="1248" height="62" rx="4" class="sub"/>
+  <text x="104" y="1792" class="muted small">Listino persistente tra computi · preferiti PROGETTO nel .cme · preferiti PERSONALI in AppData.</text>
+  <circle cx="64" cy="1785" r="14" class="callout"/>
+  <text x="56" y="1790" class="calloutText">10</text>
+
+  <!-- legend -->
+  <rect x="76" y="1848" width="1248" height="36" rx="4" fill="#fff8e1" stroke="#ffb300"/>
+  <text x="100" y="1871" class="text tiny">Callout: 1 header e popout · 2 toolbar listini · 3 tabella listini · 4 sezione ricerca/preferiti · 5 search/scope · 6 tab · 7 risultati ricerca · 8 preferiti · 9 dettaglio · 10 footer.</text>
+</svg>

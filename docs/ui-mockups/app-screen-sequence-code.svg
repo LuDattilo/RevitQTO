@@ -1,0 +1,257 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="3800" viewBox="0 0 2400 3800">
+  <defs>
+    <style>
+      .page{fill:#fff}.shell{fill:#f5f5f5;stroke:#e0e0e0;stroke-width:2}.card{fill:#fff;stroke:#d9d9d9;stroke-width:1.6}.sub{fill:#f7f7f7;stroke:#ddd;stroke-width:1.2}.soft{fill:#b2ebf2;stroke:#00838f;stroke-width:1.4}.teal{fill:#00838f}.dark{fill:#37474f}.tag{fill:#fff8e1;stroke:#ffb300;stroke-width:1.2}.code{fill:#263238;font:700 14px Consolas,"Cascadia Mono",monospace}.codeSmall{fill:#263238;font:12px Consolas,"Cascadia Mono",monospace}.title{fill:#212121;font:700 36px "Segoe UI",Arial}.subtitle{fill:#666;font:18px "Segoe UI",Arial}.h1{fill:#212121;font:700 24px "Segoe UI",Arial}.h2{fill:#006064;font:700 16px "Segoe UI",Arial}.txt{fill:#212121;font:15px "Segoe UI",Arial}.muted{fill:#666;font:13px "Segoe UI",Arial}.white{fill:#fff;font:700 14px "Segoe UI",Arial}.btn{fill:#fff;stroke:#ddd;stroke-width:1.2}.tab{fill:#f5f5f5;stroke:#ddd;stroke-width:1.2}.tabOn{fill:#fff;stroke:#00838f;stroke-width:1.5}.row{fill:#fff;stroke:#eee;stroke-width:1}.rowAlt{fill:#fafafa;stroke:#eee;stroke-width:1}.sel{fill:#b2ebf2;stroke:#00838f;stroke-width:1}.line{stroke:#e0e0e0;stroke-width:1.2}
+    </style>
+  </defs>
+  <rect class="page" width="2400" height="3800"/>
+  <rect class="shell" x="40" y="36" width="2320" height="3728" rx="12"/>
+  <text class="title" x="80" y="92">Sequenza schermate CME Workspace - nomi codice</text>
+  <text class="subtitle" x="80" y="126">Usa questi identificatori nelle istruzioni: file XAML, classi View, x:Name, Binding, Command, DataGrid e colonne.</text>
+
+  <!-- Container -->
+  <rect class="card" x="80" y="160" width="2240" height="295" rx="8"/>
+  <text class="h1" x="110" y="202">QtoDockablePane</text>
+  <text class="codeSmall" x="110" y="230">File: QtoRevitPlugin/UI/Panes/QtoDockablePane.xaml · Code-behind: QtoDockablePane.xaml.cs · VM: DockablePaneViewModel.cs</text>
+  <rect class="soft" x="110" y="256" width="420" height="80" rx="8"/>
+  <text class="code" x="132" y="286">Header bindings</text>
+  <text class="codeSmall" x="132" y="312">SessionTitle · ProjectSubtitle · ProgressText · AmountText · PreviewPhaseContext</text>
+  <rect class="sub" x="560" y="256" width="350" height="80" rx="8"/>
+  <text class="code" x="582" y="286">SessionMenuButton</text>
+  <text class="codeSmall" x="582" y="312">MiSave · MiSaveAs · MiRename · MiClose · MiDelete · MiSettings</text>
+  <rect class="sub" x="940" y="256" width="410" height="80" rx="8"/>
+  <text class="code" x="962" y="286">SwitcherHost</text>
+  <text class="codeSmall" x="962" y="312">Views: Home · ProjectSetup · PriceList · Selection · Tagging · Verification · Export</text>
+  <rect class="sub" x="1380" y="256" width="370" height="80" rx="8"/>
+  <text class="code" x="1402" y="286">SecondarySwitcherHost</text>
+  <text class="codeSmall" x="1402" y="312">Health · FilterManager · QtoViews</text>
+  <rect class="sub" x="1780" y="256" width="500" height="80" rx="8"/>
+  <text class="code" x="1802" y="286">ViewHost</text>
+  <text class="codeSmall" x="1802" y="312">ContentControl che ospita CreateViewFor(QtoViewItem item)</text>
+  <rect class="tag" x="110" y="370" width="2140" height="44" rx="6"/>
+  <text class="code" x="132" y="398">Ordine workflow da DockablePaneViewModel.BuildViewList(): Home → ProjectSetup → PriceList → Selection → Tagging → Verification → Export; secondari: Health → FilterManager → QtoViews</text>
+
+  <!-- Home -->
+  <g transform="translate(80,500)">
+    <rect class="card" width="1080" height="500" rx="8"/>
+    <text class="h1" x="28" y="42">HomeView</text>
+    <text class="codeSmall" x="28" y="70">File: QtoRevitPlugin/UI/Views/HomeView.xaml · DataContext: DockablePaneViewModel</text>
+    <rect class="tag" x="28" y="96" width="320" height="30" rx="5"/><text class="code" x="44" y="116">Card principale Home</text>
+    <rect class="dark" x="28" y="145" width="620" height="210" rx="8"/>
+    <text class="white" x="52" y="174">Buttons / handlers</text>
+    <rect class="teal" x="52" y="200" width="150" height="34" rx="5"/><text class="white" x="72" y="222">OnNewSessionClick</text>
+    <rect class="btn" x="214" y="200" width="150" height="34" rx="5"/><text class="codeSmall" x="232" y="222">OnOpenSessionClick</text>
+    <rect class="btn" x="376" y="200" width="170" height="34" rx="5"/><text class="codeSmall" x="394" y="222">OnResumeLastClick</text>
+    <text class="codeSmall" x="52" y="270" fill="#eceff1">Bindings: HomePrimaryMessage · HomeSecondaryMessage</text>
+    <text class="codeSmall" x="52" y="300" fill="#eceff1">KPI: TotalElements · ProgressText · AmountText</text>
+    <rect class="sub" x="680" y="145" width="370" height="60" rx="6"/><text class="code" x="702" y="170">Ultimo computo</text><text class="codeSmall" x="702" y="190">LastSessionHint · CanResumeLastSession</text>
+    <rect class="sub" x="680" y="220" width="370" height="60" rx="6"/><text class="code" x="702" y="245">Stato AI</text><text class="codeSmall" x="702" y="265">AiStatus · AiStatusLabel · AiStatusHint</text>
+    <rect class="tag" x="28" y="385" width="240" height="30" rx="5"/><text class="code" x="44" y="405">HomeWorkflowSteps</text>
+    <text class="codeSmall" x="290" y="405">Command: NavigateToStepCommand · Parameter: WorkflowStepState</text>
+  </g>
+
+  <!-- Setup -->
+  <g transform="translate(1240,500)">
+    <rect class="card" width="1080" height="500" rx="8"/>
+    <text class="h1" x="28" y="42">SetupView</text>
+    <text class="codeSmall" x="28" y="70">File: QtoRevitPlugin/UI/Views/SetupView.xaml · Route: QtoViewKey.ProjectSetup</text>
+    <rect class="tag" x="28" y="96" width="190" height="30" rx="5"/><text class="code" x="44" y="116">SetupTabs</text>
+    <rect class="tabOn" x="28" y="145" width="140" height="34" rx="5"/><text class="codeSmall" x="48" y="167">ProjectInfoView</text>
+    <rect class="tab" x="178" y="145" width="190" height="34" rx="5"/><text class="codeSmall" x="198" y="167">ComputoStructureView</text>
+    <rect class="tab" x="378" y="145" width="160" height="34" rx="5"/><text class="codeSmall" x="398" y="167">ChapterNodesView</text>
+    <rect class="tab" x="548" y="145" width="165" height="34" rx="5"/><text class="codeSmall" x="568" y="167">CategoryNodesView</text>
+    <rect class="tab" x="723" y="145" width="125" height="34" rx="5"/><text class="codeSmall" x="758" y="167">WbsNodesView</text>
+    <rect class="tab" x="858" y="145" width="150" height="34" rx="5"/><text class="codeSmall" x="878" y="167">NuoviPrezziView</text>
+    <rect class="sub" x="28" y="210" width="500" height="220" rx="6"/>
+    <text class="code" x="52" y="240">ProjectInfoView</text>
+    <text class="codeSmall" x="52" y="268">VM: ProjectInfoViewModel · ItemsControl: FieldRows</text>
+    <text class="codeSmall" x="52" y="294">Fields: Label · Value · ParamSources · SelectedSource</text>
+    <text class="codeSmall" x="52" y="320">Bindings: DataComputo · DataPrezzi · RibassoPercentuale · StatusMessage</text>
+    <text class="codeSmall" x="52" y="346">Buttons: OnCopyFromOtherCmeClick · SaveCommand</text>
+    <rect class="sub" x="558" y="210" width="490" height="220" rx="6"/>
+    <text class="code" x="582" y="240">ComputoStructureView</text>
+    <text class="codeSmall" x="582" y="268">VM: ComputoStructureViewModel · TreeView: ChaptersTree</text>
+    <text class="codeSmall" x="582" y="294">Commands: AddSuperCommand · AddCategoryCommand · AddSubCategoryCommand</text>
+    <text class="codeSmall" x="582" y="320">RenameCommand · DeleteCommand · MoveUpCommand · MoveDownCommand</text>
+    <text class="codeSmall" x="582" y="346">Bindings: Roots · AvailableSoa · SelectedNodeSoa · StatusMessage</text>
+  </g>
+
+  <!-- Setup subviews -->
+  <g transform="translate(80,1060)">
+    <rect class="card" width="2240" height="260" rx="8"/>
+    <text class="h1" x="28" y="42">Setup subviews - identificatori rapidi</text>
+    <rect class="sub" x="28" y="78" width="510" height="140" rx="6"/>
+    <text class="code" x="52" y="108">ChapterNodesView</text>
+    <text class="codeSmall" x="52" y="134">TreeView: ChapterTree · ItemsSource: RootNodes · Text: DisplayLabel</text>
+    <text class="codeSmall" x="52" y="160">Commands: AddSuperChapterCommand · AddChapterCommand · AddSubChapterCommand · DeleteSelectedCommand · ReloadCommand</text>
+    <rect class="sub" x="568" y="78" width="510" height="140" rx="6"/>
+    <text class="code" x="592" y="108">CategoryNodesView</text>
+    <text class="codeSmall" x="592" y="134">TreeView: CategoryTree · ItemsSource: RootNodes · Text: DisplayLabel</text>
+    <text class="codeSmall" x="592" y="160">Commands: AddSuperCategoryCommand · AddCategoryCommand · AddSubCategoryCommand · DeleteSelectedCommand · ReloadCommand</text>
+    <rect class="sub" x="1108" y="78" width="510" height="140" rx="6"/>
+    <text class="code" x="1132" y="108">WbsNodesView</text>
+    <text class="codeSmall" x="1132" y="134">ComboBox: Kinds / SelectedKind · TreeView: WbsTree · RootNodes</text>
+    <text class="codeSmall" x="1132" y="160">Commands: AddRootCommand · AddChildCommand · DeleteSelectedCommand · ReloadCommand</text>
+    <rect class="sub" x="1648" y="78" width="520" height="140" rx="6"/>
+    <text class="code" x="1672" y="108">NuoviPrezziView</text>
+    <text class="codeSmall" x="1672" y="134">Placeholder: NUOVI PREZZI (ANALISI PREZZI NP)</text>
+    <text class="codeSmall" x="1672" y="160">Campi citati: Codice · Descrizione · Unità · PrezzoUnitario · Manodopera · Materiali · Noli · Trasporti</text>
+  </g>
+
+  <!-- Listino -->
+  <g transform="translate(80,1380)">
+    <rect class="card" width="1080" height="640" rx="8"/>
+    <text class="h1" x="28" y="42">SetupListinoView</text>
+    <text class="codeSmall" x="28" y="70">File: QtoRevitPlugin/UI/Views/SetupListinoView.xaml · Route: QtoViewKey.PriceList</text>
+    <rect class="tag" x="28" y="96" width="230" height="30" rx="5"/><text class="code" x="44" y="116">Header / popout</text>
+    <text class="codeSmall" x="280" y="116">Button x:Name=BtnPopout · handler OnPopoutClick</text>
+    <rect class="tag" x="28" y="145" width="260" height="30" rx="5"/><text class="code" x="44" y="165">PriceListsGrid</text>
+    <rect class="teal" x="720" y="140" width="130" height="34" rx="5"/><text class="white" x="738" y="162">BtnImport</text>
+    <rect class="btn" x="860" y="140" width="90" height="34" rx="5"/><text class="codeSmall" x="878" y="162">BtnBrowse</text>
+    <rect class="btn" x="960" y="140" width="90" height="34" rx="5"/><text class="codeSmall" x="980" y="162">BtnDelete</text>
+    <rect class="row" x="28" y="192" width="1022" height="32"/><text class="codeSmall" x="50" y="213">ItemsSource=PriceLists · SelectedItem=SelectedPriceList · context: TogglePriceListActiveCommand · BrowsePriceListCommand · DeleteSelectedPriceListCommand</text>
+    <rect class="rowAlt" x="28" y="224" width="1022" height="32"/><text class="codeSmall" x="50" y="245">Columns: IsActive · Name · Source · Region · RowCount · Priority · ImportedAtShort</text>
+    <rect class="tag" x="28" y="285" width="300" height="30" rx="5"/><text class="code" x="44" y="305">Search area</text>
+    <text class="codeSmall" x="350" y="305">SearchBox.Text=SearchQuery · ComboBox AvailableScopes/SelectedScope · LastSearchLevel</text>
+    <rect class="tag" x="28" y="335" width="300" height="30" rx="5"/><text class="code" x="44" y="355">SearchResultsGrid</text>
+    <text class="codeSmall" x="350" y="355">ItemsSource=SearchResults · SelectedItem=SelectedSearchResult · MouseDoubleClick=OnSearchResultDoubleClick</text>
+    <rect class="row" x="28" y="382" width="1022" height="34"/><text class="codeSmall" x="50" y="404">Columns: FavoriteBadge · Code · ShortDescTrimmed · Unit · UnitPriceFormatted · Prezzo2Formatted · IncMDOFormatted · IncSICFormatted · ListName</text>
+    <rect class="rowAlt" x="28" y="416" width="1022" height="34"/><text class="codeSmall" x="50" y="438">Commands: ToggleFavoriteForRowCommand · AddFavoriteToProjectCommand · AddFavoriteToPersonalCommand · CopyCodeToClipboardCommand</text>
+    <rect class="tag" x="28" y="480" width="300" height="30" rx="5"/><text class="code" x="44" y="500">ProjectFavoritesGrid</text>
+    <text class="codeSmall" x="350" y="500">ItemsSource=ProjectFavorites · SelectedProjectFavorite · RemoveUnusedProjectFavoritesCommand</text>
+    <rect class="tag" x="28" y="525" width="300" height="30" rx="5"/><text class="code" x="44" y="545">PersonalFavoritesGrid</text>
+    <text class="codeSmall" x="350" y="545">ItemsSource=PersonalFavorites · SelectedPersonalFavorite · RemoveUnusedPersonalFavoritesCommand</text>
+    <rect class="tag" x="28" y="570" width="300" height="30" rx="5"/><text class="code" x="44" y="590">SelectedDetailItem</text>
+    <text class="codeSmall" x="350" y="590">Code · SourceLabel · UnitPriceFormatted · HierarchyPath · Description · SearchStatus</text>
+  </g>
+
+  <!-- Selezione -->
+  <g transform="translate(1240,1380)">
+    <rect class="card" width="1080" height="640" rx="8"/>
+    <text class="h1" x="28" y="42">SelectionView</text>
+    <text class="codeSmall" x="28" y="70">File: QtoRevitPlugin/UI/Views/SelectionView.xaml · Route: QtoViewKey.Selection</text>
+    <rect class="tag" x="28" y="96" width="240" height="30" rx="5"/><text class="code" x="44" y="116">Header</text>
+    <text class="codeSmall" x="290" y="116">BtnPopout · OnPopoutClick</text>
+    <rect class="sub" x="28" y="145" width="1022" height="165" rx="6"/>
+    <text class="code" x="52" y="174">Filtri principali</text>
+    <text class="codeSmall" x="52" y="202">AvailablePhases / SelectedPhase · ComputationModes / ComputationMode · ActivePhaseName</text>
+    <text class="codeSmall" x="52" y="230">Categories / SelectedCategory · NameQuery</text>
+    <text class="codeSmall" x="52" y="258">ParamRulesList ItemsSource=ParamRules · AddParamRuleCommand · RemoveParamRuleCommand</text>
+    <text class="codeSmall" x="52" y="286">Param rule fields: LogicLabel · AvailableParams · ParameterName · OperatorLabel · Value · AvailableValues</text>
+    <rect class="tag" x="28" y="338" width="240" height="30" rx="5"/><text class="code" x="44" y="358">Toolbar buttons</text>
+    <text class="codeSmall" x="290" y="358">BtnIsolate/OnIsolateClick · BtnHide/OnHideClick · BtnReset/OnResetClick · BtnRefresh/OnRefreshClick</text>
+    <rect class="soft" x="28" y="390" width="1022" height="100" rx="6"/>
+    <text class="code" x="52" y="420">Card ASSEGNA EP</text>
+    <text class="codeSmall" x="52" y="448">LastAssignVisible · LastAssignIsSuccess · LastAssignSummary</text>
+    <text class="codeSmall" x="52" y="474">ActiveEpCode · ActiveEpDescription · QuantityModeOptions · QuantityMode · AssignPreview · AssignButtonText · ApplyEpCommand</text>
+    <rect class="tag" x="28" y="525" width="240" height="30" rx="5"/><text class="code" x="44" y="545">GridElements</text>
+    <text class="codeSmall" x="290" y="545">ItemsSource=Elements · SelectionMode=Extended · MouseDoubleClick=OnRowDoubleClick</text>
+    <rect class="row" x="28" y="575" width="1022" height="34"/><text class="codeSmall" x="50" y="597">Columns: ElementId · FamilyName · TypeName · LevelName · PhaseCreatedName · PhaseDemolishedName · StatusMessage</text>
+  </g>
+
+  <!-- Redazione CME -->
+  <g transform="translate(80,2080)">
+    <rect class="card" width="1080" height="560" rx="8"/>
+    <text class="h1" x="28" y="42">CmeEditorView</text>
+    <text class="codeSmall" x="28" y="70">File: QtoRevitPlugin/UI/Views/CmeEditorView.xaml · VM: CmeEditorViewModel · Route: QtoViewKey.Tagging</text>
+    <rect class="tag" x="28" y="96" width="250" height="30" rx="5"/><text class="code" x="44" y="116">Header</text>
+    <text class="codeSmall" x="300" y="116">BtnPopout · OnPopoutClick · ReloadCommand in footer</text>
+    <rect class="sub" x="28" y="150" width="310" height="300" rx="6"/>
+    <text class="code" x="52" y="180">Navigatore</text>
+    <text class="codeSmall" x="52" y="208">NavigationMode enum via EnumToBool</text>
+    <text class="codeSmall" x="52" y="236">Radio: Chapters · Categories · Wbs · Flat</text>
+    <text class="codeSmall" x="52" y="264">TreeView ItemsSource=NavTree</text>
+    <text class="codeSmall" x="52" y="292">SelectedItemChanged=OnNavSelectedChanged</text>
+    <rect class="sub" x="368" y="150" width="330" height="300" rx="6"/>
+    <text class="code" x="392" y="180">Tabella voci</text>
+    <text class="codeSmall" x="392" y="208">DataGrid ItemsSource=VisibleRows</text>
+    <text class="codeSmall" x="392" y="236">Columns: Code · DesRidotta · Unit</text>
+    <text class="codeSmall" x="392" y="264">QuantitaFormatted · UnitPriceFormatted</text>
+    <text class="codeSmall" x="392" y="292">ImportoFormatted</text>
+    <text class="codeSmall" x="392" y="320">RowDetails: SubRows · Descrizione · Formula</text>
+    <rect class="sub" x="728" y="150" width="322" height="300" rx="6"/>
+    <text class="code" x="752" y="180">Quadro economico</text>
+    <text class="codeSmall" x="752" y="208">TotaleNetto</text>
+    <text class="codeSmall" x="752" y="236">PerCapitoloRows</text>
+    <text class="codeSmall" x="752" y="264">PerCategoriaRows</text>
+    <text class="codeSmall" x="752" y="292">Label · TotaleFormatted</text>
+    <text class="codeSmall" x="752" y="320">PercentualeFormatted</text>
+    <rect class="tag" x="28" y="485" width="250" height="30" rx="5"/><text class="code" x="44" y="505">Footer</text>
+    <text class="codeSmall" x="300" y="505">StatusMessage · Button Command=ReloadCommand</text>
+  </g>
+
+  <!-- Verifica / Preview -->
+  <g transform="translate(1240,2080)">
+    <rect class="card" width="1080" height="560" rx="8"/>
+    <text class="h1" x="28" y="42">PreviewView / Verifica</text>
+    <text class="codeSmall" x="28" y="70">File: QtoRevitPlugin/UI/Views/PreviewView.xaml · Route: QtoViewKey.Verification</text>
+    <rect class="tag" x="28" y="96" width="250" height="30" rx="5"/><text class="code" x="44" y="116">Header</text>
+    <text class="codeSmall" x="300" y="116">PreviewPhaseContext</text>
+    <rect class="tag" x="28" y="150" width="250" height="30" rx="5"/><text class="code" x="44" y="170">Tab switcher</text>
+    <text class="codeSmall" x="300" y="170">ToggleButton x:Name=TabSelection · TabSummary · Click=OnTabClick</text>
+    <rect class="sub" x="28" y="210" width="492" height="220" rx="6"/>
+    <text class="code" x="52" y="240">PanelSelection</text>
+    <text class="codeSmall" x="52" y="268">x:Name=PanelSelection</text>
+    <text class="codeSmall" x="52" y="296">NESSUN ELEMENTO SELEZIONATO</text>
+    <text class="codeSmall" x="52" y="324">DISPONIBILE DAL · Sprint 5 - Tagging</text>
+    <rect class="sub" x="558" y="210" width="492" height="220" rx="6"/>
+    <text class="code" x="582" y="240">PanelSummary</text>
+    <text class="codeSmall" x="582" y="268">x:Name=PanelSummary</text>
+    <text class="codeSmall" x="582" y="296">ProgressBar.Value=TaggedPercent</text>
+    <text class="codeSmall" x="582" y="324">ProgressText · TotalElements · AmountText</text>
+  </g>
+
+  <!-- Export -->
+  <g transform="translate(80,2700)">
+    <rect class="card" width="1080" height="480" rx="8"/>
+    <text class="h1" x="28" y="42">ExportView + ExportWizardWindow</text>
+    <text class="codeSmall" x="28" y="70">Files: ExportView.xaml · ExportWizardWindow.xaml · VM: ExportWizardViewModel</text>
+    <rect class="tag" x="28" y="96" width="250" height="30" rx="5"/><text class="code" x="44" y="116">ExportView</text>
+    <text class="codeSmall" x="300" y="116">BtnOpenWizard · OnOpenWizardClick</text>
+    <rect class="sub" x="28" y="150" width="1022" height="115" rx="6"/>
+    <text class="code" x="52" y="180">Card Esporta Computo</text>
+    <text class="codeSmall" x="52" y="208">Chiusura del Computo Metrico Estimativo · XPWE · Excel · PDF · CSV</text>
+    <text class="codeSmall" x="52" y="236">Button Content=Apri Wizard di Esportazione</text>
+    <rect class="tag" x="28" y="300" width="250" height="30" rx="5"/><text class="code" x="44" y="320">ExportWizardWindow</text>
+    <text class="codeSmall" x="300" y="320">AvailableExporters · SelectedExporter · AvailableTemplates · SelectedTemplate</text>
+    <text class="codeSmall" x="300" y="348">Titolo · Committente · DirettoreLavori · IncludeAuditFields · IncludeDeletedAndSuperseded</text>
+    <text class="codeSmall" x="300" y="376">CompanyLogoPath · BrowseLogoCommand · ExportCommand · OnCloseClick · StatusMessage</text>
+  </g>
+
+  <!-- Secondary -->
+  <g transform="translate(1240,2700)">
+    <rect class="card" width="1080" height="480" rx="8"/>
+    <text class="h1" x="28" y="42">Strumenti secondari</text>
+    <rect class="sub" x="28" y="80" width="322" height="320" rx="6"/>
+    <text class="code" x="52" y="112">HealthView</text>
+    <text class="codeSmall" x="52" y="140">VM: HealthViewModel</text>
+    <text class="codeSmall" x="52" y="168">RunCommand · IsRunning · HasReport</text>
+    <text class="codeSmall" x="52" y="196">AssignmentsAnalyzed · AnomaliesCount</text>
+    <text class="codeSmall" x="52" y="224">MismatchesCount · AiUsed</text>
+    <text class="codeSmall" x="52" y="252">AnomaliesGrid · MismatchesGrid</text>
+    <text class="codeSmall" x="52" y="280">OnRowDoubleClick</text>
+    <rect class="sub" x="380" y="80" width="322" height="320" rx="6"/>
+    <text class="code" x="404" y="112">FilterManager</text>
+    <text class="codeSmall" x="404" y="140">PlaceholderView</text>
+    <text class="codeSmall" x="404" y="168">Title: Filtri Vista Nativi</text>
+    <text class="codeSmall" x="404" y="196">CME_Taggati · CME_Mancanti</text>
+    <text class="codeSmall" x="404" y="224">CME_Anomalie</text>
+    <rect class="sub" x="730" y="80" width="322" height="320" rx="6"/>
+    <text class="code" x="754" y="112">QtoViews</text>
+    <text class="codeSmall" x="754" y="140">PlaceholderView</text>
+    <text class="codeSmall" x="754" y="168">Title: Viste CME Dedicate</text>
+    <text class="codeSmall" x="754" y="196">Vista 3D · Piante 2D</text>
+    <text class="codeSmall" x="754" y="224">Schedule: Assegnazioni</text>
+    <text class="codeSmall" x="754" y="252">Mancanti · Nuovi Prezzi</text>
+  </g>
+
+  <!-- Legacy and instruction -->
+  <rect class="card" x="80" y="3240" width="2240" height="270" rx="8"/>
+  <text class="h1" x="110" y="3282">Legacy / dialog accessori da nominare esplicitamente</text>
+  <text class="codeSmall" x="110" y="3322">MappingView.xaml: legacy, non raggiunta dal workflow principale. Tabs: Famiglie/GridFamilies · Locali/GridRoomMappings · Voci manuali/GridManualItems.</text>
+  <text class="codeSmall" x="110" y="3354">PhaseFilterView.xaml: view esistente ma non nel workflow principale. Identificatori: BtnPopout · BtnCountElements · Phases · BtnConfirm.</text>
+  <text class="codeSmall" x="110" y="3386">AddSharedParameterDialog.xaml: NameBox · DescBox · RadioProjectSp · RadioCmeSp · StatusBlock · CreateButton.</text>
+  <text class="codeSmall" x="110" y="3418">CatalogBrowserWindow.xaml: finestra Listino separata. ChapterEditorPopup.xaml: CodeBox · NameBox · OnOkClick · OnCancelClick.</text>
+  <rect class="soft" x="110" y="3450" width="2160" height="42" rx="6"/>
+  <text class="code" x="132" y="3477">Formato consigliato istruzioni: "File/View - identificatore codice - modifica". Esempio: "SetupListinoView - SearchResultsGrid - rimuovi colonne Prezzo2Formatted, IncMDOFormatted, IncSICFormatted".</text>
+</svg>

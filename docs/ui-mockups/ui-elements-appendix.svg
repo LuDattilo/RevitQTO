@@ -1,0 +1,245 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2200" height="3000" viewBox="0 0 2200 3000">
+  <defs>
+    <style>
+      .page{fill:#fff}.shell{fill:#f5f5f5;stroke:#e0e0e0;stroke-width:2}.card{fill:#fff;stroke:#d9d9d9;stroke-width:1.6}.sub{fill:#f7f7f7;stroke:#ddd;stroke-width:1.2}.soft{fill:#b2ebf2;stroke:#00838f;stroke-width:1.4}.teal{fill:#00838f}.tag{fill:#fff8e1;stroke:#ffb300;stroke-width:1.2}.title{fill:#212121;font:700 36px "Segoe UI",Arial}.subtitle{fill:#666;font:18px "Segoe UI",Arial}.h1{fill:#212121;font:700 24px "Segoe UI",Arial}.h2{fill:#006064;font:700 17px "Segoe UI",Arial}.txt{fill:#212121;font:15px "Segoe UI",Arial}.muted{fill:#666;font:14px "Segoe UI",Arial}.tiny{fill:#666;font:12px "Segoe UI",Arial}.code{fill:#263238;font:700 14px Consolas,"Cascadia Mono",monospace}.codeSmall{fill:#263238;font:12px Consolas,"Cascadia Mono",monospace}.white{fill:#fff;font:700 14px "Segoe UI",Arial}.btn{fill:#fff;stroke:#ddd;stroke-width:1.2}.tab{fill:#f5f5f5;stroke:#ddd;stroke-width:1.2}.tabOn{fill:#fff;stroke:#00838f;stroke-width:1.5}.row{fill:#fff;stroke:#eee;stroke-width:1}.rowAlt{fill:#fafafa;stroke:#eee;stroke-width:1}.sel{fill:#b2ebf2;stroke:#00838f;stroke-width:1}.line{stroke:#e0e0e0;stroke-width:1.2}.icon{fill:#00838f;font:700 20px "Segoe UI",Arial}.example{fill:#006064;font:13px Consolas,"Cascadia Mono",monospace}
+    </style>
+  </defs>
+
+  <rect class="page" width="2200" height="3000"/>
+  <rect class="shell" x="40" y="36" width="2120" height="2928" rx="12"/>
+  <text class="title" x="80" y="92">Appendice sinottica elementi UI</text>
+  <text class="subtitle" x="80" y="126">Glossario visuale per darmi istruzioni precise: tipo elemento + nome codice + azione richiesta.</text>
+
+  <rect class="soft" x="80" y="160" width="2040" height="96" rx="8"/>
+  <text class="h1" x="110" y="198">Formula consigliata</text>
+  <text class="code" x="110" y="230">Schermata/View - elemento UI - identificatore codice - modifica</text>
+  <text class="txt" x="1040" y="230">Esempio: <tspan class="example">SetupListinoView - DataGrid - SearchResultsGrid - rimuovi colonna Prezzo2Formatted</tspan></text>
+
+  <!-- Row 1 -->
+  <g transform="translate(80,300)">
+    <rect class="card" width="640" height="360" rx="8"/>
+    <text class="h1" x="28" y="42">Pulsante</text>
+    <text class="codeSmall" x="28" y="70">WPF: Button · di solito x:Name / Content / Command / Click</text>
+    <rect class="teal" x="42" y="110" width="175" height="42" rx="6"/><text class="white" x="74" y="137">BtnImport</text>
+    <rect class="btn" x="238" y="110" width="160" height="42" rx="6"/><text class="codeSmall" x="270" y="137">BtnBrowse</text>
+    <rect class="btn" x="418" y="110" width="130" height="42" rx="6"/><text class="codeSmall" x="450" y="137">BtnDelete</text>
+    <rect class="tag" x="42" y="190" width="180" height="30" rx="5"/><text class="code" x="58" y="210">Come chiamarlo</text>
+    <text class="codeSmall" x="42" y="246">"pulsante BtnImport"</text>
+    <text class="codeSmall" x="42" y="274">"pulsante con Content=Importa listino"</text>
+    <text class="codeSmall" x="42" y="302">"Button Command=ApplyEpCommand"</text>
+  </g>
+
+  <g transform="translate(780,300)">
+    <rect class="card" width="640" height="360" rx="8"/>
+    <text class="h1" x="28" y="42">Tab / Scheda</text>
+    <text class="codeSmall" x="28" y="70">WPF: TabControl / TabItem · spesso Header=...</text>
+    <rect class="tabOn" x="42" y="110" width="150" height="42" rx="6"/><text class="codeSmall" x="70" y="137">Ricerca ibrida</text>
+    <rect class="tab" x="196" y="110" width="170" height="42" rx="6"/><text class="codeSmall" x="220" y="137">Preferiti progetto</text>
+    <rect class="tab" x="370" y="110" width="180" height="42" rx="6"/><text class="codeSmall" x="394" y="137">Preferiti personali</text>
+    <rect class="tag" x="42" y="190" width="180" height="30" rx="5"/><text class="code" x="58" y="210">Come chiamarlo</text>
+    <text class="codeSmall" x="42" y="246">"tab Ricerca ibrida"</text>
+    <text class="codeSmall" x="42" y="274">"TabItem Header=Preferiti progetto"</text>
+    <text class="codeSmall" x="42" y="302">"SetupTabs - tab WBS (v12)"</text>
+  </g>
+
+  <g transform="translate(1480,300)">
+    <rect class="card" width="640" height="360" rx="8"/>
+    <text class="h1" x="28" y="42">Tabella</text>
+    <text class="codeSmall" x="28" y="70">WPF: DataGrid · ItemsSource / SelectedItem / Columns</text>
+    <rect class="row" x="42" y="106" width="550" height="38"/>
+    <text class="codeSmall" x="58" y="130">DataGrid x:Name=SearchResultsGrid</text>
+    <rect class="rowAlt" x="42" y="144" width="550" height="32"/>
+    <text class="codeSmall" x="58" y="166">Columns: Code · Description · Unit · UnitPriceFormatted</text>
+    <rect class="sel" x="42" y="176" width="550" height="32"/>
+    <text class="codeSmall" x="58" y="198">SelectedItem=SelectedSearchResult</text>
+    <rect class="tag" x="42" y="230" width="180" height="30" rx="5"/><text class="code" x="58" y="250">Come chiamarla</text>
+    <text class="codeSmall" x="42" y="286">"tabella SearchResultsGrid"</text>
+    <text class="codeSmall" x="42" y="314">"DataGrid GridElements"</text>
+  </g>
+
+  <!-- Row 2 -->
+  <g transform="translate(80,710)">
+    <rect class="card" width="640" height="360" rx="8"/>
+    <text class="h1" x="28" y="42">Colonna tabella</text>
+    <text class="codeSmall" x="28" y="70">WPF: DataGridTextColumn / DataGridTemplateColumn</text>
+    <rect class="row" x="42" y="106" width="550" height="42"/>
+    <text class="codeSmall" x="58" y="132">Header="Prezzo" Binding="{Binding UnitPriceFormatted}"</text>
+    <rect class="rowAlt" x="42" y="148" width="550" height="42"/>
+    <text class="codeSmall" x="58" y="174">Header="MDO%" Binding="{Binding IncMDOFormatted}"</text>
+    <rect class="tag" x="42" y="220" width="180" height="30" rx="5"/><text class="code" x="58" y="240">Come chiamarla</text>
+    <text class="codeSmall" x="42" y="276">"colonna Header=Prezzo"</text>
+    <text class="codeSmall" x="42" y="304">"colonna Binding=IncMDOFormatted"</text>
+  </g>
+
+  <g transform="translate(780,710)">
+    <rect class="card" width="640" height="360" rx="8"/>
+    <text class="h1" x="28" y="42">Campo testo</text>
+    <text class="codeSmall" x="28" y="70">WPF: TextBox · Text binding</text>
+    <rect class="row" x="42" y="110" width="520" height="42"/>
+    <text class="codeSmall" x="62" y="136">Text="{Binding SearchQuery}"</text>
+    <rect class="row" x="42" y="174" width="250" height="42"/>
+    <text class="codeSmall" x="62" y="200">NameQuery</text>
+    <rect class="tag" x="42" y="240" width="180" height="30" rx="5"/><text class="code" x="58" y="260">Come chiamarlo</text>
+    <text class="codeSmall" x="42" y="296">"TextBox SearchBox"</text>
+    <text class="codeSmall" x="42" y="324">"campo Text=NameQuery"</text>
+  </g>
+
+  <g transform="translate(1480,710)">
+    <rect class="card" width="640" height="360" rx="8"/>
+    <text class="h1" x="28" y="42">Dropdown</text>
+    <text class="codeSmall" x="28" y="70">WPF: ComboBox · ItemsSource / SelectedItem / SelectedValue</text>
+    <rect class="row" x="42" y="110" width="520" height="42"/>
+    <text class="codeSmall" x="62" y="136">ItemsSource=AvailableScopes · SelectedValue=SelectedScope ▾</text>
+    <rect class="row" x="42" y="174" width="520" height="42"/>
+    <text class="codeSmall" x="62" y="200">ItemsSource=Categories · SelectedItem=SelectedCategory ▾</text>
+    <rect class="tag" x="42" y="240" width="180" height="30" rx="5"/><text class="code" x="58" y="260">Come chiamarlo</text>
+    <text class="codeSmall" x="42" y="296">"ComboBox SelectedScope"</text>
+    <text class="codeSmall" x="42" y="324">"dropdown SelectedCategory"</text>
+  </g>
+
+  <!-- Row 3 -->
+  <g transform="translate(80,1120)">
+    <rect class="card" width="640" height="360" rx="8"/>
+    <text class="h1" x="28" y="42">RadioButton</text>
+    <text class="codeSmall" x="28" y="70">WPF: RadioButton · GroupName / IsChecked</text>
+    <circle cx="60" cy="124" r="10" fill="#fff" stroke="#00838f" stroke-width="2"/><circle cx="60" cy="124" r="5" class="teal"/>
+    <text class="codeSmall" x="84" y="130">Content="Per Capitoli"</text>
+    <circle cx="60" cy="164" r="10" fill="#fff" stroke="#999" stroke-width="2"/>
+    <text class="codeSmall" x="84" y="170">Content="Per Categorie"</text>
+    <circle cx="60" cy="204" r="10" fill="#fff" stroke="#999" stroke-width="2"/>
+    <text class="codeSmall" x="84" y="210">Content="Per WBS"</text>
+    <rect class="tag" x="42" y="246" width="180" height="30" rx="5"/><text class="code" x="58" y="266">Come chiamarlo</text>
+    <text class="codeSmall" x="42" y="302">"RadioButton Per WBS"</text>
+    <text class="codeSmall" x="42" y="330">"NavigationMode=Wbs"</text>
+  </g>
+
+  <g transform="translate(780,1120)">
+    <rect class="card" width="640" height="360" rx="8"/>
+    <text class="h1" x="28" y="42">CheckBox</text>
+    <text class="codeSmall" x="28" y="70">WPF: CheckBox · IsChecked binding</text>
+    <rect x="42" y="110" width="18" height="18" fill="#fff" stroke="#00838f" stroke-width="2"/>
+    <text class="icon" x="43" y="127">✓</text>
+    <text class="codeSmall" x="76" y="126">IsChecked="{Binding IsActive}"</text>
+    <rect x="42" y="158" width="18" height="18" fill="#fff" stroke="#999" stroke-width="2"/>
+    <text class="codeSmall" x="76" y="174">IncludeAuditFields</text>
+    <rect class="tag" x="42" y="230" width="180" height="30" rx="5"/><text class="code" x="58" y="250">Come chiamarlo</text>
+    <text class="codeSmall" x="42" y="286">"CheckBox IsActive"</text>
+    <text class="codeSmall" x="42" y="314">"checkbox IncludeAuditFields"</text>
+  </g>
+
+  <g transform="translate(1480,1120)">
+    <rect class="card" width="640" height="360" rx="8"/>
+    <text class="h1" x="28" y="42">TreeView / Albero</text>
+    <text class="codeSmall" x="28" y="70">WPF: TreeView · ItemsSource / HierarchicalDataTemplate</text>
+    <rect class="sub" x="42" y="105" width="520" height="140" rx="5"/>
+    <text class="codeSmall" x="62" y="132">▾ RootNodes</text>
+    <text class="codeSmall" x="92" y="160">├ DisplayLabel</text>
+    <text class="codeSmall" x="92" y="188">└ Children</text>
+    <text class="codeSmall" x="62" y="220">TreeView x:Name=ChaptersTree</text>
+    <rect class="tag" x="42" y="260" width="180" height="30" rx="5"/><text class="code" x="58" y="280">Come chiamarlo</text>
+    <text class="codeSmall" x="42" y="316">"albero ChaptersTree"</text>
+  </g>
+
+  <!-- Row 4 -->
+  <g transform="translate(80,1530)">
+    <rect class="card" width="640" height="360" rx="8"/>
+    <text class="h1" x="28" y="42">Popup / finestra</text>
+    <text class="codeSmall" x="28" y="70">WPF: Window · Dialog · Popup</text>
+    <rect class="sub" x="120" y="105" width="390" height="170" rx="8"/>
+    <rect class="teal" x="120" y="105" width="390" height="36" rx="8"/>
+    <text class="white" x="142" y="128">ChapterEditorPopup</text>
+    <text class="codeSmall" x="152" y="172">CodeBox · NameBox</text>
+    <rect class="btn" x="270" y="220" width="90" height="32" rx="5"/><text class="codeSmall" x="302" y="241">OK</text>
+    <rect class="btn" x="372" y="220" width="90" height="32" rx="5"/><text class="codeSmall" x="390" y="241">Annulla</text>
+    <rect class="tag" x="42" y="298" width="180" height="30" rx="5"/><text class="code" x="58" y="318">Come chiamarlo</text>
+    <text class="codeSmall" x="240" y="318">"popup ChapterEditorPopup" · "finestra ExportWizardWindow"</text>
+  </g>
+
+  <g transform="translate(780,1530)">
+    <rect class="card" width="640" height="360" rx="8"/>
+    <text class="h1" x="28" y="42">Menu contestuale</text>
+    <text class="codeSmall" x="28" y="70">WPF: ContextMenu / MenuItem · spesso su DataGrid</text>
+    <rect class="sub" x="95" y="105" width="430" height="170" rx="5"/>
+    <text class="codeSmall" x="122" y="136">MenuItem Header="Usa nella ricerca"</text>
+    <line class="line" x1="118" y1="150" x2="500" y2="150"/>
+    <text class="codeSmall" x="122" y="178">MenuItem Header="Copia codice"</text>
+    <line class="line" x1="118" y1="192" x2="500" y2="192"/>
+    <text class="codeSmall" x="122" y="220">MenuItem Header="Rimuovi dai preferiti"</text>
+    <rect class="tag" x="42" y="298" width="180" height="30" rx="5"/><text class="code" x="58" y="318">Come chiamarlo</text>
+    <text class="codeSmall" x="240" y="318">"menu contestuale ProjectFavoritesGrid - Copia codice"</text>
+  </g>
+
+  <g transform="translate(1480,1530)">
+    <rect class="card" width="640" height="360" rx="8"/>
+    <text class="h1" x="28" y="42">Card / pannello</text>
+    <text class="codeSmall" x="28" y="70">WPF: Border / Grid / StackPanel · spesso Style=CardStyle</text>
+    <rect class="soft" x="42" y="105" width="520" height="110" rx="7"/>
+    <text class="code" x="66" y="136">Card ASSEGNA EP</text>
+    <text class="codeSmall" x="66" y="164">ActiveEpCode · QuantityMode · AssignPreview</text>
+    <rect class="teal" x="412" y="152" width="120" height="36" rx="5"/><text class="white" x="436" y="175">ApplyEp</text>
+    <rect class="tag" x="42" y="260" width="180" height="30" rx="5"/><text class="code" x="58" y="280">Come chiamarla</text>
+    <text class="codeSmall" x="42" y="316">"card ASSEGNA EP"</text>
+  </g>
+
+  <!-- Row 5 code concepts -->
+  <g transform="translate(80,1940)">
+    <rect class="card" width="640" height="360" rx="8"/>
+    <text class="h1" x="28" y="42">Binding</text>
+    <text class="codeSmall" x="28" y="70">Collega UI ↔ ViewModel</text>
+    <rect class="sub" x="42" y="105" width="540" height="90" rx="5"/>
+    <text class="codeSmall" x="62" y="134">Text="{Binding SearchQuery}"</text>
+    <text class="codeSmall" x="62" y="164">ItemsSource="{Binding SearchResults}"</text>
+    <rect class="tag" x="42" y="230" width="180" height="30" rx="5"/><text class="code" x="58" y="250">Come usarlo</text>
+    <text class="codeSmall" x="42" y="286">"binding SearchQuery"</text>
+    <text class="codeSmall" x="42" y="314">"ItemsSource SearchResults"</text>
+  </g>
+
+  <g transform="translate(780,1940)">
+    <rect class="card" width="640" height="360" rx="8"/>
+    <text class="h1" x="28" y="42">Command / Click handler</text>
+    <text class="codeSmall" x="28" y="70">Azione eseguita dal controllo</text>
+    <rect class="sub" x="42" y="105" width="540" height="110" rx="5"/>
+    <text class="codeSmall" x="62" y="134">Command="{Binding ApplyEpCommand}"</text>
+    <text class="codeSmall" x="62" y="164">Click="OnImportClick"</text>
+    <text class="codeSmall" x="62" y="194">MouseDoubleClick="OnRowDoubleClick"</text>
+    <rect class="tag" x="42" y="248" width="180" height="30" rx="5"/><text class="code" x="58" y="268">Come usarlo</text>
+    <text class="codeSmall" x="42" y="304">"Command ApplyEpCommand"</text>
+    <text class="codeSmall" x="42" y="332">"handler OnImportClick"</text>
+  </g>
+
+  <g transform="translate(1480,1940)">
+    <rect class="card" width="640" height="360" rx="8"/>
+    <text class="h1" x="28" y="42">Stati / Visibility</text>
+    <text class="codeSmall" x="28" y="70">Controllano visibilità, abilitazione, selezione</text>
+    <rect class="sub" x="42" y="105" width="540" height="110" rx="5"/>
+    <text class="codeSmall" x="62" y="134">Visibility="{Binding HasReport}"</text>
+    <text class="codeSmall" x="62" y="164">IsEnabled="{Binding CanResumeLastSession}"</text>
+    <text class="codeSmall" x="62" y="194">SelectedItem="{Binding SelectedSearchResult}"</text>
+    <rect class="tag" x="42" y="248" width="180" height="30" rx="5"/><text class="code" x="58" y="268">Come usarlo</text>
+    <text class="codeSmall" x="42" y="304">"stato HasReport"</text>
+    <text class="codeSmall" x="42" y="332">"SelectedItem SelectedSearchResult"</text>
+  </g>
+
+  <!-- Examples -->
+  <rect class="card" x="80" y="2360" width="2040" height="420" rx="8"/>
+  <text class="h1" x="110" y="2402">Esempi di istruzioni perfette</text>
+  <rect class="sub" x="110" y="2432" width="960" height="300" rx="6"/>
+  <text class="h2" x="136" y="2464">Modifiche UI</text>
+  <text class="example" x="136" y="2502">SetupListinoView - DataGrid SearchResultsGrid - rimuovi colonne Header=P.2, Header=MDO%, Header=SIC%</text>
+  <text class="example" x="136" y="2538">SelectionView - Card ASSEGNA EP - sposta sotto GridElements</text>
+  <text class="example" x="136" y="2574">CmeEditorView - Navigatore - nascondi RadioButton Content=Lineare (tutto)</text>
+  <text class="example" x="136" y="2610">ProjectInfoView - pulsante SaveCommand - rinomina Content da "Salva" a "Salva informazioni"</text>
+  <text class="example" x="136" y="2646">ExportWizardWindow - CheckBox IncludeDeletedAndSuperseded - togli dalla sezione Opzioni</text>
+
+  <rect class="sub" x="1120" y="2432" width="960" height="300" rx="6"/>
+  <text class="h2" x="1146" y="2464">Modifiche comportamento</text>
+  <text class="example" x="1146" y="2502">SetupListinoView - Command ToggleFavoriteForRowCommand - cambia default da Project a Personal</text>
+  <text class="example" x="1146" y="2538">SelectionView - OnRefreshClick - dopo refresh seleziona automaticamente la prima riga</text>
+  <text class="example" x="1146" y="2574">HealthView - RunCommand - mostra warning se AiUsed=false</text>
+  <text class="example" x="1146" y="2610">QtoDockablePane - CanOpenView - consenti Selection anche senza listino attivo</text>
+  <text class="example" x="1146" y="2646">ExportWizardWindow - ExportCommand - blocca export PDF se CompanyLogoPath non esiste</text>
+
+  <rect class="soft" x="80" y="2820" width="2040" height="100" rx="8"/>
+  <text class="h1" x="110" y="2860">Regola pratica</text>
+  <text class="txt" x="110" y="2894">Quando puoi, usa insieme: <tspan class="code">View</tspan> + <tspan class="code">tipo elemento</tspan> + <tspan class="code">identificatore codice</tspan>. Se non conosci l'identificatore, usa il nome visibile e io lo collego al codice.</text>
+</svg>

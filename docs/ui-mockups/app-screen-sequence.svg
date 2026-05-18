@@ -1,0 +1,308 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2200" height="3600" viewBox="0 0 2200 3600">
+  <defs>
+    <style>
+      .page { fill: #ffffff; }
+      .shell { fill: #f5f5f5; stroke: #e0e0e0; stroke-width: 2; }
+      .card { fill: #ffffff; stroke: #e0e0e0; stroke-width: 1.6; }
+      .sub { fill: #f5f5f5; stroke: #e0e0e0; stroke-width: 1.4; }
+      .soft { fill: #b2ebf2; stroke: #00838f; stroke-width: 1.4; }
+      .teal { fill: #00838f; }
+      .tealStroke { stroke: #00838f; stroke-width: 2; fill: none; }
+      .chrome { fill: #37474f; }
+      .chrome2 { fill: #455a64; }
+      .title { fill: #212121; font: 700 34px "Segoe UI", Arial, sans-serif; }
+      .subtitle { fill: #666666; font: 18px "Segoe UI", Arial, sans-serif; }
+      .h1 { fill: #212121; font: 700 23px "Segoe UI", Arial, sans-serif; }
+      .h2 { fill: #666666; font: 700 16px "Segoe UI", Arial, sans-serif; }
+      .txt { fill: #212121; font: 15px "Segoe UI", Arial, sans-serif; }
+      .muted { fill: #666666; font: 14px "Segoe UI", Arial, sans-serif; }
+      .tiny { fill: #666666; font: 12px "Segoe UI", Arial, sans-serif; }
+      .mono { fill: #555555; font: 13px Consolas, "Cascadia Mono", monospace; }
+      .white { fill: #ffffff; font: 700 15px "Segoe UI", Arial, sans-serif; }
+      .btnText { fill: #212121; font: 14px "Segoe UI", Arial, sans-serif; }
+      .sectionLabel { fill: #006064; font: 700 14px "Segoe UI", Arial, sans-serif; }
+      .tableHead { fill: #f5f5f5; stroke: #e0e0e0; stroke-width: 1; }
+      .row { fill: #ffffff; stroke: #eeeeee; stroke-width: 1; }
+      .rowAlt { fill: #fafafa; stroke: #eeeeee; stroke-width: 1; }
+      .sel { fill: #b2ebf2; stroke: #00838f; stroke-width: 1; }
+      .tab { fill: #f5f5f5; stroke: #e0e0e0; stroke-width: 1.2; }
+      .tabOn { fill: #ffffff; stroke: #00838f; stroke-width: 1.6; }
+      .line { stroke: #e0e0e0; stroke-width: 1.3; }
+      .nameTag { fill: #fff8e1; stroke: #ffb300; stroke-width: 1.2; }
+      .nameText { fill: #212121; font: 700 13px "Segoe UI", Arial, sans-serif; }
+    </style>
+  </defs>
+
+  <rect class="page" x="0" y="0" width="2200" height="3600"/>
+  <rect class="shell" x="40" y="36" width="2120" height="3528" rx="12"/>
+
+  <text class="title" x="80" y="92">Sequenza schermate CME Workspace</text>
+  <text class="subtitle" x="80" y="126">Ricostruzione deterministica da XAML: nomi reali di sezioni, pulsanti, tab, tabelle e pannelli. Nessun numero: puoi indicare le modifiche usando i nomi.</text>
+
+  <!-- App chrome / real navigation order -->
+  <rect class="card" x="80" y="160" width="2040" height="240" rx="8"/>
+  <rect class="soft" x="110" y="190" width="390" height="86" rx="8"/>
+  <text class="h1" x="138" y="226">CME Workspace</text>
+  <text class="muted" x="138" y="252">Header applicazione / Sessione / KPI</text>
+  <rect class="sub" x="520" y="190" width="170" height="38" rx="6"/>
+  <text class="btnText" x="556" y="214">Sessione ▾</text>
+  <rect class="sub" x="708" y="190" width="170" height="38" rx="6"/>
+  <text class="btnText" x="744" y="214">Progresso</text>
+  <rect class="sub" x="896" y="190" width="170" height="38" rx="6"/>
+  <text class="btnText" x="940" y="214">Importo</text>
+  <rect class="sub" x="1084" y="190" width="220" height="38" rx="6"/>
+  <text class="btnText" x="1120" y="214">Contesto fase</text>
+
+  <text class="h2" x="110" y="322">Workflow principale, ordine reale:</text>
+  <g transform="translate(110,340)">
+    <rect class="teal" x="0" y="0" width="120" height="34" rx="7"/><text class="white" x="36" y="22">Home</text>
+    <rect class="tab" x="136" y="0" width="160" height="34" rx="7"/><text class="btnText" x="160" y="22">Setup progetto</text>
+    <rect class="tab" x="312" y="0" width="110" height="34" rx="7"/><text class="btnText" x="344" y="22">Listino</text>
+    <rect class="tab" x="438" y="0" width="126" height="34" rx="7"/><text class="btnText" x="466" y="22">Selezione</text>
+    <rect class="tab" x="580" y="0" width="170" height="34" rx="7"/><text class="btnText" x="604" y="22">Redazione CME</text>
+    <rect class="tab" x="766" y="0" width="108" height="34" rx="7"/><text class="btnText" x="796" y="22">Verifica</text>
+    <rect class="tab" x="890" y="0" width="106" height="34" rx="7"/><text class="btnText" x="920" y="22">Esporta</text>
+  </g>
+  <text class="h2" x="1200" y="322">Strumenti secondari:</text>
+  <g transform="translate(1200,340)">
+    <rect class="tab" x="0" y="0" width="95" height="34" rx="7"/><text class="btnText" x="28" y="22">Health</text>
+    <rect class="tab" x="110" y="0" width="130" height="34" rx="7"/><text class="btnText" x="136" y="22">Filtri Vista</text>
+    <rect class="tab" x="255" y="0" width="120" height="34" rx="7"/><text class="btnText" x="280" y="22">Viste CME</text>
+  </g>
+
+  <!-- Screen cards grid -->
+  <!-- Home -->
+  <g transform="translate(80,440)">
+    <rect class="card" width="980" height="430" rx="8"/>
+    <text class="h1" x="28" y="42">Home</text>
+    <rect class="nameTag" x="28" y="62" width="210" height="28" rx="5"/><text class="nameText" x="42" y="81">Card principale Home</text>
+    <rect class="chrome" x="28" y="104" width="580" height="248" rx="8"/>
+    <text class="white" x="52" y="138">Avvio operativo del computo</text>
+    <text class="tiny" x="52" y="166" fill="#eceff1">HomePrimaryMessage / HomeSecondaryMessage</text>
+    <rect class="teal" x="52" y="194" width="130" height="36" rx="6"/><text class="white" x="70" y="217">Nuovo computo</text>
+    <rect class="sub" x="194" y="194" width="124" height="36" rx="6"/><text class="btnText" x="216" y="217">Apri computo</text>
+    <rect class="sub" x="330" y="194" width="132" height="36" rx="6"/><text class="btnText" x="350" y="217">Riprendi ultimo</text>
+    <rect class="soft" x="52" y="260" width="150" height="58" rx="6"/><text class="sectionLabel" x="70" y="282">ELEMENTI</text><text class="txt" x="70" y="306">TotalElements</text>
+    <rect class="soft" x="220" y="260" width="150" height="58" rx="6"/><text class="sectionLabel" x="238" y="282">TAGGATI</text><text class="txt" x="238" y="306">ProgressText</text>
+    <rect class="soft" x="388" y="260" width="150" height="58" rx="6"/><text class="sectionLabel" x="406" y="282">IMPORTO</text><text class="txt" x="406" y="306">AmountText</text>
+    <rect class="sub" x="628" y="104" width="322" height="74" rx="6"/><text class="sectionLabel" x="650" y="130">Ultimo computo</text><text class="muted" x="650" y="154">LastSessionHint</text>
+    <rect class="sub" x="628" y="194" width="322" height="74" rx="6"/><text class="sectionLabel" x="650" y="220">Vincoli di flusso</text><text class="muted" x="650" y="244">Listino prima di Selezione</text>
+    <rect class="sub" x="628" y="284" width="322" height="68" rx="6"/><text class="sectionLabel" x="650" y="310">Stato AI</text><text class="muted" x="650" y="334">AiStatusLabel / AiStatusHint</text>
+    <rect class="nameTag" x="28" y="370" width="160" height="28" rx="5"/><text class="nameText" x="42" y="389">Workflow interno</text>
+    <rect class="tab" x="205" y="370" width="110" height="28" rx="5"/><text class="tiny" x="226" y="389">Setup</text>
+    <rect class="tab" x="324" y="370" width="110" height="28" rx="5"/><text class="tiny" x="344" y="389">Listino</text>
+    <rect class="tab" x="443" y="370" width="125" height="28" rx="5"/><text class="tiny" x="464" y="389">Selezione</text>
+  </g>
+
+  <!-- Setup -->
+  <g transform="translate(1140,440)">
+    <rect class="card" width="980" height="430" rx="8"/>
+    <text class="h1" x="28" y="42">Setup progetto</text>
+    <rect class="nameTag" x="28" y="62" width="145" height="28" rx="5"/><text class="nameText" x="42" y="81">SetupTabs</text>
+    <rect class="tabOn" x="28" y="108" width="135" height="36" rx="6"/><text class="btnText" x="52" y="131">Informazioni</text>
+    <rect class="tab" x="166" y="108" width="170" height="36" rx="6"/><text class="btnText" x="186" y="131">Struttura Computo</text>
+    <rect class="tab" x="340" y="108" width="145" height="36" rx="6"/><text class="btnText" x="362" y="131">Capitoli (v12)</text>
+    <rect class="tab" x="489" y="108" width="155" height="36" rx="6"/><text class="btnText" x="512" y="131">Categorie (v12)</text>
+    <rect class="tab" x="648" y="108" width="105" height="36" rx="6"/><text class="btnText" x="682" y="131">WBS</text>
+    <rect class="tab" x="757" y="108" width="145" height="36" rx="6"/><text class="btnText" x="782" y="131">Nuovi Prezzi</text>
+
+    <rect class="sub" x="28" y="168" width="438" height="210" rx="6"/>
+    <text class="sectionLabel" x="52" y="198">Informazioni Progetto</text>
+    <text class="muted" x="52" y="226">Metadati computo / intestazione export</text>
+    <rect class="row" x="52" y="248" width="390" height="28"/><text class="tiny" x="64" y="267">FieldRows: Label + Value + Sorgente</text>
+    <rect class="rowAlt" x="52" y="276" width="390" height="28"/><text class="tiny" x="64" y="295">Date e Parametri Gara</text>
+    <rect class="teal" x="338" y="326" width="104" height="30" rx="5"/><text class="white" x="372" y="346">Salva</text>
+
+    <rect class="sub" x="496" y="168" width="430" height="210" rx="6"/>
+    <text class="sectionLabel" x="520" y="198">Struttura Computo / Alberi</text>
+    <rect class="tab" x="520" y="218" width="74" height="28" rx="5"/><text class="tiny" x="536" y="237">+ Super</text>
+    <rect class="tab" x="602" y="218" width="58" height="28" rx="5"/><text class="tiny" x="618" y="237">+ Cat</text>
+    <rect class="tab" x="668" y="218" width="58" height="28" rx="5"/><text class="tiny" x="684" y="237">+ Sub</text>
+    <rect class="row" x="520" y="266" width="382" height="70"/><text class="tiny" x="540" y="294">ChaptersTree / ChapterTree / CategoryTree / WbsTree</text>
+    <text class="tiny" x="540" y="320">Nodo selezionato + Codice SOA</text>
+  </g>
+
+  <!-- Listino -->
+  <g transform="translate(80,920)">
+    <rect class="card" width="980" height="560" rx="8"/>
+    <text class="h1" x="28" y="42">Listino</text>
+    <rect class="nameTag" x="28" y="62" width="190" height="28" rx="5"/><text class="nameText" x="42" y="81">Header Listino</text>
+    <text class="muted" x="240" y="82">Gestione listini prezzi · ricerca ibrida · preferiti progetto/personali</text>
+
+    <rect class="nameTag" x="28" y="112" width="165" height="28" rx="5"/><text class="nameText" x="42" y="131">Listini in libreria</text>
+    <rect class="teal" x="620" y="108" width="130" height="32" rx="5"/><text class="white" x="640" y="129">Importa listino</text>
+    <rect class="tab" x="760" y="108" width="115" height="32" rx="5"/><text class="btnText" x="778" y="129">Sfoglia listino</text>
+    <rect class="tab" x="884" y="108" width="70" height="32" rx="5"/><text class="btnText" x="902" y="129">Elimina</text>
+    <rect class="tableHead" x="28" y="156" width="926" height="28"/><text class="mono" x="46" y="175">Attivo</text><text class="mono" x="130" y="175">Nome</text><text class="mono" x="500" y="175">Sorgente</text><text class="mono" x="625" y="175">Regione</text><text class="mono" x="748" y="175">Voci</text><text class="mono" x="830" y="175">Importato</text>
+    <rect class="sel" x="28" y="184" width="926" height="28"/><text class="tiny" x="48" y="203">☑</text><text class="tiny" x="130" y="203">Prezzario Toscana LLPP 2025</text><text class="tiny" x="500" y="203">DCF</text><text class="tiny" x="625" y="203">Toscana</text><text class="tiny" x="748" y="203">12542</text><text class="tiny" x="830" y="203">25/04/2026</text>
+
+    <rect class="nameTag" x="28" y="238" width="335" height="28" rx="5"/><text class="nameText" x="42" y="257">Ricerca ibrida / Preferiti progetto / personali</text>
+    <rect class="row" x="28" y="282" width="520" height="34"/><text class="tiny" x="44" y="304">Barra ricerca: SearchBox</text>
+    <rect class="row" x="562" y="282" width="190" height="34"/><text class="tiny" x="578" y="304">Selettore scope</text>
+    <rect class="sub" x="766" y="282" width="188" height="34"/><text class="mono" x="830" y="304">Hybrid</text>
+    <rect class="tabOn" x="28" y="334" width="135" height="34" rx="5"/><text class="btnText" x="50" y="356">Ricerca ibrida</text>
+    <rect class="tab" x="166" y="334" width="160" height="34" rx="5"/><text class="btnText" x="186" y="356">Preferiti progetto</text>
+    <rect class="tab" x="329" y="334" width="170" height="34" rx="5"/><text class="btnText" x="350" y="356">Preferiti personali</text>
+    <rect class="tableHead" x="28" y="368" width="926" height="28"/><text class="mono" x="46" y="387">★</text><text class="mono" x="96" y="387">Codice</text><text class="mono" x="230" y="387">Descrizione</text><text class="mono" x="610" y="387">U.M.</text><text class="mono" x="690" y="387">Prezzo</text><text class="mono" x="800" y="387">Listino</text>
+    <rect class="sel" x="28" y="396" width="926" height="28"/><text class="tiny" x="48" y="415">★</text><text class="tiny" x="96" y="415">01.A04.005</text><text class="tiny" x="230" y="415">Scavo a sezione obbligata...</text><text class="tiny" x="610" y="415">m³</text><text class="tiny" x="690" y="415">€ 18,42</text><text class="tiny" x="800" y="415">Toscana</text>
+    <rect class="sub" x="28" y="444" width="452" height="62" rx="5"/><text class="sectionLabel" x="46" y="468">Pannello Preferiti progetto</text><text class="tiny" x="46" y="490">Tabella Preferiti progetto + menu contestuale</text>
+    <rect class="sub" x="502" y="444" width="452" height="62" rx="5"/><text class="sectionLabel" x="520" y="468">Pannello Preferiti personali</text><text class="tiny" x="520" y="490">Tabella Preferiti personali + menu contestuale</text>
+    <rect class="sub" x="28" y="520" width="926" height="26" rx="5"/><text class="tiny" x="46" y="538">Pannello dettaglio voce / Stato ricerca / Footer Listino</text>
+  </g>
+
+  <!-- Selezione -->
+  <g transform="translate(1140,920)">
+    <rect class="card" width="980" height="560" rx="8"/>
+    <text class="h1" x="28" y="42">Selezione</text>
+    <rect class="nameTag" x="28" y="62" width="170" height="28" rx="5"/><text class="nameText" x="42" y="81">Header Selezione</text>
+    <rect class="tab" x="792" y="56" width="160" height="32" rx="5"/><text class="btnText" x="814" y="77">Apri in finestra</text>
+
+    <rect class="sub" x="28" y="112" width="926" height="168" rx="6"/>
+    <text class="sectionLabel" x="50" y="140">Filtro 1: Fase Revit</text>
+    <rect class="row" x="50" y="154" width="230" height="32"/><text class="tiny" x="66" y="175">AvailablePhases</text>
+    <text class="sectionLabel" x="310" y="140">Modalità computo</text>
+    <rect class="row" x="310" y="154" width="260" height="32"/><text class="tiny" x="326" y="175">ComputationModes</text>
+    <text class="sectionLabel" x="50" y="212">Filtro 2: Categoria</text>
+    <rect class="row" x="50" y="228" width="230" height="32"/><text class="tiny" x="66" y="249">Categories</text>
+    <rect class="row" x="310" y="228" width="260" height="32"/><text class="tiny" x="326" y="249">Cerca nome: NameQuery</text>
+    <text class="sectionLabel" x="610" y="140">Filtro 3: Filtri parametrici</text>
+    <rect class="teal" x="610" y="154" width="142" height="32" rx="5"/><text class="white" x="626" y="175">Aggiungi filtro</text>
+    <rect class="row" x="610" y="202" width="312" height="32"/><text class="tiny" x="626" y="223">AND/OR · Parametro · Operatore · Valore · ×</text>
+    <rect class="nameTag" x="28" y="302" width="150" height="28" rx="5"/><text class="nameText" x="42" y="321">Toolbar vista</text>
+    <rect class="teal" x="194" y="298" width="112" height="32" rx="5"/><text class="white" x="214" y="319">Isola in vista</text>
+    <rect class="tab" x="316" y="298" width="85" height="32" rx="5"/><text class="btnText" x="336" y="319">Nascondi</text>
+    <rect class="tab" x="412" y="298" width="95" height="32" rx="5"/><text class="btnText" x="432" y="319">Reset vista</text>
+    <rect class="tab" x="518" y="298" width="92" height="32" rx="5"/><text class="btnText" x="538" y="319">Aggiorna</text>
+
+    <rect class="soft" x="28" y="352" width="926" height="84" rx="6"/>
+    <text class="sectionLabel" x="50" y="380">Card Assegna EP</text>
+    <text class="tiny" x="50" y="404">ActiveEpCode · ActiveEpDescription · Quantità per istanza · AssignPreview · AssignButtonText</text>
+    <rect class="teal" x="800" y="378" width="128" height="32" rx="5"/><text class="white" x="826" y="399">Assegna EP</text>
+
+    <rect class="nameTag" x="28" y="462" width="145" height="28" rx="5"/><text class="nameText" x="42" y="481">Tabella elementi</text>
+    <rect class="tableHead" x="28" y="496" width="926" height="28"/><text class="mono" x="48" y="515">Id</text><text class="mono" x="130" y="515">Famiglia</text><text class="mono" x="320" y="515">Tipo</text><text class="mono" x="510" y="515">Livello</text><text class="mono" x="650" y="515">Fase creaz.</text><text class="mono" x="790" y="515">Fase demol.</text>
+    <rect class="row" x="28" y="524" width="926" height="26"/>
+  </g>
+
+  <!-- Redazione CME -->
+  <g transform="translate(80,1530)">
+    <rect class="card" width="980" height="510" rx="8"/>
+    <text class="h1" x="28" y="42">Redazione CME</text>
+    <rect class="nameTag" x="28" y="62" width="185" height="28" rx="5"/><text class="nameText" x="42" y="81">Header Redazione</text>
+    <rect class="tab" x="792" y="56" width="160" height="32" rx="5"/><text class="btnText" x="814" y="77">Apri in finestra</text>
+
+    <rect class="sub" x="28" y="112" width="230" height="338" rx="6"/>
+    <text class="sectionLabel" x="50" y="140">Navigatore</text>
+    <text class="tiny" x="50" y="166">Per Capitoli</text>
+    <text class="tiny" x="50" y="190">Per Categorie</text>
+    <text class="tiny" x="50" y="214">Per WBS</text>
+    <text class="tiny" x="50" y="238">Lineare (tutto)</text>
+    <rect class="row" x="50" y="262" width="184" height="128"/><text class="tiny" x="66" y="288">NavTree</text><text class="tiny" x="82" y="314">Label / Children</text>
+
+    <rect class="sub" x="280" y="112" width="420" height="338" rx="6"/>
+    <text class="sectionLabel" x="302" y="140">Tabella voci CME</text>
+    <rect class="tableHead" x="302" y="160" width="374" height="28"/><text class="mono" x="316" y="179">Codice</text><text class="mono" x="410" y="179">Descrizione</text><text class="mono" x="596" y="179">Importo</text>
+    <rect class="sel" x="302" y="188" width="374" height="30"/><text class="tiny" x="316" y="207">01.A04</text><text class="tiny" x="410" y="207">Scavo...</text><text class="tiny" x="596" y="207">€ 842</text>
+    <rect class="rowAlt" x="302" y="218" width="374" height="84"/><text class="tiny" x="326" y="248">Riga dettaglio: SubRows</text><text class="tiny" x="326" y="274">Descrizione + Formula</text>
+
+    <rect class="sub" x="722" y="112" width="230" height="338" rx="6"/>
+    <text class="sectionLabel" x="744" y="140">Quadro economico</text>
+    <text class="h1" x="744" y="178">Totale netto</text>
+    <text class="sectionLabel" x="744" y="228">Per capitolo</text>
+    <rect class="row" x="744" y="244" width="184" height="28"/>
+    <text class="sectionLabel" x="744" y="300">Per categoria</text>
+    <rect class="row" x="744" y="316" width="184" height="28"/>
+    <rect class="nameTag" x="28" y="466" width="170" height="28" rx="5"/><text class="nameText" x="42" y="485">Footer Redazione</text>
+    <text class="tiny" x="220" y="485">StatusMessage + pulsante Aggiorna</text>
+  </g>
+
+  <!-- Verifica -->
+  <g transform="translate(1140,1530)">
+    <rect class="card" width="980" height="510" rx="8"/>
+    <text class="h1" x="28" y="42">Verifica</text>
+    <text class="muted" x="150" y="42">nel menu principale apre PreviewView</text>
+    <rect class="nameTag" x="28" y="70" width="170" height="28" rx="5"/><text class="nameText" x="42" y="89">Header Verifica</text>
+    <text class="tiny" x="220" y="89">Preview Live + PreviewPhaseContext</text>
+    <rect class="tabOn" x="28" y="122" width="160" height="36" rx="5"/><text class="btnText" x="50" y="145">Selezione Corrente</text>
+    <rect class="tab" x="194" y="122" width="110" height="36" rx="5"/><text class="btnText" x="220" y="145">Riepilogo</text>
+    <rect class="sub" x="28" y="182" width="446" height="250" rx="6"/>
+    <text class="sectionLabel" x="52" y="212">Tab Selezione Corrente</text>
+    <text class="h2" x="52" y="250">Nessun elemento selezionato</text>
+    <text class="tiny" x="52" y="280">Anteprima quantità live e prezzo prima della conferma</text>
+    <rect class="soft" x="52" y="320" width="380" height="72" rx="6"/><text class="sectionLabel" x="72" y="346">Disponibile dal</text><text class="tiny" x="72" y="370">Sprint 5 - Tagging</text>
+    <rect class="sub" x="506" y="182" width="446" height="250" rx="6"/>
+    <text class="sectionLabel" x="530" y="212">Tab Riepilogo</text>
+    <rect class="row" x="530" y="232" width="380" height="28"/><rect class="teal" x="531" y="233" width="210" height="26"/><text class="tiny" x="670" y="252">ProgressText</text>
+    <rect class="soft" x="530" y="292" width="170" height="74" rx="6"/><text class="sectionLabel" x="550" y="318">Elementi totali</text><text class="tiny" x="550" y="342">TotalElements</text>
+    <rect class="soft" x="720" y="292" width="190" height="74" rx="6"/><text class="sectionLabel" x="740" y="318">Importo parziale</text><text class="tiny" x="740" y="342">AmountText</text>
+  </g>
+
+  <!-- Esporta -->
+  <g transform="translate(80,2090)">
+    <rect class="card" width="980" height="470" rx="8"/>
+    <text class="h1" x="28" y="42">Esporta</text>
+    <rect class="nameTag" x="28" y="62" width="160" height="28" rx="5"/><text class="nameText" x="42" y="81">Esporta Computo</text>
+    <rect class="sub" x="170" y="116" width="640" height="230" rx="8"/>
+    <circle class="soft" cx="490" cy="164" r="40"/>
+    <text class="h1" x="320" y="234">Chiusura del Computo Metrico Estimativo</text>
+    <text class="muted" x="328" y="268">Formati: XPWE · Excel · PDF · CSV</text>
+    <rect class="teal" x="360" y="300" width="260" height="42" rx="6"/><text class="white" x="398" y="326">Apri Wizard di Esportazione</text>
+    <rect class="nameTag" x="28" y="382" width="185" height="28" rx="5"/><text class="nameText" x="42" y="401">Wizard Esportazione</text>
+    <text class="tiny" x="232" y="401">Formato Export · Intestazione · Opzioni · Logo PDF · Esporta / Chiudi</text>
+  </g>
+
+  <!-- Secondary -->
+  <g transform="translate(1140,2090)">
+    <rect class="card" width="980" height="470" rx="8"/>
+    <text class="h1" x="28" y="42">Strumenti secondari</text>
+    <rect class="sub" x="28" y="82" width="292" height="316" rx="6"/>
+    <text class="sectionLabel" x="50" y="112">Health</text>
+    <rect class="teal" x="50" y="134" width="140" height="32" rx="5"/><text class="white" x="70" y="155">Esegui controllo</text>
+    <text class="tiny" x="50" y="196">KPI: Assegnazioni</text>
+    <text class="tiny" x="50" y="220">Anomalie Quantità</text>
+    <text class="tiny" x="50" y="244">Mismatch semantici AI</text>
+    <text class="tiny" x="50" y="280">Tabelle: AnomaliesGrid</text>
+    <text class="tiny" x="50" y="304">MismatchesGrid</text>
+
+    <rect class="sub" x="344" y="82" width="292" height="316" rx="6"/>
+    <text class="sectionLabel" x="366" y="112">Filtri Vista</text>
+    <text class="tiny" x="366" y="150">PlaceholderView</text>
+    <text class="tiny" x="366" y="184">CME_Taggati</text>
+    <text class="tiny" x="366" y="208">CME_Mancanti</text>
+    <text class="tiny" x="366" y="232">CME_Anomalie</text>
+
+    <rect class="sub" x="660" y="82" width="292" height="316" rx="6"/>
+    <text class="sectionLabel" x="682" y="112">Viste CME</text>
+    <text class="tiny" x="682" y="150">PlaceholderView</text>
+    <text class="tiny" x="682" y="184">Vista 3D isometrica</text>
+    <text class="tiny" x="682" y="208">Piante 2D per livello</text>
+    <text class="tiny" x="682" y="232">Schedule: Assegnazioni</text>
+    <text class="tiny" x="682" y="256">Mancanti / Nuovi Prezzi</text>
+  </g>
+
+  <!-- Dialogs / legacy note -->
+  <rect class="card" x="80" y="2620" width="2040" height="260" rx="8"/>
+  <text class="h1" x="110" y="2662">Finestre e dialog accessori</text>
+  <rect class="sub" x="110" y="2690" width="430" height="150" rx="6"/>
+  <text class="sectionLabel" x="132" y="2720">AddSharedParameterDialog</text>
+  <text class="tiny" x="132" y="2750">Nome parametro · Descrizione · File Shared Parameters</text>
+  <text class="tiny" x="132" y="2774">Pulsanti: Annulla / Crea e aggiungi</text>
+  <rect class="sub" x="570" y="2690" width="430" height="150" rx="6"/>
+  <text class="sectionLabel" x="592" y="2720">CatalogBrowserWindow</text>
+  <text class="tiny" x="592" y="2750">Sfoglia Listino</text>
+  <text class="tiny" x="592" y="2774">Ricerca voci, preferiti, dettaglio</text>
+  <rect class="sub" x="1030" y="2690" width="430" height="150" rx="6"/>
+  <text class="sectionLabel" x="1052" y="2720">ChapterEditorPopup</text>
+  <text class="tiny" x="1052" y="2750">Codice · Nome</text>
+  <text class="tiny" x="1052" y="2774">Pulsanti: OK / Annulla</text>
+  <rect class="sub" x="1490" y="2690" width="590" height="150" rx="6"/>
+  <text class="sectionLabel" x="1512" y="2720">Legacy / non nel workflow principale</text>
+  <text class="tiny" x="1512" y="2750">Mapping Sorgenti · Fasi Revit · SettingsDialog</text>
+  <text class="tiny" x="1512" y="2774">Esistono nel codice ma non sono schede principali del workflow attuale.</text>
+
+  <!-- Footer explanation -->
+  <rect class="soft" x="80" y="2920" width="2040" height="120" rx="8"/>
+  <text class="h1" x="110" y="2962">Come usarla</text>
+  <text class="txt" x="110" y="2996">Dimmi il nome della scheda e il nome della sezione, per esempio: "Listino - Tabella risultati ricerca: togli P.2, MDO%, SIC%" oppure "Selezione - Card Assegna EP: spostala sotto la tabella elementi".</text>
+  <text class="muted" x="110" y="3026">La mappa dettagliata testuale resta in docs/UI_SCREEN_MAP.md. Questa tavola è pensata solo per orientarti visivamente.</text>
+</svg>
