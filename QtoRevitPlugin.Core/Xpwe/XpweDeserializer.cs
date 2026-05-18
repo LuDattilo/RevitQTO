@@ -290,7 +290,7 @@ namespace QtoRevitPlugin.Xpwe
         private static string? NormalizeDate(string? s)
         {
             if (string.IsNullOrWhiteSpace(s)) return null;
-            if (s.Trim() == "30/12/1899") return null;
+            if (s!.Trim() == "30/12/1899") return null;
             return s.Trim();
         }
     }

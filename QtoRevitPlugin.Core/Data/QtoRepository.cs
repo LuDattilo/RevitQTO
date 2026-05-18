@@ -545,12 +545,14 @@ LIMIT @lim;";
             // non ha [NotNullWhen] su quell'overload, quindi disambiguo esplicitamente.
             var src = raw!;
 
-            // Stripper caratteri FTS5 problematici: virgolette, star, parentesi, caret, trattino, colon
+            // Stripper caratteri FTS5 problematici: virgolette, star, parentesi, caret, trattino, colon,
+            // cancelletto, tilde (NEAR), più (AND esplicito)
             var cleaned = new StringBuilder(src.Length);
             foreach (var ch in src)
             {
                 if (ch == '"' || ch == '*' || ch == '(' || ch == ')' ||
-                    ch == '^' || ch == '-' || ch == ':')
+                    ch == '^' || ch == '-' || ch == ':' || ch == '#' ||
+                    ch == '~' || ch == '+')
                 {
                     cleaned.Append(' ');
                 }
