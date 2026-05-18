@@ -7,7 +7,7 @@ namespace QtoRevitPlugin.UI.ViewModels
     /// <summary>
     /// VM di una regola parametrica composta. Osservabile per reagire ai cambiamenti
     /// dei campi con debounce nella ricerca. Converte l'enum ParamOperator in una
-    /// label leggibile (contiene / = / ≠ / &gt; / &lt; / ≥ / ≤) per la ComboBox UI.
+    /// label leggibile (contiene / non contiene / = / ≠ / > / &lt; / ≥ / ≤) per la ComboBox UI.
     /// </summary>
     public partial class ParamFilterRuleVm : ObservableObject
     {
@@ -17,13 +17,14 @@ namespace QtoRevitPlugin.UI.ViewModels
 
         public static string[] OperatorLabels { get; } =
         {
-            "contiene",
-            "=",
-            "\u2260",   // ≠
-            ">",
-            "<",
-            "\u2265",   // ≥
-            "\u2264"    // ≤
+            "contiene",        // 0 = Contains
+            "non contiene",    // 1 = NotContains
+            "=",               // 2 = Equals
+            "≠",          // 3 = NotEquals  (≠)
+            ">",               // 4 = GreaterThan
+            "<",               // 5 = LessThan
+            "≥",          // 6 = GreaterOrEqual (≥)
+            "≤"           // 7 = LessOrEqual    (≤)
         };
 
         /// <summary>Binding bidirezionale per la ComboBox operatore nel XAML.</summary>

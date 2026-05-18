@@ -380,8 +380,9 @@ namespace QtoRevitPlugin.Services
         {
             // Modello flat: ogni regola OR crea un "ramo alternativo".
             // Strategia: accumula risultato corrente, quando arriva OR valuta il ramo.
+            // result = false: identità per OR (un cluster solo AND deve poter fallire da solo).
             bool current = true;
-            bool result = true;
+            bool result = false;
 
             for (int i = 0; i < rules.Count; i++)
             {
