@@ -62,7 +62,7 @@ namespace QtoRevitPlugin.AI.Ollama
                 try
                 {
                     using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-                    var resp = _client.GetAsync("/api/tags", cts.Token).GetAwaiter().GetResult();
+                    var resp = Task.Run(() => _client.GetAsync("/api/tags", cts.Token), cts.Token).GetAwaiter().GetResult();
                     return resp.IsSuccessStatusCode;
                 }
                 catch

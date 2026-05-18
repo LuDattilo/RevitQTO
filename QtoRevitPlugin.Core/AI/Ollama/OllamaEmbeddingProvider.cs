@@ -75,9 +75,8 @@ namespace QtoRevitPlugin.AI.Ollama
                 try
                 {
                     using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-                    // Sync wait: questo è un quick probe, va bene bloccare per 2s max.
-                    // Se si usa in UI thread meglio chiamare IsAvailableAsync dedicato.
-                    var resp = _client.GetAsync("/api/tags", cts.Token).GetAwaiter().GetResult();
+                    // Task.Run evita deadlock su UI thread Revit (STA SynchronizationContext).
+                    var resp = Task.Run(() => _client.GetAsync("/api/tags", cts.Token), cts.Token).GetAwaiter().GetResult();
                     return resp.IsSuccessStatusCode;
                 }
                 catch
