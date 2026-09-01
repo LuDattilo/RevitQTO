@@ -3,7 +3,9 @@ using CommunityToolkit.Mvvm.Input;
 using QtoRevitPlugin.AI;
 using QtoRevitPlugin.Application;
 using QtoRevitPlugin.Models;
+using QtoRevitPlugin.Models.Computi;
 using QtoRevitPlugin.Services;
+using QtoRevitPlugin.Services.Computi;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -79,9 +81,31 @@ namespace QtoRevitPlugin.UI.ViewModels
 
             try
             {
-                IReadOnlyList<QtoAssignment> assignments = repo.GetAssignments(session.Id)
-                    .Where(a => a.AuditStatus == AssignmentStatus.Active)
-                    .ToList();
+                // Fase 0 (riconciliazione): analizza il modello Computi canonico (MeasurementRow), lo
+                // stesso su cui scrive ApplyEp, proiettandolo in QtoAssignment in-memory per il gateway
+                // esistente. Fallback al modello classico se non c'è ancora un ComputoDocument.
+                // Nota: il modello Computi non persiste categoria/famiglia per elemento, quindi il
+                // mismatch semantico AI degrada; le anomalie di quantità restano complete.
+                IReadOnlyList<QtoAssignment> assignments;
+                var computoDoc = repo.GetComputoDocumentBySession(session.Id);
+                if (computoDoc != null)
+                {
+                    var rows = repo.GetMeasurementRows(computoDoc.Id);
+                    var priceIds = rows.Select(r => r.PriceItemId).Where(id => id > 0).Distinct().ToList();
+                    var prices = priceIds.Count == 0
+                        ? new Dictionary<int, PriceItem>()
+                        : repo.GetPriceItems(priceIds).ToDictionary(p => p.Id, p => p);
+                    var subs = rows.ToDictionary(
+                        r => r.Id,
+                        r => repo.GetMeasurementSubRows(r.Id));
+                    assignments = MeasurementToAssignmentProjector.Project(session.Id, rows, subs, prices);
+                }
+                else
+                {
+                    assignments = repo.GetAssignments(session.Id)
+                        .Where(a => a.AuditStatus == AssignmentStatus.Active)
+                        .ToList();
+                }
 
                 if (assignments.Count == 0)
                 {
