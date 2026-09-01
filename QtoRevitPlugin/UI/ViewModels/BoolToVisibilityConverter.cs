@@ -17,6 +17,18 @@ namespace QtoRevitPlugin.UI.ViewModels
             => throw new NotSupportedException();
     }
 
+    /// <summary>Converter WPF: bool → bool negato. Utile per IsEnabled="{Binding X, Converter=InverseBool}".</summary>
+    public class InverseBoolConverter : IValueConverter
+    {
+        public static readonly InverseBoolConverter Instance = new InverseBoolConverter();
+
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+            => !(value is bool b && b);
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => !(value is bool b && b);
+    }
+
     /// <summary>Converter WPF: true → Collapsed, false → Visible. Utile per "nascondi se X è vero" / "mostra se X è falso".</summary>
     public class InverseBoolToVisibilityConverter : IValueConverter
     {

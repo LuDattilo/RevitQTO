@@ -2,6 +2,7 @@ using Autodesk.Revit.DB;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using QtoRevitPlugin.Application;
+using QtoRevitPlugin.Extraction;
 using QtoRevitPlugin.Models;
 using QtoRevitPlugin.Services;
 using QtoRevitPlugin.Services.Computi;
@@ -58,6 +59,25 @@ namespace QtoRevitPlugin.UI.ViewModels
         [ObservableProperty] private string _activeEpCode = "";
         [ObservableProperty] private string _activeEpDescription = "";
         [ObservableProperty] private QuantityMode _quantityMode = QuantityMode.Count;
+
+        // ---- Estrazione avanzata (Port #4): assegnazione per strato prezzato ----
+
+        /// <summary>
+        /// Quando true, "Assegna" non usa la voce EP attiva ma esplode ogni elemento nei suoi strati
+        /// prezzati (una voce per codice di materiale), tramite <see cref="LayerComputoScanner"/> +
+        /// <see cref="ComputoContributionApplier"/>. Elementi senza strati codificati ricadono sul
+        /// percorso diretto (voce EP attiva).
+        /// </summary>
+        [ObservableProperty] private bool _useLayerExtraction;
+
+        /// <summary>Nome del parametro sul Material che porta il codice prezzo (configurabile per progetto).</summary>
+        [ObservableProperty] private string _materialCodeParameter = "Codice Prezzo";
+
+        /// <summary>Nome del parametro sul Material che porta l'UM della voce (mq|mc|kg).</summary>
+        [ObservableProperty] private string _materialUnitParameter = "UM Voce";
+
+        /// <summary>Nome del parametro sul Material che porta la densità (kg/mc) per le voci a peso.</summary>
+        [ObservableProperty] private string _materialDensityParameter = "Densita";
         [ObservableProperty] private string _assignPreview = "";
         [ObservableProperty] private string _assignButtonText = "Assegna";
 
@@ -707,6 +727,14 @@ namespace QtoRevitPlugin.UI.ViewModels
                 var cmeDoc = docSvc.GetOrCreate(sess.Id);
                 AssignEpLogger.Log($"ComputoDocument · id={cmeDoc.Id} · tipo={cmeDoc.TipoDocumento}");
 
+                // Estrazione avanzata (Port #4): esplode gli elementi negli strati prezzati.
+                // Percorso separato, non tocca la logica di assegnazione diretta sottostante.
+                if (UseLayerExtraction)
+                {
+                    ApplyLayerExtraction(repo, cmeDoc, doc);
+                    return;
+                }
+
                 // 2. Risolvi PriceItem per Code.
                 // Il Listino (ricerca ibrida + preferiti) popola ActiveEpCode con voci che
                 // vivono nella UserLibrary globale (%AppData%\QtoPlugin\UserLibrary.db),
@@ -831,6 +859,100 @@ namespace QtoRevitPlugin.UI.ViewModels
                 LastAssignIsSuccess = false;
                 LastAssignSummary = $"⚠ Errore: {ex.Message}";
             }
+        }
+
+        /// <summary>
+        /// Assegnazione per estrazione avanzata (Port #4): esplode ogni elemento selezionato nei suoi
+        /// strati prezzati e li applica come voci di computo (una per codice materiale) tramite
+        /// <see cref="LayerComputoScanner"/> + <see cref="ComputoContributionApplier"/>. Gli elementi
+        /// senza strati codificati sono contati come "fallback diretto" e riportati (l'utente li assegna
+        /// con il percorso a voce EP attiva).
+        /// </summary>
+        private void ApplyLayerExtraction(QtoRevitPlugin.Data.QtoRepository repo,
+            QtoRevitPlugin.Models.Computi.ComputoDocument cmeDoc, Document doc)
+        {
+            var scanner = new LayerComputoScanner(doc);
+            var contributions = new List<ComputoContribution>();
+            int direttiFallback = 0;
+
+            foreach (var elVm in SelectedElements)
+            {
+#if REVIT2025_OR_LATER
+                var el = doc.GetElement(new ElementId((long)elVm.ElementId));
+#else
+                var el = doc.GetElement(new ElementId(elVm.ElementId));
+#endif
+                if (el == null) continue;
+
+                var explosion = scanner.Explode(el, MaterialCodeParameter, MaterialUnitParameter, MaterialDensityParameter);
+                if (explosion.UseDirect)
+                {
+                    direttiFallback++;   // nessuno strato codificato: percorso diretto
+                    continue;
+                }
+
+                var category = el.Category?.Name;
+                foreach (var c in explosion.Contributions)
+                {
+                    contributions.Add(new ComputoContribution
+                    {
+                        ElementId = elVm.ElementId,
+                        Category = category,
+                        FamilyName = elVm.FamilyName,
+                        Code = c.Code,
+                        Um = c.Um,
+                        Quantity = c.Quantity,
+                        Descrizione = c.ShortDescription,
+                        Computed = c.Computed,
+                        Note = c.Note,
+                    });
+                }
+            }
+
+            if (contributions.Count == 0)
+            {
+                StatusMessage = direttiFallback > 0
+                    ? $"Nessuno strato prezzato: {direttiFallback} elementi hanno solo materiali senza codice '{MaterialCodeParameter}'."
+                    : "Nessun contributo da estrazione avanzata sugli elementi selezionati.";
+                LastAssignIsSuccess = false;
+                return;
+            }
+
+            var applier = new ComputoContributionApplier(new MeasurementService(repo));
+            var res = applier.Apply(cmeDoc.Id, contributions, code => ResolvePriceItemIdByCode(code, repo));
+
+            QtoApplication.Instance?.SessionManager?.NotifyAssignmentsChanged();
+
+            var parts = new List<string> { $"✓ {res.VociCreate} voci · {res.SubRowsAggiunte} misure da strati" };
+            if (res.DaCompletareAMano > 0) parts.Add($"{res.DaCompletareAMano} da completare a mano");
+            if (res.CodiciNonRisolti.Count > 0)
+                parts.Add($"{res.CodiciNonRisolti.Count} codici non trovati ({string.Join(", ", res.CodiciNonRisolti.Take(3))})");
+            if (direttiFallback > 0) parts.Add($"{direttiFallback} senza strati (percorso diretto)");
+
+            StatusMessage = string.Join(" · ", parts);
+            LastAssignSummary = StatusMessage;
+            LastAssignIsSuccess = res.VociCreate > 0;
+            AssignEpLogger.Log($"LayerExtraction · {StatusMessage}");
+        }
+
+        /// <summary>
+        /// Risolve un codice prezzo al PriceItemId del .cme, con copy-on-use dalla UserLibrary (stessa
+        /// strategia della risoluzione della voce EP attiva in ApplyEp). Null se non trovato in nessuno dei due.
+        /// </summary>
+        private int? ResolvePriceItemIdByCode(string code, QtoRevitPlugin.Data.QtoRepository repo)
+        {
+            var codeLookup = (code ?? "").Trim();
+            if (codeLookup.Length == 0) return null;
+
+            var existing = repo.GetPriceItemsByCode(codeLookup).FirstOrDefault();
+            if (existing != null) return existing.Id;
+
+            var userLib = QtoApplication.Instance?.UserLibrary?.Library;
+            var source = userLib?.GetPriceItemsByCode(codeLookup).FirstOrDefault();
+            if (source == null) return null;
+
+            var copied = CopyPriceItemToCmeRepo(source, repo);
+            return copied.Id;
         }
     }
 

@@ -402,7 +402,16 @@
                               ItemsSource="{Binding QuantityModeOptions}"
                               SelectedValuePath="Mode"
                               DisplayMemberPath="Label"
-                              SelectedValue="{Binding QuantityMode, Mode=TwoWay}"/>
+                              SelectedValue="{Binding QuantityMode, Mode=TwoWay}"
+                              IsEnabled="{Binding UseLayerExtraction, Converter={x:Static vm:InverseBoolConverter.Instance}}"/>
+
+                    <!-- Port #4: modalità estrazione avanzata (una voce per strato prezzato) -->
+                    <CheckBox Margin="16,0,0,0" VerticalAlignment="Center"
+                              IsChecked="{Binding UseLayerExtraction, Mode=TwoWay}"
+                              Content="Estrazione avanzata (strati)"
+                              FontSize="10"
+                              Foreground="{DynamicResource InkDefaultBrush}"
+                              ToolTip="Esplode ogni elemento nei suoi strati prezzati (una voce per codice di materiale) invece di assegnare la voce EP attiva. Gli elementi senza strati codificati ricadono sul percorso diretto."/>
                 </StackPanel>
 
                 <!-- Riga 3: preview + bottone applica (testo e preview dinamici in base alla selezione) -->
