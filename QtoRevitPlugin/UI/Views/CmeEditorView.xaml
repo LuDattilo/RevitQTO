@@ -23,10 +23,9 @@
             <TextBlock Grid.Column="0" Text="Redazione CME" Style="{DynamicResource ViewTitleStyle}" />
             <Button Grid.Column="2" x:Name="BtnPopout" Click="OnPopoutClick"
                     Content="⤢ Apri in finestra"
-                    Padding="8,3" FontSize="10"
-                    Background="Transparent" Foreground="{DynamicResource InkDimBrush}"
-                    BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1"
-                    Cursor="Hand" VerticalAlignment="Center"
+                    Style="{DynamicResource BtnTool}"
+                    Foreground="{DynamicResource InkDimBrush}"
+                    VerticalAlignment="Center"
                     ToolTip="Apre la scheda Redazione CME in una finestra separata per workflow multi-monitor"/>
         </Grid>
 
@@ -44,7 +43,7 @@
             <!-- COL 1 · Navigatore -->
             <Border Grid.Column="0"
                     BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1"
-                    Padding="6" Background="White">
+                    Padding="6" Background="{DynamicResource PanelBgBrush}">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -85,10 +84,10 @@
                 <DataGrid ItemsSource="{Binding VisibleRows}"
                           AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
                           HeadersVisibility="Column" RowDetailsVisibilityMode="VisibleWhenSelected"
-                          Background="White" BorderThickness="0" FontSize="11" RowHeight="22"
+                          Background="{DynamicResource PanelBgBrush}" BorderThickness="0" FontSize="11" RowHeight="22"
                           IsReadOnly="True">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Codice"       Binding="{Binding Code}" Width="120" FontFamily="Consolas"/>
+                        <DataGridTextColumn Header="Codice"       Binding="{Binding Code}" Width="120" FontFamily="{DynamicResource FontMono}"/>
                         <DataGridTextColumn Header="Descrizione"  Binding="{Binding DesRidotta}" Width="*"/>
                         <DataGridTextColumn Header="UM"           Binding="{Binding Unit}" Width="50"/>
                         <DataGridTextColumn Header="Qta"          Binding="{Binding QuantitaFormatted}" Width="80"/>
@@ -108,7 +107,7 @@
                                             <TextBlock Grid.Column="0" Text="{Binding Descrizione}" FontSize="10"
                                                        Foreground="{DynamicResource InkMutedBrush}" TextTrimming="CharacterEllipsis"/>
                                             <TextBlock Grid.Column="1" Text="{Binding Formula}" FontSize="10"
-                                                       FontFamily="Consolas" Margin="8,0,0,0"
+                                                       FontFamily="{DynamicResource FontMono}" Margin="8,0,0,0"
                                                        Foreground="{DynamicResource InkDimBrush}"/>
                                         </Grid>
                                     </DataTemplate>
@@ -122,7 +121,7 @@
             <!-- COL 3 · Quadro economico -->
             <Border Grid.Column="4"
                     BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1"
-                    Padding="10" Background="White">
+                    Padding="10" Background="{DynamicResource PanelBgBrush}">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel>
                         <TextBlock Text="QUADRO ECONOMICO" FontSize="10" FontWeight="Bold"

@@ -109,7 +109,8 @@
                             </Button>
                         </WrapPanel>
 
-                        <TextBlock Text="REVIT 2025 · LIVE"
+                        <TextBlock x:Name="RevitBadge"
+                                   Text="REVIT · LIVE"
                                    HorizontalAlignment="Right"
                                    FontFamily="{DynamicResource FontMono}"
                                    FontSize="10"

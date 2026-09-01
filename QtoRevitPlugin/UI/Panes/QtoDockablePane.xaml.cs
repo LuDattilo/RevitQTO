@@ -98,6 +98,11 @@ namespace QtoRevitPlugin.UI.Panes
                 UpdateSessionMenuEnabled();
                 _switcherBuilt = true;
             }
+
+            // STEP 3: badge versione Revit letto a runtime (niente "2025" hardcoded:
+            // il plugin gira anche su net48/Revit 2024 e precedenti).
+            var ver = QtoApplication.RevitVersionNumber;
+            RevitBadge.Text = string.IsNullOrWhiteSpace(ver) ? "REVIT · LIVE" : $"REVIT {ver} · LIVE";
         }
 
         /// <summary>
@@ -177,9 +182,28 @@ namespace QtoRevitPlugin.UI.Panes
 
         private void UpdateActiveView()
         {
-            // Nessun computo attivo: mostra empty state globale + disabilita switcher
+            // Nessun computo attivo: mostra empty state globale + disabilita switcher.
             if (!_vm.HasActiveSession)
             {
+                // F2: il Listino è persistente e condiviso (UserLibrary in AppData),
+                // indipendente dal file .cme: import/sfoglia/preferiti personali
+                // devono essere accessibili anche prima di creare un computo. Solo la
+                // tab "Preferiti progetto" resta vuota (SetupViewModel è null-safe).
+                var requested = _vm.ActiveView;
+                if (requested != null && requested.Key == QtoViewKey.PriceList)
+                {
+                    if (!_viewCache.TryGetValue(requested.Key, out var listinoView))
+                    {
+                        listinoView = CreateViewFor(requested);
+                        _viewCache[requested.Key] = listinoView;
+                    }
+                    ViewHost.Content = listinoView;
+
+                    foreach (var kv in _buttonCache)
+                        kv.Value.IsChecked = kv.Key == QtoViewKey.PriceList;
+                    return;
+                }
+
                 _noSessionView ??= CreateHomeView();
                 ViewHost.Content = _noSessionView;
 
@@ -213,7 +237,11 @@ namespace QtoRevitPlugin.UI.Panes
                 // ProjectInfoView è montato come primo tab dentro SetupView.
                 QtoViewKey.ProjectSetup => new SetupView(),
                 QtoViewKey.PriceList => new SetupListinoView(),
-                QtoViewKey.Verification => new PreviewView { DataContext = _vm },
+                // F1: "Verifica" ora apre HealthView (strumento di verifica reale:
+                // anomalie z-score + mismatch semantici AI), non più il PreviewView
+                // segnaposto. PreviewView resta raggiungibile solo via chiave Preview
+                // (non presente nel workflow) per eventuale riuso futuro.
+                QtoViewKey.Verification => new HealthView(),
                 QtoViewKey.Preview => new PreviewView { DataContext = _vm },
 
                 QtoViewKey.Setup => new SetupView(),
@@ -292,7 +320,9 @@ namespace QtoRevitPlugin.UI.Panes
 
             // Switcher view: abilitati solo se c'è un computo aperto
             foreach (var kv in _buttonCache)
-                kv.Value.IsEnabled = hasActive || kv.Key == QtoViewKey.Home;
+                kv.Value.IsEnabled = hasActive
+                                     || kv.Key == QtoViewKey.Home
+                                     || kv.Key == QtoViewKey.PriceList; // F2: Listino sempre accessibile
 
             // Aggiorna contenuto (passa a empty state se sessione chiusa)
             UpdateActiveView();

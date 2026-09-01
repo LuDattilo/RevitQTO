@@ -19,7 +19,7 @@
                                    Text="L'analisi prezzi secondo D.Lgs. 36/2023 All. II.14 sarà abilitata in un prossimo rilascio. La tabella NuoviPrezzi nel database SQLite è già predisposta con i campi: Codice, Descrizione, Unità, PrezzoUnitario, Manodopera, Materiali, Noli, Trasporti, SpeseGenerali (15% default), UtileImpresa (10% default)." />
                         <TextBlock Margin="0,12,0,0" FontSize="10" FontStyle="Italic"
                                    Foreground="{DynamicResource InkMutedBrush}"
-                                   Text="Feature tracker: Sprint 11+" />
+                                   Text="Modulo previsto in un prossimo rilascio." />
                     </StackPanel>
                 </Border>
             </StackPanel>

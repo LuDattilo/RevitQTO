@@ -18,7 +18,7 @@
 
         <!-- Tab switcher Selezione / Riepilogo -->
         <StackPanel Grid.Row="1" Orientation="Horizontal"
-                    Background="White"
+                    Background="{DynamicResource PanelBgBrush}"
                     Margin="16,0,16,0"
                     >
             <ToggleButton x:Name="TabSelection" Style="{DynamicResource SwitcherButton}"
@@ -44,14 +44,14 @@
                             BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1"
                             CornerRadius="3">
                         <StackPanel>
-                            <TextBlock Text="DISPONIBILE DAL" Style="{DynamicResource SectionLabelStyle}" Margin="0,0,0,2" />
-                            <TextBlock Text="Sprint 5 — Tagging"
+                            <TextBlock Text="ANTEPRIMA LIVE" Style="{DynamicResource SectionLabelStyle}" Margin="0,0,0,2" />
+                            <TextBlock Text="Assegna una voce agli elementi selezionati"
                                        FontSize="12" FontWeight="SemiBold"
                                        Foreground="{DynamicResource InkDefaultBrush}" />
                             <TextBlock Margin="0,4,0,0" FontSize="11"
                                        Foreground="{DynamicResource InkMutedBrush}"
                                        TextWrapping="Wrap"
-                                       Text="Le quantità live richiedono listino caricato (Sprint 2) e MeasurementRulesEngine (Sprint 6)." />
+                                       Text="Le quantità live richiedono un listino caricato e le regole di misura configurate." />
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -101,7 +101,7 @@
                     <TextBlock Margin="0,16,0,0" FontSize="11"
                                Foreground="{DynamicResource InkMutedBrush}"
                                TextWrapping="Wrap"
-                               Text="La tabella aggregata per voce EP sarà disponibile dallo Sprint 3 quando le assegnazioni verranno scritte in DB." />
+                               Text="La tabella aggregata per voce EP compare quando le assegnazioni sono scritte nel computo." />
                 </StackPanel>
             </Grid>
         </Border>

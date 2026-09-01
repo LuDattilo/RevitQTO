@@ -21,8 +21,8 @@
         <TextBox Grid.Row="3" Name="NameBox" VerticalAlignment="Top"/>
 
         <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-            <Button Content="OK" Width="80" Margin="0,0,8,0" Click="OnOkClick" IsDefault="True"/>
-            <Button Content="Annulla" Width="80" Click="OnCancelClick" IsCancel="True"/>
+            <Button Content="OK" MinWidth="80" Margin="0,0,8,0" Click="OnOkClick" IsDefault="True" Style="{DynamicResource BtnPrimary}"/>
+            <Button Content="Annulla" MinWidth="80" Click="OnCancelClick" IsCancel="True" Style="{DynamicResource BtnSecondary}"/>
         </StackPanel>
     </Grid>
 </Window>

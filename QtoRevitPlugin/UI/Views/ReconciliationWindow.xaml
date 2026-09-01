@@ -21,7 +21,7 @@
         <ScrollViewer Grid.Row="1">
             <StackPanel>
                 <!-- Eliminati -->
-                <TextBlock FontWeight="Bold" Foreground="Red" Margin="0,0,0,4">
+                <TextBlock FontWeight="Bold" Foreground="{DynamicResource StateMancanteBrush}" Margin="0,0,0,4">
                     <Run Text="ELIMINATI ("/>
                     <Run Text="{Binding DeletedCount}"/>
                     <Run Text=")"/>
@@ -29,10 +29,10 @@
                 <ItemsControl ItemsSource="{Binding DeletedItems}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border BorderBrush="#FFE0E0" BorderThickness="1" Margin="0,2" Padding="6">
+                            <Border BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1" Margin="0,2" Padding="6">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="{Binding ElementLabel}" Width="130"/>
-                                    <TextBlock Text="{Binding EpCode}" Width="100" Foreground="Gray"/>
+                                    <TextBlock Text="{Binding EpCode}" Width="100" Foreground="{DynamicResource InkMutedBrush}"/>
                                     <TextBlock Text="{Binding OldQtyLabel}" Width="70"/>
                                     <CheckBox Content="Accetta" IsChecked="{Binding Accepted, Mode=TwoWay}" Margin="8,0,0,0"/>
                                 </StackPanel>
@@ -42,7 +42,7 @@
                 </ItemsControl>
 
                 <!-- Modificati -->
-                <TextBlock FontWeight="Bold" Foreground="DarkOrange" Margin="0,8,0,4">
+                <TextBlock FontWeight="Bold" Foreground="{DynamicResource StateParzialeBrush}" Margin="0,8,0,4">
                     <Run Text="MODIFICATI ("/>
                     <Run Text="{Binding ModifiedCount}"/>
                     <Run Text=")"/>
@@ -50,13 +50,13 @@
                 <ItemsControl ItemsSource="{Binding ModifiedItems}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border BorderBrush="#FFF0D0" BorderThickness="1" Margin="0,2" Padding="6">
+                            <Border BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1" Margin="0,2" Padding="6">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="{Binding ElementLabel}" Width="130"/>
                                     <TextBlock Text="{Binding OldQtyLabel}" Width="60"/>
                                     <TextBlock Text=" -> " Width="20"/>
                                     <TextBlock Text="{Binding NewQtyLabel}" Width="60"/>
-                                    <TextBlock Text="{Binding Delta}" Width="60" Foreground="DarkOrange"/>
+                                    <TextBlock Text="{Binding Delta}" Width="60" Foreground="{DynamicResource StateParzialeBrush}"/>
                                     <CheckBox Content="Accetta" IsChecked="{Binding Accepted, Mode=TwoWay}" Margin="8,0,0,0"/>
                                 </StackPanel>
                             </Border>
@@ -65,7 +65,7 @@
                 </ItemsControl>
 
                 <!-- Nuovi -->
-                <TextBlock FontWeight="Bold" Foreground="SteelBlue" Margin="0,8,0,4">
+                <TextBlock FontWeight="Bold" Foreground="{DynamicResource InfoAccentBrush}" Margin="0,8,0,4">
                     <Run Text="NUOVI ("/>
                     <Run Text="{Binding AddedCount}"/>
                     <Run Text=") - non ancora computati"/>
@@ -73,7 +73,7 @@
                 <ItemsControl ItemsSource="{Binding AddedItems}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border BorderBrush="#D0E8FF" BorderThickness="1" Margin="0,2" Padding="6">
+                            <Border BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1" Margin="0,2" Padding="6">
                                 <TextBlock Text="{Binding UniqueId}"/>
                             </Border>
                         </DataTemplate>
@@ -84,11 +84,11 @@
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
             <Button Content="Accetta TUTTO" Command="{Binding AcceptAllCommand}"
-                    Padding="12,4" Margin="0,0,8,0"/>
+                    Style="{DynamicResource BtnSecondary}" Margin="0,0,8,0"/>
             <Button Content="Ignora TUTTO" Command="{Binding IgnoreAllCommand}"
-                    Padding="12,4" Margin="0,0,8,0"/>
-            <Button Padding="12,4" Margin="0,0,8,0"
-                    Background="#1E6FD9" Foreground="White"
+                    Style="{DynamicResource BtnSecondary}" Margin="0,0,8,0"/>
+            <Button Margin="0,0,8,0"
+                    Style="{DynamicResource BtnPrimary}"
                     Command="{Binding ApplyBatchCommand}">
                 <Button.Content>
                     <TextBlock>
@@ -98,7 +98,7 @@
                     </TextBlock>
                 </Button.Content>
             </Button>
-            <Button Content="Chiudi" Click="OnCloseClick" Padding="12,4"/>
+            <Button Content="Chiudi" Click="OnCloseClick" Style="{DynamicResource BtnSecondary}"/>
         </StackPanel>
     </Grid>
 </Window>

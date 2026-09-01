@@ -52,7 +52,7 @@
         <views:SetupListinoView x:Name="EmbeddedSetupListino" Grid.Row="1" />
 
         <!-- Footer chiudi -->
-        <Border Grid.Row="2" Background="White"
+        <Border Grid.Row="2" Background="{DynamicResource PanelBgBrush}"
                 BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="0,1,0,0"
                 Padding="16,8">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">

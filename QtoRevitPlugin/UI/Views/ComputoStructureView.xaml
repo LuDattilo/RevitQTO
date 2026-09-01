@@ -17,14 +17,14 @@
 
         <!-- Toolbar CRUD -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
-            <Button Content="+ Super" Command="{Binding AddSuperCommand}" Margin="0,0,4,0" Padding="6,2"/>
-            <Button Content="+ Cat" Command="{Binding AddCategoryCommand}" Margin="0,0,4,0" Padding="6,2"/>
-            <Button Content="+ Sub" Command="{Binding AddSubCategoryCommand}" Margin="0,0,4,0" Padding="6,2"/>
-            <Button Content="Rinomina" Command="{Binding RenameCommand}" Margin="0,0,4,0" Padding="6,2"/>
-            <Button Content="Elimina" Command="{Binding DeleteCommand}" Margin="0,0,8,0" Padding="6,2"/>
-            <Separator Width="1" Background="#CCCCCC" Margin="0,2,8,2"/>
-            <Button Content="↑" Command="{Binding MoveUpCommand}" Margin="0,0,2,0" Padding="6,2" ToolTip="Sposta su"/>
-            <Button Content="↓" Command="{Binding MoveDownCommand}" Margin="0,0,0,0" Padding="6,2" ToolTip="Sposta giù"/>
+            <Button Content="+ Super" Command="{Binding AddSuperCommand}" Style="{DynamicResource BtnTool}" Margin="0,0,4,0"/>
+            <Button Content="+ Cat" Command="{Binding AddCategoryCommand}" Style="{DynamicResource BtnTool}" Margin="0,0,4,0"/>
+            <Button Content="+ Sub" Command="{Binding AddSubCategoryCommand}" Style="{DynamicResource BtnTool}" Margin="0,0,4,0"/>
+            <Button Content="Rinomina" Command="{Binding RenameCommand}" Style="{DynamicResource BtnTool}" Margin="0,0,4,0"/>
+            <Button Content="Elimina" Command="{Binding DeleteCommand}" Style="{DynamicResource BtnTool}" Margin="0,0,8,0"/>
+            <Separator Width="1" Background="{DynamicResource EdgeMediumBrush}" Margin="0,2,8,2"/>
+            <Button Content="↑" Command="{Binding MoveUpCommand}" Style="{DynamicResource BtnTool}" Margin="0,0,2,0" ToolTip="Sposta su"/>
+            <Button Content="↓" Command="{Binding MoveDownCommand}" Style="{DynamicResource BtnTool}" Margin="0,0,0,0" ToolTip="Sposta giù"/>
         </StackPanel>
 
         <!-- TreeView con drag&drop (GongSolutions) -->
@@ -69,7 +69,7 @@
                         <ComboBox.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="{Binding Code}" FontFamily="Consolas"
+                                    <TextBlock Text="{Binding Code}" FontFamily="{DynamicResource FontMono}"
                                                FontWeight="SemiBold" Width="60" />
                                     <TextBlock Text="{Binding Description}" Foreground="{DynamicResource InkMutedBrush}"
                                                TextTrimming="CharacterEllipsis" />
@@ -84,6 +84,6 @@
             </StackPanel>
         </Border>
 
-        <TextBlock Grid.Row="3" Text="{Binding StatusMessage}" Foreground="Gray" Margin="0,4,0,0"/>
+        <TextBlock Grid.Row="3" Text="{Binding StatusMessage}" Foreground="{DynamicResource InkMutedBrush}" Margin="0,4,0,0"/>
     </Grid>
 </UserControl>
