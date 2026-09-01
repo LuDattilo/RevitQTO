@@ -217,10 +217,12 @@ namespace QtoRevitPlugin.UI.ViewModels
             Views.Add(new QtoViewItem(QtoViewKey.PriceList, "Listino", "§Fase 1 · Listino", 2));
             Views.Add(new QtoViewItem(QtoViewKey.Selection, "Selezione", "§I3", 4));
             Views.Add(new QtoViewItem(QtoViewKey.Tagging, "Redazione CME", "§Plan C-5", 5));
-            Views.Add(new QtoViewItem(QtoViewKey.Verification, "Verifica", "§Fase 11", 1));
+            // "Verifica" apre il pannello Health Check (anomalie z-score + mismatch AI):
+            // è lo strumento di verifica reale del computo, prima relegato ai secondari.
+            Views.Add(new QtoViewItem(QtoViewKey.Verification, "Verifica", "Health check computo", 1));
             Views.Add(new QtoViewItem(QtoViewKey.Export, "Esporta", "§Fase 12", 9));
 
-            SecondaryViews.Add(new QtoViewItem(QtoViewKey.Health, "Health", "§I5", 6));
+            // Strumenti secondari: viste/filtri nativi Revit (roadmap — schermate informative).
             SecondaryViews.Add(new QtoViewItem(QtoViewKey.FilterManager, "Filtri Vista", "§I11", 9));
             SecondaryViews.Add(new QtoViewItem(QtoViewKey.QtoViews, "Viste CME", "§I14", 9));
 

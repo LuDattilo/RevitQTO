@@ -88,7 +88,7 @@
 
                 <TextBlock Grid.Row="2"
                            Margin="0,8,0,0"
-                           Text="{Binding ActivePhaseName, StringFormat='La fase corrente aggiorna Selezione, Tagging, Preview e Struttura Computo · «{0}»'}"
+                           Text="{Binding ActivePhaseName, StringFormat='La fase corrente aggiorna Selezione, Redazione CME, Verifica e Struttura Computo · «{0}»'}"
                            FontSize="11"
                            FontStyle="Italic"
                            Foreground="{DynamicResource InkMutedBrush}"
@@ -304,7 +304,7 @@
                       GridLinesVisibility="Horizontal"
                       RowHeight="22"
                       FontSize="11"
-                      Background="White"
+                      Background="{DynamicResource PanelBgBrush}"
                       BorderThickness="0"
                       IsReadOnly="True"
                       SelectionMode="Extended"
@@ -320,7 +320,7 @@
                 <DataGrid.RowStyle><DynamicResource ResourceKey="BrandDataGridRowStyle"/></DataGrid.RowStyle>
                 <DataGrid.CellStyle><DynamicResource ResourceKey="BrandDataGridCellStyle"/></DataGrid.CellStyle>
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Id"            Binding="{Binding ElementId}"           Width="70"  FontFamily="Consolas" />
+                    <DataGridTextColumn Header="Id"            Binding="{Binding ElementId}"           Width="70"  FontFamily="{DynamicResource FontMono}" />
                     <DataGridTextColumn Header="Famiglia"      Binding="{Binding FamilyName}"          Width="*" />
                     <DataGridTextColumn Header="Tipo"          Binding="{Binding TypeName}"            Width="*" />
                     <DataGridTextColumn Header="Livello"       Binding="{Binding LevelName}"           Width="80" />
@@ -348,25 +348,25 @@
                         Visibility="{Binding LastAssignVisible, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <Border.Style>
                         <Style TargetType="Border">
-                            <Setter Property="Background" Value="#C8E6C9"/>  <!-- success green soft -->
-                            <Setter Property="BorderBrush" Value="#2E7D32"/>
+                            <Setter Property="Background" Value="{DynamicResource StateComputatoSoftBrush}"/>  <!-- success green soft -->
+                            <Setter Property="BorderBrush" Value="{DynamicResource StateComputatoBrush}"/>
                             <Setter Property="BorderThickness" Value="1"/>
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding LastAssignIsSuccess}" Value="False">
-                                    <Setter Property="Background" Value="#FFCDD2"/>  <!-- error red soft -->
-                                    <Setter Property="BorderBrush" Value="#C62828"/>
+                                    <Setter Property="Background" Value="{DynamicResource StateMancanteSoftBrush}"/>  <!-- error red soft -->
+                                    <Setter Property="BorderBrush" Value="{DynamicResource StateMancanteBrush}"/>
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
                     </Border.Style>
                     <TextBlock Text="{Binding LastAssignSummary}"
                                FontSize="12" FontWeight="SemiBold"
-                               Foreground="#1B5E20" TextWrapping="Wrap">
+                               Foreground="{DynamicResource StateComputatoBrush}" TextWrapping="Wrap">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding LastAssignIsSuccess}" Value="False">
-                                        <Setter Property="Foreground" Value="#B71C1C"/>
+                                        <Setter Property="Foreground" Value="{DynamicResource StateMancanteBrush}"/>
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>

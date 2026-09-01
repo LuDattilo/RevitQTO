@@ -54,12 +54,11 @@
                 <Button x:Name="BtnOpenWizard"
                         Content="↗ Apri Wizard di Esportazione"
                         Click="OnOpenWizardClick"
+                        Style="{DynamicResource BtnPrimary}"
                         HorizontalAlignment="Center"
-                        Padding="22,10" FontSize="13" FontWeight="SemiBold"
-                        Background="{DynamicResource BrandAccentBrush}" Foreground="White"
-                        BorderThickness="0" Cursor="Hand" />
+                        Padding="22,10" FontSize="13" />
 
-                <TextBlock Text="Richiede una sessione .cme attiva con almeno una voce assegnata."
+                <TextBlock Text="Richiede una sessione .cme attiva. Il wizard segnala se non ci sono voci da esportare."
                            FontSize="10" FontStyle="Italic"
                            Foreground="{DynamicResource InkMutedBrush}"
                            HorizontalAlignment="Center"

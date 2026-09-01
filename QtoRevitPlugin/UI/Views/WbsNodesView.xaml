@@ -24,7 +24,7 @@
             <TreeView x:Name="WbsTree"
                       ItemsSource="{Binding RootNodes}"
                       SelectedItemChanged="OnSelectedItemChanged"
-                      Background="White" BorderThickness="0" FontSize="12">
+                      Background="{DynamicResource PanelBgBrush}" BorderThickness="0" FontSize="12">
                 <TreeView.ItemTemplate>
                     <HierarchicalDataTemplate ItemsSource="{Binding Children}">
                         <TextBlock Text="{Binding DisplayLabel}"/>

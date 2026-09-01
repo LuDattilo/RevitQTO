@@ -31,13 +31,13 @@
             <TabItem Header="Struttura Computo">
                 <views:ComputoStructureView />
             </TabItem>
-            <TabItem Header="Capitoli (v12)">
+            <TabItem Header="Capitoli">
                 <views:ChapterNodesView />
             </TabItem>
-            <TabItem Header="Categorie (v12)">
+            <TabItem Header="Categorie">
                 <views:CategoryNodesView />
             </TabItem>
-            <TabItem Header="WBS (v12)">
+            <TabItem Header="WBS">
                 <views:WbsNodesView />
             </TabItem>
             <TabItem Header="Nuovi Prezzi">

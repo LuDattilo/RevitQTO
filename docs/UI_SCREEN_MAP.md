@@ -21,7 +21,7 @@ File: `QtoRevitPlugin/UI/Panes/QtoDockablePane.xaml`
   - `Chiudi computo`
   - `Elimina…`
   - `Impostazioni…`
-- Badge: `REVIT 2025 · LIVE`
+- Badge: `REVIT <versione> · LIVE` (versione host letta a runtime da `QtoApplication.RevitVersionNumber`)
 
 ### KPI header
 - `Progresso` con `ProgressText`
@@ -41,9 +41,9 @@ File: `QtoRevitPlugin/UI/Panes/QtoDockablePane.xaml`
   - `Esporta`
 - Sezione: `Strumenti secondari`
 - Strumenti secondari:
-  - `Health`
   - `Filtri Vista`
   - `Viste CME`
+- Nota: la voce `Verifica` del workflow primario apre `HealthView` (Health Check). Il `Listino` è accessibile anche senza sessione .cme attiva (libreria persistente in AppData).
 - Area contenuto: `ViewHost`
 - Barra stato inferiore: `StatusMessage`
 
@@ -92,9 +92,9 @@ File: `QtoRevitPlugin/UI/Views/SetupView.xaml`
 Schermata contenitore con titolo `Setup` e tab interne:
 - `Informazioni`
 - `Struttura Computo`
-- `Capitoli (v12)`
-- `Categorie (v12)`
-- `WBS (v12)`
+- `Capitoli`
+- `Categorie`
+- `WBS`
 - `Nuovi Prezzi`
 
 ## 2.1 Informazioni Progetto
@@ -152,7 +152,7 @@ File: `QtoRevitPlugin/UI/Views/ComputoStructureView.xaml`
   - `SelectedNodeSoa`
 - Stato: `StatusMessage`
 
-## 2.3 Capitoli (v12)
+## 2.3 Capitoli
 
 File: `QtoRevitPlugin/UI/Views/ChapterNodesView.xaml`
 
@@ -172,7 +172,7 @@ File: `QtoRevitPlugin/UI/Views/ChapterNodesView.xaml`
   - `Aggiorna`
 - Stato: `StatusMessage`
 
-## 2.4 Categorie (v12)
+## 2.4 Categorie
 
 File: `QtoRevitPlugin/UI/Views/CategoryNodesView.xaml`
 
@@ -192,7 +192,7 @@ File: `QtoRevitPlugin/UI/Views/CategoryNodesView.xaml`
   - `Aggiorna`
 - Stato: `StatusMessage`
 
-## 2.5 WBS (v12)
+## 2.5 WBS
 
 File: `QtoRevitPlugin/UI/Views/WbsNodesView.xaml`
 
@@ -232,7 +232,7 @@ Schermata placeholder.
   - `Trasporti`
   - `SpeseGenerali`
   - `UtileImpresa`
-- Tracker: `Sprint 11+`
+- Nota: modulo previsto in un prossimo rilascio.
 
 ## 3. Listino
 
@@ -468,30 +468,9 @@ File: `QtoRevitPlugin/UI/Views/CmeEditorView.xaml`
 
 ## 6. Verifica
 
-Nel menu principale la voce `Verifica` apre `PreviewView`.
+Nel menu principale la voce `Verifica` apre ora `HealthView` (Health Check: anomalie quantità con z-score + mismatch semantici AI). Il dettaglio dei controlli è documentato nella sezione `8. Health`.
 
-File: `QtoRevitPlugin/UI/Views/PreviewView.xaml`
-
-### Header
-- Titolo: `Preview Live`
-- Contesto: `PreviewPhaseContext`
-
-### Switch tab
-- `Selezione Corrente`
-- `Riepilogo`
-
-### Tab Selezione Corrente
-- Sezione: `NESSUN ELEMENTO SELEZIONATO`
-- Box: `DISPONIBILE DAL`
-- Testo: `Sprint 5 — Tagging`
-
-### Tab Riepilogo
-- Sezione: `AVANZAMENTO SESSIONE`
-- ProgressBar: `TaggedPercent`
-- Testo progresso: `ProgressText`
-- KPI:
-  - `ELEMENTI TOTALI` con `TotalElements`
-  - `IMPORTO PARZIALE` con `AmountText`
+`PreviewView` (ex "Preview Live") resta nel codice ma non è più raggiungibile dal workflow principale; il suo riepilogo di avanzamento è ridondante con i KPI dell'header e della Home.
 
 ## 7. Esporta
 
@@ -510,7 +489,7 @@ File: `QtoRevitPlugin/UI/Views/ExportView.xaml`
 - Pulsante:
   - `↗ Apri Wizard di Esportazione`
 - Nota:
-  - `Richiede una sessione .cme attiva con almeno una voce assegnata.`
+  - `Richiede una sessione .cme attiva. Il wizard segnala se non ci sono voci da esportare.`
 
 ## 7.1 Wizard Esportazione
 

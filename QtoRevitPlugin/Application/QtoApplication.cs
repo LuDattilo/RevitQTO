@@ -23,6 +23,12 @@ namespace QtoRevitPlugin.Application
     {
         public static QtoApplication Instance { get; private set; } = null!;
 
+        /// <summary>
+        /// Numero versione di Revit host (es. "2025"), catturato in OnStartup.
+        /// Usato dal badge dell'header del DockablePane per non hardcodare "2025".
+        /// </summary>
+        public static string RevitVersionNumber { get; private set; } = "";
+
         /// <summary>Guid stabile esposto come alias del PaneId nel provider (comodità LaunchQtoCommand).</summary>
         public static DockablePaneId PaneId => QtoConstants.MainPaneId;
 
@@ -49,6 +55,7 @@ namespace QtoRevitPlugin.Application
         public Result OnStartup(UIControlledApplication application)
         {
             Instance = this;
+            RevitVersionNumber = application.ControlledApplication.VersionNumber ?? "";
             CrashLogger.Reset();
             CrashLogger.InstallGlobalHandlers();
             CrashLogger.Info($"OnStartup begin · Revit {application.ControlledApplication.VersionName}");

@@ -49,16 +49,16 @@
             <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
                 <TextBlock Text="Logo (PDF):" VerticalAlignment="Center"/>
                 <TextBox Text="{Binding CompanyLogoPath, Mode=TwoWay}" Width="220" Margin="6,0,0,0"/>
-                <Button Content="Sfoglia..." Command="{Binding BrowseLogoCommand}" Margin="6,0,0,0"/>
+                <Button Content="Sfoglia..." Command="{Binding BrowseLogoCommand}" Style="{DynamicResource BtnTool}" Margin="6,0,0,0"/>
             </StackPanel>
         </StackPanel>
 
-        <TextBlock Grid.Row="7" Text="{Binding StatusMessage}" Foreground="Gray" Margin="0,8,0,4"/>
+        <TextBlock Grid.Row="7" Text="{Binding StatusMessage}" Foreground="{DynamicResource InkMutedBrush}" Margin="0,8,0,4"/>
         <StackPanel Grid.Row="8" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="Esporta" Width="100" Padding="8,4" Margin="0,0,8,0"
+            <Button Content="Esporta" MinWidth="100" Margin="0,0,8,0"
                     Command="{Binding ExportCommand}"
-                    Background="#1E6FD9" Foreground="White"/>
-            <Button Content="Chiudi" Width="80" Padding="8,4" Click="OnCloseClick"/>
+                    Style="{DynamicResource BtnPrimary}"/>
+            <Button Content="Chiudi" MinWidth="80" Click="OnCloseClick" Style="{DynamicResource BtnSecondary}"/>
         </StackPanel>
     </Grid>
 </Window>

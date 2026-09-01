@@ -103,6 +103,13 @@
     <Color x:Key="InfoAccent">#1976D2</Color>
     <Color x:Key="Placeholder">#AAAAAA</Color>
 
+    <!-- Overlay scuro semi-trasparente per pannelli inset sopra il chrome slate
+         (sostituisce il vecchio hardcoded #221C1917 in HomeView). -->
+    <Color x:Key="ChromeOverlay">#22000000</Color>
+    <!-- Soft fill per banner esito (success/error) — derivati dagli State semantici. -->
+    <Color x:Key="StateComputatoSoft">#DCFCE7</Color>
+    <Color x:Key="StateMancanteSoft">#FEE2E2</Color>
+
     <!-- ============================================================
          BRUSHES — generati dai Color sopra. Nomi INVARIATI.
          ============================================================ -->
@@ -140,6 +147,9 @@
     <SolidColorBrush x:Key="BannerWarnTextBrush" Color="{StaticResource BannerWarnText}" />
     <SolidColorBrush x:Key="InfoAccentBrush" Color="{StaticResource InfoAccent}" />
     <SolidColorBrush x:Key="PlaceholderBrush" Color="{StaticResource Placeholder}" />
+    <SolidColorBrush x:Key="ChromeOverlayBrush" Color="{StaticResource ChromeOverlay}" />
+    <SolidColorBrush x:Key="StateComputatoSoftBrush" Color="{StaticResource StateComputatoSoft}" />
+    <SolidColorBrush x:Key="StateMancanteSoftBrush" Color="{StaticResource StateMancanteSoft}" />
 
     <!-- ============================================================
          TYPOGRAPHY — Segoe UI (native Revit/Windows)

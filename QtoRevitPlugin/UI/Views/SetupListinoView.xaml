@@ -82,7 +82,7 @@
                           Tag="{Binding}"
                           AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
                           HeadersVisibility="Column" GridLinesVisibility="None" RowHeight="24"
-                          FontSize="11" Background="White" BorderThickness="1"
+                          FontSize="11" Background="{DynamicResource PanelBgBrush}" BorderThickness="1"
                           BorderBrush="{DynamicResource EdgeLightBrush}">
                     <DataGrid.Columns>
                         <DataGridCheckBoxColumn Header="Attivo"   Binding="{Binding IsActive, UpdateSourceTrigger=PropertyChanged}" Width="55" />
@@ -142,7 +142,7 @@
                                  Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
                                  FontSize="13" Padding="8,6"
                                  BorderBrush="{DynamicResource EdgeLightBrush}" BorderThickness="1"
-                                 Background="White" />
+                                 Background="{DynamicResource PanelBgBrush}" />
                         <ComboBox Grid.Column="1"
                                   Margin="8,0,8,0"
                                   ItemsSource="{Binding AvailableScopes}"
@@ -180,7 +180,7 @@
                                       Tag="{Binding}"
                                       AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
                                       HeadersVisibility="Column" GridLinesVisibility="Horizontal" RowHeight="24"
-                                      FontSize="11" Background="White" BorderThickness="1"
+                                      FontSize="11" Background="{DynamicResource PanelBgBrush}" BorderThickness="1"
                                       BorderBrush="{DynamicResource EdgeLightBrush}"
                                       MaxHeight="380"
                                       RowDetailsVisibilityMode="VisibleWhenSelected"
@@ -199,7 +199,7 @@
                                                 <TextBlock FontSize="11" FontWeight="Bold"
                                                            Foreground="{DynamicResource BrandAccentDeepBrush}"
                                                            TextWrapping="Wrap">
-                                                    <Run Text="{Binding Code, Mode=OneWay}" FontFamily="Consolas"/>
+                                                    <Run Text="{Binding Code, Mode=OneWay}" FontFamily="{DynamicResource FontMono}"/>
                                                     <Run Text=" · "/>
                                                     <Run Text="{Binding UnitPriceFormatted, Mode=OneWay}"/>
                                                     <Run Text=" · "/>
@@ -253,7 +253,7 @@
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
-                                    <DataGridTextColumn Header="Codice"      Binding="{Binding Code}"              Width="130" FontFamily="Consolas" />
+                                    <DataGridTextColumn Header="Codice"      Binding="{Binding Code}"              Width="130" FontFamily="{DynamicResource FontMono}" />
                                     <DataGridTextColumn Header="Descrizione" Binding="{Binding ShortDescTrimmed}"  Width="*" />
                                     <DataGridTextColumn Header="U.M."        Binding="{Binding Unit}"              Width="50" />
                                     <DataGridTextColumn Header="Prezzo"      Binding="{Binding UnitPriceFormatted}" Width="80" />
@@ -339,7 +339,7 @@
                                 </Grid>
 
                                 <!-- Placeholder empty-state -->
-                                <Border Grid.Row="1" Background="White" BorderThickness="0" Padding="20,16"
+                                <Border Grid.Row="1" Background="{DynamicResource PanelBgBrush}" BorderThickness="0" Padding="20,16"
                                         Visibility="{Binding ProjectFavoritesIsEmpty,
                                                      Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -364,7 +364,7 @@
                                           Tag="{Binding}"
                                           AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
                                           HeadersVisibility="Column" GridLinesVisibility="None" RowHeight="24"
-                                          FontSize="11" Background="White" BorderThickness="1"
+                                          FontSize="11" Background="{DynamicResource PanelBgBrush}" BorderThickness="1"
                                           BorderBrush="{DynamicResource EdgeLightBrush}"
                                           MaxHeight="380"
                                           RowDetailsVisibilityMode="VisibleWhenSelected"
@@ -380,7 +380,7 @@
                                                 <StackPanel>
                                                     <TextBlock FontSize="10" FontWeight="Bold"
                                                                Foreground="{DynamicResource BrandAccentDeepBrush}">
-                                                        <Run Text="{Binding Code, Mode=OneWay}" FontFamily="Consolas"/>
+                                                        <Run Text="{Binding Code, Mode=OneWay}" FontFamily="{DynamicResource FontMono}"/>
                                                         <Run Text=" · "/>
                                                         <Run Text="{Binding UnitPriceFormatted, Mode=OneWay}"/>
                                                         <Run Text=" · "/>
@@ -407,7 +407,7 @@
                                                                 <Setter Property="Foreground" Value="{DynamicResource InkMutedBrush}"/>
                                                                 <Style.Triggers>
                                                                     <DataTrigger Binding="{Binding IsUsedInComputo}" Value="True">
-                                                                        <Setter Property="Foreground" Value="#2E7D32"/>
+                                                                        <Setter Property="Foreground" Value="{DynamicResource StateComputatoBrush}"/>
                                                                     </DataTrigger>
                                                                 </Style.Triggers>
                                                             </Style>
@@ -416,7 +416,7 @@
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
-                                        <DataGridTextColumn Header="Codice"      Binding="{Binding Code}"               Width="130" FontFamily="Consolas" IsReadOnly="True"/>
+                                        <DataGridTextColumn Header="Codice"      Binding="{Binding Code}"               Width="130" FontFamily="{DynamicResource FontMono}" IsReadOnly="True"/>
                                         <DataGridTemplateColumn Header="Descrizione" Width="*" SortMemberPath="Description">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
@@ -544,7 +544,7 @@
                                     </Button>
                                 </Grid>
 
-                                <Border Grid.Row="1" Background="White" BorderThickness="0" Padding="20,16"
+                                <Border Grid.Row="1" Background="{DynamicResource PanelBgBrush}" BorderThickness="0" Padding="20,16"
                                         Visibility="{Binding PersonalFavoritesIsEmpty,
                                                      Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -569,7 +569,7 @@
                                           Tag="{Binding}"
                                           AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
                                           HeadersVisibility="Column" GridLinesVisibility="None" RowHeight="24"
-                                          FontSize="11" Background="White" BorderThickness="1"
+                                          FontSize="11" Background="{DynamicResource PanelBgBrush}" BorderThickness="1"
                                           BorderBrush="{DynamicResource EdgeLightBrush}"
                                           MaxHeight="380"
                                           RowDetailsVisibilityMode="VisibleWhenSelected"
@@ -585,7 +585,7 @@
                                                 <StackPanel>
                                                     <TextBlock FontSize="10" FontWeight="Bold"
                                                                Foreground="{DynamicResource BrandAccentDeepBrush}">
-                                                        <Run Text="{Binding Code, Mode=OneWay}" FontFamily="Consolas"/>
+                                                        <Run Text="{Binding Code, Mode=OneWay}" FontFamily="{DynamicResource FontMono}"/>
                                                         <Run Text=" · "/>
                                                         <Run Text="{Binding UnitPriceFormatted, Mode=OneWay}"/>
                                                         <Run Text=" · "/>
@@ -611,7 +611,7 @@
                                                                 <Setter Property="Foreground" Value="{DynamicResource InkMutedBrush}"/>
                                                                 <Style.Triggers>
                                                                     <DataTrigger Binding="{Binding IsUsedInComputo}" Value="True">
-                                                                        <Setter Property="Foreground" Value="#2E7D32"/>
+                                                                        <Setter Property="Foreground" Value="{DynamicResource StateComputatoBrush}"/>
                                                                     </DataTrigger>
                                                                 </Style.Triggers>
                                                             </Style>
@@ -620,7 +620,7 @@
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
-                                        <DataGridTextColumn Header="Codice"      Binding="{Binding Code}"               Width="130" FontFamily="Consolas" IsReadOnly="True"/>
+                                        <DataGridTextColumn Header="Codice"      Binding="{Binding Code}"               Width="130" FontFamily="{DynamicResource FontMono}" IsReadOnly="True"/>
                                         <DataGridTemplateColumn Header="Descrizione" Width="*" SortMemberPath="Description">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
@@ -724,7 +724,7 @@
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="{Binding Code}"
-                                               FontFamily="Consolas" FontSize="12" FontWeight="Bold"
+                                               FontFamily="{DynamicResource FontMono}" FontSize="12" FontWeight="Bold"
                                                Foreground="{DynamicResource BrandAccentDeepBrush}" />
                                     <TextBlock Grid.Column="1" Margin="10,0,10,0"
                                                Text="{Binding SourceLabel}" FontSize="10"
