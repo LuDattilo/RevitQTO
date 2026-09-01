@@ -33,7 +33,7 @@ namespace QtoRevitPlugin.Tests.T31
             {
                 using (var repo = new QtoRepository(dbPath))
                 {
-                    repo.GetSchemaVersion().Should().Be(12);
+                    repo.GetSchemaVersion().Should().Be(13);
                 }
 
                 using var conn = new SqliteConnection($"Data Source={dbPath};Pooling=False");
@@ -206,7 +206,7 @@ VALUES ('EP-A1', 1, 'L-A', '2026-01-01T00:00:00Z'),
                 // Step 2: apri con QtoRepository → esegue migration fino a v11
                 using (var repo = new QtoRepository(dbPath))
                 {
-                    repo.GetSchemaVersion().Should().Be(12);
+                    repo.GetSchemaVersion().Should().Be(13);
                 }
                 SqliteConnection.ClearAllPools();
 
@@ -269,7 +269,7 @@ VALUES ('EP-A1', 1, 'L-A', '2026-01-01T00:00:00Z'),
                 // dalla prima apertura (repo1 sopra). MigrateIfNeeded no-op.
                 using (var repo2 = new QtoRepository(dbPath))
                 {
-                    repo2.GetSchemaVersion().Should().Be(12);
+                    repo2.GetSchemaVersion().Should().Be(13);
                     var favs = repo2.GetFavorites();
                     favs.Should().ContainSingle();
                     favs[0].PriceListPublicId.Should().Be(publicId, "idempotency: il PublicId resta stabile");
@@ -283,7 +283,7 @@ VALUES ('EP-A1', 1, 'L-A', '2026-01-01T00:00:00Z'),
                 using var conn2 = new SqliteConnection($"Data Source={dbPath};Pooling=False");
                 conn2.Open();
                 using var cmd = conn2.CreateCommand();
-                cmd.CommandText = "SELECT COUNT(*) FROM SchemaInfo WHERE Version = 12;";
+                cmd.CommandText = "SELECT COUNT(*) FROM SchemaInfo WHERE Version = 13;";
                 var currRows = Convert.ToInt64(cmd.ExecuteScalar()!);
                 currRows.Should().Be(1, "la riga della CurrentVersion in SchemaInfo è scritta una volta sola");
             }

@@ -12,7 +12,8 @@ namespace QtoRevitPlugin.Services.Computi
             int? spCatId = null, int? catId = null, int? sbCatId = null, int? wbsComputoNodeId = null);
 
         MeasurementSubRow AddOrUpdateSubRow(int measurementRowId, int idvv, string? descrizione,
-            double partiUguali = 1, double? lunghezza = null, double? larghezza = null, double? hPeso = null);
+            double partiUguali = 1, double? lunghezza = null, double? larghezza = null, double? hPeso = null,
+            string? category = null, string? familyName = null);
 
         void UpdateSubRow(MeasurementSubRow subRow);
         void DeleteSubRow(int subRowId, int measurementRowId);

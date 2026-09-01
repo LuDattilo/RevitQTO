@@ -79,7 +79,7 @@ namespace QtoRevitPlugin.Tests.Sprint9
                 // Aggiornare a ogni bump schema.
                 using (var repo = new QtoRepository(dbPath))
                 {
-                    repo.GetSchemaVersion().Should().Be(12);
+                    repo.GetSchemaVersion().Should().Be(13);
                 }
                 SqliteConnection.ClearAllPools();
 

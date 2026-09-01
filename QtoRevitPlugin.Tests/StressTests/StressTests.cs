@@ -454,7 +454,7 @@ namespace QtoRevitPlugin.Tests.StressTests
                 using (var initRepo = new QtoRepository(dbPath))
                 {
                     var version = initRepo.GetSchemaVersion();
-                    version.Should().Be(12);
+                    version.Should().Be(13);
                 }
 
                 sw.Stop();

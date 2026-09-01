@@ -48,7 +48,8 @@ namespace QtoRevitPlugin.Services.Computi
                 }
 
                 foreach (var s in subs)
-                    result.Add(Make(sessionId, row.Id, s.IDVV, epCode, epDesc, unit, unitPrice, s.Quantita));
+                    result.Add(Make(sessionId, row.Id, s.IDVV, epCode, epDesc, unit, unitPrice, s.Quantita,
+                        s.Category, s.FamilyName));
             }
 
             return result;
@@ -56,7 +57,8 @@ namespace QtoRevitPlugin.Services.Computi
 
         private static QtoAssignment Make(
             int sessionId, int rowId, int idvv, string epCode, string epDesc,
-            string unit, double unitPrice, double quantity)
+            string unit, double unitPrice, double quantity,
+            string? category = null, string? familyName = null)
         {
             var now = DateTime.UtcNow;
             var uniqueId = idvv > 0
@@ -67,6 +69,8 @@ namespace QtoRevitPlugin.Services.Computi
                 SessionId = sessionId,
                 ElementId = idvv > 0 ? idvv : 0,
                 UniqueId = uniqueId,
+                Category = category ?? "",
+                FamilyName = familyName ?? "",
                 EpCode = epCode,
                 EpDescription = epDesc,
                 Quantity = quantity,

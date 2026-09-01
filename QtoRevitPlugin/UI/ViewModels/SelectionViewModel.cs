@@ -794,7 +794,10 @@ namespace QtoRevitPlugin.UI.ViewModels
                         idvv: elVm.ElementId,
                         descrizione: $"[{elVm.ElementId}] {elVm.FamilyName} · {elVm.TypeName}",
                         partiUguali: partiUguali,
-                        lunghezza: lung, larghezza: larg, hPeso: hPeso);
+                        lunghezza: lung, larghezza: larg, hPeso: hPeso,
+                        // v13: categoria/famiglia Revit persistite per il mismatch semantico AI di Health.
+                        category: el.Category?.Name,
+                        familyName: elVm.FamilyName);
                     addedCount++;
                     totalQty += v;
                 }

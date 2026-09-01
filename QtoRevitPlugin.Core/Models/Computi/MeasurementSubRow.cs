@@ -17,5 +17,11 @@ namespace QtoRevitPlugin.Models.Computi
         public double Quantita { get; set; }
         public int Flags { get; set; }
         public int SortOrder { get; set; }
+
+        /// <summary>Categoria Revit dell'elemento (IDVV), persistita all'assegnazione. v13. Null per voci manuali/legacy.</summary>
+        public string? Category { get; set; }
+
+        /// <summary>Nome famiglia Revit dell'elemento (IDVV), persistito all'assegnazione. v13. Null per voci manuali/legacy.</summary>
+        public string? FamilyName { get; set; }
     }
 }

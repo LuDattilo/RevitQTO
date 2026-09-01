@@ -103,7 +103,7 @@ namespace QtoRevitPlugin.Tests.Sprint6
                     version = Convert.ToInt32(versionCmd.ExecuteScalar());
                 }
                 // Aggiornare a ogni bump di schema.
-                Assert.Equal(12, version);
+                Assert.Equal(13, version);
             }
             finally { SafeDelete(path); }
         }

@@ -2057,9 +2057,11 @@ WHERE Id=@Id;";
         {
             const string sql = @"
                 INSERT INTO MeasurementSubRows (MeasurementRowId, IDVV, Descrizione,
-                    PartiUguali, Lunghezza, Larghezza, HPeso, Quantita, Flags, SortOrder)
+                    PartiUguali, Lunghezza, Larghezza, HPeso, Quantita, Flags, SortOrder,
+                    Category, FamilyName)
                 VALUES (@MeasurementRowId, @IDVV, @Descrizione, @PartiUguali, @Lunghezza,
-                    @Larghezza, @HPeso, @Quantita, @Flags, @SortOrder);
+                    @Larghezza, @HPeso, @Quantita, @Flags, @SortOrder,
+                    @Category, @FamilyName);
                 SELECT last_insert_rowid();";
             subRow.Id = _conn.ExecuteScalar<int>(sql, subRow);
             return subRow.Id;
@@ -2076,7 +2078,8 @@ WHERE Id=@Id;";
             const string sql = @"
                 UPDATE MeasurementSubRows SET IDVV = @IDVV, Descrizione = @Descrizione,
                     PartiUguali = @PartiUguali, Lunghezza = @Lunghezza, Larghezza = @Larghezza,
-                    HPeso = @HPeso, Quantita = @Quantita, Flags = @Flags, SortOrder = @SortOrder
+                    HPeso = @HPeso, Quantita = @Quantita, Flags = @Flags, SortOrder = @SortOrder,
+                    Category = @Category, FamilyName = @FamilyName
                 WHERE Id = @Id;";
             _conn.Execute(sql, subRow);
         }

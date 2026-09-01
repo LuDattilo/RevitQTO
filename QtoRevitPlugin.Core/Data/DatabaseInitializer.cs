@@ -292,6 +292,18 @@ namespace QtoRevitPlugin.Data
                 ApplyV12PriceItemExtensions(conn, tx);
             }
 
+            // v12→v13: Category/FamilyName sulle sotto-righe di misura (alimentano il mismatch
+            // semantico AI di Health sul modello Computi). Guard difensivo indipendente da dbVersion:
+            // il CREATE TABLE IF NOT EXISTS nel loop InitialStatements è no-op su tabelle esistenti,
+            // quindi le colonne vanno aggiunte via ALTER. Ogni ALTER è preceduta da ColumnExists.
+            if (TableExists(conn, tx, "MeasurementSubRows"))
+            {
+                if (!ColumnExists(conn, tx, "MeasurementSubRows", "Category"))
+                    ExecuteStatement(conn, tx, DatabaseSchema.MigrateV12ToV13_AddCategoryToSubRows);
+                if (!ColumnExists(conn, tx, "MeasurementSubRows", "FamilyName"))
+                    ExecuteStatement(conn, tx, DatabaseSchema.MigrateV12ToV13_AddFamilyNameToSubRows);
+            }
+
             using (var insert = conn.CreateCommand())
             {
                 insert.Transaction = tx;

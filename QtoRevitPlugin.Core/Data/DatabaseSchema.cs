@@ -48,7 +48,7 @@ namespace QtoRevitPlugin.Data
         // v3 (Sprint 4): aggiunta colonna PriceLists.PublicId GUID per riferimenti portabili
         //                nel DataStorage ES del .rvt (ProjectPriceListSnapshot futuro — Sprint 5).
         // v2 (Sprint 2): aggiunta virtual table PriceItems_FTS per ricerca full-text.
-        public const int CurrentVersion = 12;
+        public const int CurrentVersion = 13;
 
         /// <summary>Ordine di esecuzione degli statement per setup iniziale.</summary>
         public static readonly string[] InitialStatements =
@@ -793,7 +793,12 @@ CREATE TABLE IF NOT EXISTS MeasurementSubRows (
     HPeso REAL,
     Quantita REAL NOT NULL DEFAULT 0,
     Flags INTEGER NOT NULL DEFAULT 0,
-    SortOrder INTEGER NOT NULL
+    SortOrder INTEGER NOT NULL,
+    -- v13: categoria e famiglia Revit dell'elemento (IDVV), persistite al momento
+    -- dell'assegnazione. Alimentano il mismatch semantico AI di Health sul modello Computi
+    -- (embedding categoria+famiglia vs voce EP), che altrimenti degraderebbe.
+    Category TEXT,
+    FamilyName TEXT
 );";
 
         public const string MeasurementSubRowsIndexRow =
@@ -801,6 +806,13 @@ CREATE TABLE IF NOT EXISTS MeasurementSubRows (
 
         public const string MeasurementSubRowsIndexIdvv =
             "CREATE INDEX IF NOT EXISTS ix_subrows_idvv ON MeasurementSubRows(IDVV);";
+
+        // v12 → v13: categoria/famiglia Revit sulle sotto-righe (per il mismatch semantico AI).
+        public const string MigrateV12ToV13_AddCategoryToSubRows =
+            "ALTER TABLE MeasurementSubRows ADD COLUMN Category TEXT;";
+
+        public const string MigrateV12ToV13_AddFamilyNameToSubRows =
+            "ALTER TABLE MeasurementSubRows ADD COLUMN FamilyName TEXT;";
 
         public const string XpweExportJobs = @"
 CREATE TABLE IF NOT EXISTS XpweExportJobs (

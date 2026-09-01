@@ -43,7 +43,8 @@ namespace QtoRevitPlugin.Services.Computi
         }
 
         public MeasurementSubRow AddOrUpdateSubRow(int measurementRowId, int idvv, string? descrizione,
-            double partiUguali = 1, double? lunghezza = null, double? larghezza = null, double? hPeso = null)
+            double partiUguali = 1, double? lunghezza = null, double? larghezza = null, double? hPeso = null,
+            string? category = null, string? familyName = null)
         {
             var quantita = ComputeQuantita(partiUguali, lunghezza, larghezza, hPeso);
 
@@ -60,6 +61,10 @@ namespace QtoRevitPlugin.Services.Computi
                     existing.Larghezza = larghezza;
                     existing.HPeso = hPeso;
                     existing.Quantita = quantita;
+                    // Categoria/famiglia: aggiornate solo se fornite, così un re-measure senza contesto
+                    // Revit non azzera il valore gia' persistito (v13).
+                    if (category != null) existing.Category = category;
+                    if (familyName != null) existing.FamilyName = familyName;
                     _repo.UpdateMeasurementSubRow(existing);
                     _repo.RecalcMeasurementRowQuantita(measurementRowId);
                     return existing;
@@ -78,6 +83,8 @@ namespace QtoRevitPlugin.Services.Computi
                 Larghezza = larghezza,
                 HPeso = hPeso,
                 Quantita = quantita,
+                Category = category,
+                FamilyName = familyName,
                 SortOrder = sortOrder
             };
             subRow.Id = _repo.InsertMeasurementSubRow(subRow);

@@ -44,7 +44,7 @@ namespace QtoRevitPlugin.Tests.Data
             // v3 introdotta in Sprint 4 con PriceLists.PublicId (GUID portabile per snapshot .rvt)
             // v2 introdotta in Sprint 2 con PriceItems_FTS
             // Aggiornare a ogni bump schema.
-            _repo.GetSchemaVersion().Should().Be(12);
+            _repo.GetSchemaVersion().Should().Be(13);
         }
 
         [Fact]
