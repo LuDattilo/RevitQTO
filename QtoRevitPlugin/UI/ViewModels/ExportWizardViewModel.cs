@@ -154,7 +154,10 @@ namespace QtoRevitPlugin.UI.ViewModels
 
                 await Task.Run(() =>
                 {
-                    var builder = new ReportDataSetBuilder(repo);
+                    // Fase 0 (riconciliazione): l'Export legge il modello Computi canonico
+                    // (ComputoDocument/MeasurementRow), lo stesso su cui scrive SelectionView.ApplyEp,
+                    // non più le QtoAssignments del percorso classico.
+                    var builder = new MeasurementReportDataSetBuilder(repo);
                     var dataset = builder.Build(session.Id, options);
                     SelectedExporter.Export(dataset, outputPath, options);
                 });

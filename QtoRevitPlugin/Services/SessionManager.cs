@@ -1,6 +1,7 @@
 using Autodesk.Revit.DB;
 using QtoRevitPlugin.Data;
 using QtoRevitPlugin.Models;
+using QtoRevitPlugin.Services.Computi;
 using QtoRevitPlugin.UI.ViewModels;
 using QtoRevitPlugin.UI.Views;
 using System;
@@ -79,6 +80,27 @@ namespace QtoRevitPlugin.Services
         /// <summary>Chiamato da ApplyEp dopo successo per far refreshare le view dipendenti.</summary>
         public void NotifyAssignmentsChanged()
         {
+            // Fase 0 (riconciliazione): ricalcola i KPI di sessione dal modello Computi canonico
+            // (MeasurementRow), lo stesso su cui scrive ApplyEp. Punto centrale: ogni writer che
+            // assegna passa di qui, così header/Home restano allineati con la Redazione CME.
+            // Protetto: un errore di KPI non deve mai far fallire l'assegnazione già andata a buon fine.
+            try
+            {
+                if (_repository != null && _activeSession != null)
+                {
+                    var kpi = new ComputoKpiService(_repository).RecomputeAndPersist(_activeSession.Id);
+                    // Riporta i KPI sull'istanza attiva (RecomputeAndPersist lavora su una copia dal DB)
+                    // così i binding di header/Home riflettono subito i nuovi valori.
+                    _activeSession.TotalElements = kpi.DistinctElements;
+                    _activeSession.TaggedElements = kpi.DistinctElements;
+                    _activeSession.TotalAmount = kpi.DirectAmount;
+                }
+            }
+            catch (Exception ex)
+            {
+                AssignEpLogger.Log($"KPI recompute skipped: {ex.Message}");
+            }
+
             AssignmentsChanged?.Invoke(this, EventArgs.Empty);
         }
 
