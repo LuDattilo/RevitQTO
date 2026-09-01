@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using QtoRevitPlugin.Computo;
+using QtoRevitPlugin.Computo.Preflight;
 using QtoRevitPlugin.Data;
 using QtoRevitPlugin.Models;
 using QtoRevitPlugin.Models.Computi;
@@ -42,6 +43,13 @@ namespace QtoRevitPlugin.Services.Computi
         {
             var (rows, prices) = Load(sessionId);
             return ManodoperaAggregator.Aggregate(rows, prices, groupBy);
+        }
+
+        /// <summary>Verifica pre-consegna (read-only) del computo di sessione.</summary>
+        public PreflightReport GetPreflight(int sessionId, double? markupPercent = null, double? defaultVatPercent = null)
+        {
+            var (rows, prices) = Load(sessionId);
+            return ComputoPreflightVerifier.Verify(rows, prices, markupPercent, defaultVatPercent);
         }
 
         private (IReadOnlyList<MeasurementRow> rows, IReadOnlyDictionary<int, PriceItem> prices) Load(int sessionId)
