@@ -168,6 +168,12 @@ namespace QtoRevitPlugin.Data
         void UpdateMeasurementSubRow(MeasurementSubRow subRow);
         void DeleteMeasurementSubRow(int id);
 
+        /// <summary>v13: sotto-righe con IDVV&gt;0 prive di categoria (legacy), per il backfill una-tantum.</summary>
+        IReadOnlyList<MeasurementSubRow> GetSubRowsMissingCategory(int documentId);
+
+        /// <summary>v13: aggiornamento mirato di categoria/famiglia di una sotto-riga (backfill).</summary>
+        void UpdateSubRowCategory(int subRowId, string? category, string? familyName);
+
         int InsertXpweExportJob(XpweExportJob job);
         IReadOnlyList<XpweExportJob> GetXpweExportJobs(int documentId);
     }

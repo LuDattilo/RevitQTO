@@ -2084,6 +2084,25 @@ WHERE Id=@Id;";
             _conn.Execute(sql, subRow);
         }
 
+        public IReadOnlyList<MeasurementSubRow> GetSubRowsMissingCategory(int documentId)
+        {
+            // Sotto-righe tracciabili a un elemento Revit (IDVV > 0) prive di categoria (legacy pre-v13),
+            // per il backfill una-tantum. Join sui MeasurementRows del documento.
+            const string sql = @"
+                SELECT s.* FROM MeasurementSubRows s
+                JOIN MeasurementRows r ON r.Id = s.MeasurementRowId
+                WHERE r.DocumentId = @d AND s.IDVV > 0
+                  AND (s.Category IS NULL OR s.Category = '');";
+            return _conn.Query<MeasurementSubRow>(sql, new { d = documentId }).AsList();
+        }
+
+        public void UpdateSubRowCategory(int subRowId, string? category, string? familyName)
+        {
+            const string sql = @"
+                UPDATE MeasurementSubRows SET Category = @c, FamilyName = @f WHERE Id = @id;";
+            _conn.Execute(sql, new { c = category, f = familyName, id = subRowId });
+        }
+
         public void DeleteMeasurementSubRow(int id) =>
             _conn.Execute("DELETE FROM MeasurementSubRows WHERE Id = @id;", new { id });
 

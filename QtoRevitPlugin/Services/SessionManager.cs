@@ -175,6 +175,11 @@ namespace QtoRevitPlugin.Services
             // Verifica snapshot per Model Diff Check
             TryLaunchModelDiff(session);
 
+            // v13: backfill una-tantum di categoria/famiglia sulle sotto-righe legacy (Category NULL),
+            // così il mismatch semantico AI di Health funziona anche sui computi pre-v13. Silenzioso,
+            // read-only sul modello Revit; no-op se non ci sono candidati.
+            LaunchCategoryBackfill(session.Id);
+
             SetActiveSession(session, SessionChangeKind.Resumed);
             return session;
         }
@@ -350,6 +355,38 @@ namespace QtoRevitPlugin.Services
                 catch (Exception ex)
                 {
                     CrashLogger.WriteException("LaunchModelDiff", ex);
+                }
+            });
+        }
+
+        /// <summary>
+        /// v13: backfill categoria/famiglia sulle sotto-righe legacy, su thread Revit. Fire-and-forget,
+        /// silenzioso: un errore non deve mai bloccare l'apertura del computo.
+        /// </summary>
+        private void LaunchCategoryBackfill(int sessionId)
+        {
+            var capturedRepo = _repository;
+            if (capturedRepo == null) return;
+
+            // Nessun candidato? Evita di schedulare un RevitTask inutile (GetPending è Revit-free).
+            try
+            {
+                if (new Services.Computi.ComputoCategoryBackfillService(capturedRepo).GetPending(sessionId).Count == 0)
+                    return;
+            }
+            catch { /* in caso di dubbio, prosegui: il runner è comunque no-op senza candidati */ }
+
+            _ = Revit.Async.RevitTask.RunAsync(app =>
+            {
+                try
+                {
+                    var doc = app.ActiveUIDocument?.Document;
+                    if (doc == null || capturedRepo != _repository) return;
+                    CategoryBackfillRunner.Run(doc, capturedRepo, sessionId, msg => CrashLogger.Warn(msg));
+                }
+                catch (Exception ex)
+                {
+                    CrashLogger.WriteException("LaunchCategoryBackfill", ex);
                 }
             });
         }
