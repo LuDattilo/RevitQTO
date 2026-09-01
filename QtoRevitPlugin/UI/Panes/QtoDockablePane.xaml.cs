@@ -213,7 +213,10 @@ namespace QtoRevitPlugin.UI.Panes
                 // ProjectInfoView è montato come primo tab dentro SetupView.
                 QtoViewKey.ProjectSetup => new SetupView(),
                 QtoViewKey.PriceList => new SetupListinoView(),
-                QtoViewKey.Verification => new PreviewView { DataContext = _vm },
+                // Verifica pre-consegna (Port #3): VerificaView operativa (sostituisce lo stub PreviewView).
+                QtoViewKey.Verification => new VerificaView(),
+                // Quadro economico (Port #1/#2): totali 4 livelli + CAM + incidenza manodopera.
+                QtoViewKey.QuadroEconomico => new QuadroEconomicoView(),
                 QtoViewKey.Preview => new PreviewView { DataContext = _vm },
 
                 QtoViewKey.Setup => new SetupView(),

@@ -28,7 +28,8 @@ namespace QtoRevitPlugin.UI.ViewModels
         Health,
         Np,
         Export,
-        ComputoStructure
+        ComputoStructure,
+        QuadroEconomico
     }
 
     public class QtoViewItem : ObservableObject
@@ -218,6 +219,7 @@ namespace QtoRevitPlugin.UI.ViewModels
             Views.Add(new QtoViewItem(QtoViewKey.Selection, "Selezione", "§I3", 4));
             Views.Add(new QtoViewItem(QtoViewKey.Tagging, "Redazione CME", "§Plan C-5", 5));
             Views.Add(new QtoViewItem(QtoViewKey.Verification, "Verifica", "§Fase 11", 1));
+            Views.Add(new QtoViewItem(QtoViewKey.QuadroEconomico, "Quadro economico", "§Fase 11", 1));
             Views.Add(new QtoViewItem(QtoViewKey.Export, "Esporta", "§Fase 12", 9));
 
             SecondaryViews.Add(new QtoViewItem(QtoViewKey.Health, "Health", "§I5", 6));
