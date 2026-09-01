@@ -412,6 +412,15 @@
                               FontSize="10"
                               Foreground="{DynamicResource InkDefaultBrush}"
                               ToolTip="Esplode ogni elemento nei suoi strati prezzati (una voce per codice di materiale) invece di assegnare la voce EP attiva. Gli elementi senza strati codificati ricadono sul percorso diretto."/>
+
+                    <!-- Port #4: voci derivate (armatura/casseforme) — attiva solo in estrazione avanzata -->
+                    <CheckBox Margin="12,0,0,0" VerticalAlignment="Center"
+                              IsChecked="{Binding IncludeDerivedVoci, Mode=TwoWay}"
+                              IsEnabled="{Binding UseLayerExtraction}"
+                              Content="+ voci derivate"
+                              FontSize="10"
+                              Foreground="{DynamicResource InkDefaultBrush}"
+                              ToolTip="Aggiunge le voci derivate (armatura, casseforme, parità) definite in QTO_DerivedRules.json, con gate anti-doppio-conteggio. Nessun effetto senza regole configurate."/>
                 </StackPanel>
 
                 <!-- Riga 3: preview + bottone applica (testo e preview dinamici in base alla selezione) -->

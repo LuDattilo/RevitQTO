@@ -2,6 +2,7 @@ using Autodesk.Revit.DB;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using QtoRevitPlugin.Application;
+using QtoRevitPlugin.Computo.Extraction;
 using QtoRevitPlugin.Extraction;
 using QtoRevitPlugin.Models;
 using QtoRevitPlugin.Services;
@@ -69,6 +70,12 @@ namespace QtoRevitPlugin.UI.ViewModels
         /// percorso diretto (voce EP attiva).
         /// </summary>
         [ObservableProperty] private bool _useLayerExtraction;
+
+        /// <summary>
+        /// Quando true (in modalità estrazione avanzata), aggiunge le voci derivate (armatura, casseforme,
+        /// parità) definite in QTO_DerivedRules.json, con gate anti-doppio-conteggio. No-op senza regole.
+        /// </summary>
+        [ObservableProperty] private bool _includeDerivedVoci;
 
         /// <summary>Nome del parametro sul Material che porta il codice prezzo (configurabile per progetto).</summary>
         [ObservableProperty] private string _materialCodeParameter = "Codice Prezzo";
@@ -874,6 +881,21 @@ namespace QtoRevitPlugin.UI.ViewModels
             var scanner = new LayerComputoScanner(doc);
             var contributions = new List<ComputoContribution>();
             int direttiFallback = 0;
+            int derivateCount = 0;
+            int soppresse = 0;
+
+            // Voci derivate (opt-in): regole da QTO_DerivedRules.json (progetto o globale). Il set di
+            // categorie modellate in selezione alimenta il gate anti-doppio-conteggio.
+            DerivedRulesConfig? derivedCfg = null;
+            System.Collections.Generic.HashSet<string>? modelledCategories = null;
+            if (IncludeDerivedVoci)
+            {
+                var svc = new DerivedRulesService(projectCmePath: QtoApplication.Instance?.SessionManager?.ActiveFilePath);
+                derivedCfg = svc.LoadEffective();
+                modelledCategories = new System.Collections.Generic.HashSet<string>(
+                    SelectedElements.Select(e => e.Category ?? "").Where(s => s.Length > 0),
+                    StringComparer.OrdinalIgnoreCase);
+            }
 
             foreach (var elVm in SelectedElements)
             {
@@ -884,28 +906,62 @@ namespace QtoRevitPlugin.UI.ViewModels
 #endif
                 if (el == null) continue;
 
+                var category = el.Category?.Name;
+
+                // 1) Esplosione strati prezzati (REPLACE).
                 var explosion = scanner.Explode(el, MaterialCodeParameter, MaterialUnitParameter, MaterialDensityParameter);
                 if (explosion.UseDirect)
                 {
                     direttiFallback++;   // nessuno strato codificato: percorso diretto
-                    continue;
+                }
+                else
+                {
+                    foreach (var c in explosion.Contributions)
+                        contributions.Add(new ComputoContribution
+                        {
+                            ElementId = elVm.ElementId,
+                            Category = category,
+                            FamilyName = elVm.FamilyName,
+                            Code = c.Code,
+                            Um = c.Um,
+                            Quantity = c.Quantity,
+                            Descrizione = c.ShortDescription,
+                            Computed = c.Computed,
+                            Note = c.Note,
+                        });
                 }
 
-                var category = el.Category?.Name;
-                foreach (var c in explosion.Contributions)
+                // 2) Voci derivate (ADD): si sommano a qualunque base, per ogni elemento.
+                if (derivedCfg != null && derivedCfg.Rules.Count > 0)
                 {
-                    contributions.Add(new ComputoContribution
+                    var templates = derivedCfg.RulesFor(category ?? "", elVm.TypeName);
+                    if (templates.Count > 0)
                     {
-                        ElementId = elVm.ElementId,
-                        Category = category,
-                        FamilyName = elVm.FamilyName,
-                        Code = c.Code,
-                        Um = c.Um,
-                        Quantity = c.Quantity,
-                        Descrizione = c.ShortDescription,
-                        Computed = c.Computed,
-                        Note = c.Note,
-                    });
+                        var vol = LayerComputoScanner.GetBaseVolumeM3(el);
+                        var area = LayerComputoScanner.GetBaseAreaM2(el);
+                        var rules = templates
+                            .Select(t => DerivedRuleMapper.ToRule(t, t.FixedCoefficient ?? LayerComputoScanner.ReadElementDouble(el, t.CoefficientParameter)))
+                            .ToList();
+                        var derived = DerivedComputoDeriver.Derive(vol, area, rules,
+                            modelledCategories ?? new System.Collections.Generic.HashSet<string>());
+                        foreach (var d in derived)
+                        {
+                            if (d.Suppressed) { soppresse++; continue; }   // anti-doppio: resta fuori dal computo
+                            contributions.Add(new ComputoContribution
+                            {
+                                ElementId = elVm.ElementId,
+                                Category = category,
+                                FamilyName = elVm.FamilyName,
+                                Code = d.Code,
+                                Um = d.Um,
+                                Quantity = d.Quantity,
+                                Descrizione = d.ShortDescription,
+                                Computed = d.Computed,
+                                Note = d.Note,
+                            });
+                            if (d.Computed) derivateCount++;
+                        }
+                    }
                 }
             }
 
@@ -923,7 +979,9 @@ namespace QtoRevitPlugin.UI.ViewModels
 
             QtoApplication.Instance?.SessionManager?.NotifyAssignmentsChanged();
 
-            var parts = new List<string> { $"✓ {res.VociCreate} voci · {res.SubRowsAggiunte} misure da strati" };
+            var parts = new List<string> { $"✓ {res.VociCreate} voci · {res.SubRowsAggiunte} misure" };
+            if (derivateCount > 0) parts.Add($"{derivateCount} derivate");
+            if (soppresse > 0) parts.Add($"{soppresse} derivate soppresse (anti-doppio)");
             if (res.DaCompletareAMano > 0) parts.Add($"{res.DaCompletareAMano} da completare a mano");
             if (res.CodiciNonRisolti.Count > 0)
                 parts.Add($"{res.CodiciNonRisolti.Count} codici non trovati ({string.Join(", ", res.CodiciNonRisolti.Take(3))})");

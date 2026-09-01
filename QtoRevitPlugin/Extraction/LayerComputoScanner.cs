@@ -114,6 +114,31 @@ namespace QtoRevitPlugin.Extraction
             return UnitUtils.ConvertFromInternalUnits(param.AsDouble(), UnitTypeId.SquareMeters);
         }
 
+        /// <summary>Volume base dell'elemento in m³ (HOST_VOLUME_COMPUTED), o null se non disponibile — per le voci derivate su volume.</summary>
+        public static double? GetBaseVolumeM3(Element el)
+        {
+            var param = el?.get_Parameter(BuiltInParameter.HOST_VOLUME_COMPUTED);
+            if (param == null || !param.HasValue) return null;
+            return UnitUtils.ConvertFromInternalUnits(param.AsDouble(), UnitTypeId.CubicMeters);
+        }
+
+        /// <summary>Area base dell'elemento in m² (HOST_AREA_COMPUTED), o null se non disponibile — per le voci derivate su area.</summary>
+        public static double? GetBaseAreaM2(Element el)
+        {
+            var param = el?.get_Parameter(BuiltInParameter.HOST_AREA_COMPUTED);
+            if (param == null || !param.HasValue) return null;
+            return UnitUtils.ConvertFromInternalUnits(param.AsDouble(), UnitTypeId.SquareMeters);
+        }
+
+        /// <summary>Legge un parametro numerico (double) dall'elemento per nome, o null se assente/non numerico — per il coefficiente delle derivate.</summary>
+        public static double? ReadElementDouble(Element el, string? paramName)
+        {
+            if (el == null || string.IsNullOrWhiteSpace(paramName)) return null;
+            var p = el.LookupParameter(paramName);
+            if (p == null || !p.HasValue || p.StorageType != StorageType.Double) return null;
+            return p.AsDouble();
+        }
+
         private static string? ReadMaterialString(Material? material, string? paramName)
         {
             if (material == null || string.IsNullOrWhiteSpace(paramName)) return null;
