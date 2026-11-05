@@ -23,7 +23,7 @@ namespace QtoRevitPlugin.Tests.Computi
         [Fact]
         public void Roundtrip_TestXpwe_PreservesCounts()
         {
-            var path = TestFile("test.XPWE");
+            var path = TestFile(Path.Combine("QtoRevitPlugin.Tests", "Fixtures", "Prezziario.xml"));
             File.Exists(path).Should().BeTrue($"file {path} non trovato");
 
             var parser = new XpweDeserializer();

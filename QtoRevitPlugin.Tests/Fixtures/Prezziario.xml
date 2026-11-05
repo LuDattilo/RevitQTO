@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PweDocumento>
+  <TipoDocumento>0</TipoDocumento>
+  <Versione>5.01</Versione>
+  <PweDatiGenerali>
+    <PweDGCapitoliCategorie>
+      <PweDGSuperCapitoli>
+        <DGSuperCapitoliItem ID="1">
+          <Codice>01</Codice>
+          <DesSintetica>Capitolo di prova</DesSintetica>
+        </DGSuperCapitoliItem>
+      </PweDGSuperCapitoli>
+    </PweDGCapitoliCategorie>
+  </PweDatiGenerali>
+  <PweMisurazioni>
+    <PweElencoPrezzi>
+      <EPItem ID="1">
+        <Tariffa>TEST.001</Tariffa>
+        <DesRidotta>Voce di prova</DesRidotta>
+        <UnMisura>cad</UnMisura>
+        <Prezzo1>10</Prezzo1>
+        <IDSpCap>1</IDSpCap>
+      </EPItem>
+    </PweElencoPrezzi>
+  </PweMisurazioni>
+</PweDocumento>
