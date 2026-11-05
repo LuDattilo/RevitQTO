@@ -19,7 +19,7 @@ namespace QtoRevitPlugin.Tests.Computi
         [Fact]
         public void Parse_TestXpwe_IsPrezziario()
         {
-            var path = TestFile("test.XPWE");
+            var path = TestFile(Path.Combine("QtoRevitPlugin.Tests", "Fixtures", "Prezziario.xml"));
             File.Exists(path).Should().BeTrue($"file {path} non trovato");
             var parser = new XpweDeserializer();
             var result = parser.ParseFile(path);
